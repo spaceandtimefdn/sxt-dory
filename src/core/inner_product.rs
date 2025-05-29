@@ -34,7 +34,7 @@ where
         (builder, folded_state)
     });
     let (challenge, builder) = builder.challenge_fold_scalars();
-    // @TODO(markosg04) add explicit step for fold scalars here rather than doing it in compute scalar product message?
+    // Note: `compute_scalar_product_message` applies the `Fold-Scalars` transform, as described in the paper.
     let scalar_product_msg = state.compute_scalar_product_message::<M1, M2>(setup, challenge);
     builder.append_scalar_product_message(scalar_product_msg)
 }
@@ -44,7 +44,7 @@ pub fn inner_product_verify<B, State, G1, G2, GT, Scalar, Setup>(
     mut builder: B,
     mut state: State,
     setup: &Setup,
-    num_rounds: usize, //@TODO(markosg04) move this to State?             
+    num_rounds: usize,
 ) -> Result<(), usize>
 where
     G1: crate::arithmetic::Group,
@@ -53,8 +53,7 @@ where
     Scalar: crate::arithmetic::Field,
     State: VerifierState<G1 = G1, G2 = G2, GT = GT, Scalar = Scalar, Setup = Setup>,
     B: VerificationBuilder<G1 = G1, G2 = G2, GT = GT, Scalar = Scalar>,
-{   
-
+{
     // We first check each of the log(n) rounds until we reduce to a statement of size 1
     for idx in 0..(num_rounds) {
         let (m1, m2) = builder.take_round(idx);
@@ -70,9 +69,10 @@ where
         }
     }
     // when n = 1, we apply `fold-scalars` and then verifier side of `scalar-product (the final pairing check)`.
+    // On the prover side, `fold-scalars` is handled immediately before sending the scalar product message.
     let fold_gamma = builder.challenge_fold_scalars();
     let d_pair = builder.challenge_scalar_product_scalars();
-    let _fold_scalars = state.apply_fold_scalars(setup, fold_gamma);
+    let _fold_scalars = state.apply_fold_scalars(setup, fold_gamma); // mutates verifier state, no return val.
 
     if !state.verify_final_pairing(setup, builder.process_scalar_product_message(), d_pair) {
         return Err(builder.rounds());

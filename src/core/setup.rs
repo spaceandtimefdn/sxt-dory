@@ -5,6 +5,8 @@ use ark_std::rand::RngCore;
 use std::fs::File;
 use std::io::{Read, Write};
 
+// @TODO(markosg04) g_fin setup cache update
+
 /// Dory transparent setup for the prover
 #[derive(Clone, Debug)]
 pub struct ProverSetup<E: Pairing> {
@@ -33,7 +35,7 @@ pub struct VerifierSetup<E: Pairing> {
     pub delta_1l: Vec<E::GT>,
     /// Δ₁R[k] = e(Γ₁[2^(k-1)..2^k], Γ₂[..2^(k-1)])
     pub delta_1r: Vec<E::GT>,
-    /// Δ₂L[k] = same as Δ₁L[k] @TODO(markosg04: wtf?)
+    /// Δ₂L[k] = same as Δ₁L[k] -- see paper
     pub delta_2l: Vec<E::GT>,
     /// Δ₂R[k] = e(Γ₁[..2^(k-1)], Γ₂[2^(k-1)..2^k]
     pub delta_2r: Vec<E::GT>,
@@ -41,7 +43,7 @@ pub struct VerifierSetup<E: Pairing> {
     pub chi: Vec<E::GT>,
 
     /// First element of Γ₁
-    pub g1_0: E::G1, // @TODO(markosg04) store more than just first element?
+    pub g1_0: E::G1,
     /// First element of Γ₂
     pub g2_0: E::G2,
     /// H₁ — blinding generator
@@ -204,7 +206,6 @@ impl<E: Pairing> ProverSetup<E> {
 }
 
 impl<E: Pairing> VerifierSetup<E> {
-    // @TODO(markosg04): correctness?
     /// Constructor from an existing prover setup
     pub fn from_prover_setup(prover_setup: &ProverSetup<E>) -> Self {
         let max_log_n = prover_setup.g1_pows.len() - 1;
@@ -238,7 +239,7 @@ impl<E: Pairing> VerifierSetup<E> {
                 // Δ₂R[k] = e(Γ₁[..2^(k-1)], Γ₂[2^(k-1)..2^k])
                 delta_2r.push(E::multi_pair(g1_first_half, g2_second_half));
 
-                // χ[k] = e(Γ₁[..2^k], Γ₂[..2^k]) @TODO(markosg04) this chi might be wrong
+                // χ[k] = e(Γ₁[..2^k], Γ₂[..2^k])
                 chi.push(E::multi_pair(
                     &prover_setup.g1_vec[..full_len],
                     &prover_setup.g2_vec[..full_len],

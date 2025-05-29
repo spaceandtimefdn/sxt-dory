@@ -11,12 +11,11 @@ use blake2::Blake2s256;
 use crate::{
     arithmetic::{Field, Group},
     messages::{
-        FirstReduceChallenge, FirstReduceMessage, FoldScalarsChallenge, ScalarProductMessage,
-        SecondReduceChallenge, SecondReduceMessage, VMVMessage, ScalarProductChallenge,
+        FirstReduceChallenge, FirstReduceMessage, FoldScalarsChallenge, ScalarProductChallenge,
+        ScalarProductMessage, SecondReduceChallenge, SecondReduceMessage, VMVMessage,
     },
     toy_transcript::ToyTranscript,
 };
-
 
 /// Trait that defines the structure of the Dory proof.
 ///

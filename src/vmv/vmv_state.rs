@@ -16,8 +16,8 @@ where
 {
     /// Evaluations of the columns of the matrix. That is, v = transpose(L) * M.
     /// v[j] = <L, M[_, j]> = sum_{i=0}^{2^nu} M[i,j] L[i].
-    /// @TODO(markosg04) -- this should be used?
     pub(super) v_vec: Vec<<E::G1 as Group>::Scalar>,
+
     /// Commitments to the rows of the matrix.
     /// `T_vec_prime[i] = <M[i, _], Gamma_1[nu]> = sum_{j=0}^{2^nu} M[i,j] Gamma_1[nu][j]`.
     pub(super) t_vec_prime: Vec<<E as Pairing>::G1>,
@@ -25,7 +25,7 @@ where
     /// The left vector, L of LMR.
     pub(super) l_vec: Vec<<E::G1 as Group>::Scalar>,
     /// The right vector, R of LMR.
-    pub(super) r_vec: Vec<<E::G1 as Group>::Scalar>, // TODO(markosg04) usage here?
+    pub(super) r_vec: Vec<<E::G1 as Group>::Scalar>,
     /// number of rows is 2^nu
     pub(super) nu: usize,
 }
@@ -36,7 +36,6 @@ where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
-    //@TODO(markosg04) check these descriptions
     /// The evaluation of the matrix. That is, y = LMR.
     pub(super) y: <E::G1 as Group>::Scalar,
     /// The commitment to the entire matrix. That is, `T = <T_vec_prime, Gamma_2[nu]>`.
@@ -110,7 +109,6 @@ where
 }
 
 /// Convert a VMVProverState to a DoryProverState
-/// @TODO(markosg04) correctness of this step + eval_vmv_re_prove? pay attention to r_vec + v_vec usage
 pub fn vmv_state_to_dory_prover_state<E: Pairing>(
     vmv_state: VMVProverState<E>,
     _prover_setup: &ProverSetup<E>,
@@ -120,6 +118,7 @@ where
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
     // Extract values from VMV state
+    // Note: the paper has a typo and we want to set s1 = R, s2 = L (as we do below)
     let v_vec = vmv_state.v_vec;
     let s1 = vmv_state.r_vec; //intermediate vector from L^T × M
     let s2 = vmv_state.l_vec; // left evaluation vector

@@ -312,7 +312,7 @@ fn test_soundness_scalar_product_relationship_attack() {
 
         assert!(
             result.is_err(),
-            "Verification should fail with mixed scalar product messages" //@TODO(markosg04) this passes?
+            "Verification should fail with mixed scalar product messages"
         );
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);

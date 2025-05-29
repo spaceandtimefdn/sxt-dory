@@ -1,5 +1,6 @@
 //! Contains the utility required to turn Dory arguments into a full-fledged PCS
 //! Primarily makes use of the `eval_vmv_re` protocol
+//! `eval_vmv_re` is essentially the `eval` algorithm of the tuple of PCS algorithms
 use ark_ff::{Field, PrimeField};
 use ark_serialize::CanonicalSerialize;
 
@@ -7,7 +8,8 @@ use crate::{
     arithmetic::{Group, MultiScalarMul, Pairing},
     build_vmv_prover_state,
     builder::{DoryProofBuilder, DoryVerifyBuilder, VerificationBuilder},
-    commit_to_rows, compute_left_right_vec,
+    commit_to_rows,
+    compute_left_right_vec,
     error::DoryError,
     inner_product::inner_product_verify,
     inner_product_prove,
@@ -17,7 +19,8 @@ use crate::{
     state::{DoryProverState, DoryVerifierState},
     transcript::Transcript,
     vmv::{compute_nu, VMVVerifierState},
-    vmv_state_to_dory_prover_state, ProofBuilder,
+    vmv_state_to_dory_prover_state,
+    ProofBuilder,
 };
 
 /// Implements the Eval-VMV-RE protocol from Dory Section 5
@@ -58,7 +61,6 @@ where
     // --- Protocol computations (Dory Section 5) ---
 
     // C = e(⟨T~₀, ~v⟩, Γ₂,fin)
-    // TODO(markosg04): this MSM is correct?
     let t_vec_v_inner_product = M1::msm(&prover_state.v1, &v_vec);
     let c_val = E::pair(&t_vec_v_inner_product, &prover_setup.g_fin);
 
@@ -166,9 +168,9 @@ where
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
     <E::G1 as Group>::Scalar: Copy,
 {
-    // TODO(markosg04) was tensor before
+    // @TODO(markosg04) was tensor before
     let (l_tensor, r_tensor) = compute_left_right_vec(b_point, sigma, nu);
-    println!("tensor length: {:?}", l_tensor.len());
+    // println!("tensor length: {:?}", l_tensor.len());
     VMVVerifierState {
         y,
         t,
@@ -200,9 +202,8 @@ where
     let s2_tensor = vmv_state.l_tensor;
     let nu = vmv_state.nu;
 
-    // verifier calculates this
+    // We don't compute e2 on prover side as an optimization (values to produce e2 are known)
     let e_2 = verifier_setup.g_fin.scale(&vmv_state.y);
-    // @TODO(markosg04) We don't compute this prover side as an optimization...
 
     let mut verifier_state = DoryVerifierState::new(c, d_1, d_2, e_1, e_2, nu);
     verifier_state.s1_tensor = Some(s1_tensor);

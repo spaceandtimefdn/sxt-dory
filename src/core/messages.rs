@@ -96,6 +96,8 @@ pub struct ScalarProductMessage<G1, G2> {
 /// The prover message in the VMV evaluation portion of the Dory protocol.
 ///
 /// This consists of $C$, $D_2$, and $E_1$.
+/// Note that the paper also includes `e2` but it turns out that the verifier
+/// can compute this value, since $e2 = y \cdot \Gamma_{2,fin}$, which are known to V.
 #[derive(Clone, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct VMVMessage<G1, GT> {
     /// $C$ = e(MSM(T_vec_prime, v_vec), Gamma_2_fin)

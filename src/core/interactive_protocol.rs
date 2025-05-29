@@ -87,7 +87,8 @@ where
         let g1_prime = &setup.g1_pows[self.nu];
         let g2_prime = &setup.g2_pows[self.nu];
 
-        //@TODO(markosg04) should probably add the formulas for these
+        // Prover work P(*): 
+        // ṽ₁ ← ṽ₁ + β·Γ₁
         self.v1
             .par_iter_mut()
             .zip(g1_prime.par_iter())
@@ -95,6 +96,7 @@ where
                 *v1_i = v1_i.add(&g1_i.scale(&beta));
             });
 
+        // ṽ₂ ← ṽ₂ + β⁻¹·Γ₂
         self.v2
             .par_iter_mut()
             .zip(g2_prime.par_iter())
@@ -200,6 +202,9 @@ where
     }
 
     /* ---------- Final Scalar‑Product input -------------------------- */
+    // Note: we apply `fold-scalars` transform onto e1 and e1 before sending to verifier.
+    // We apply it here as this ist he last step of the IP protocol and the transformation mutates
+    // the contents of `ScalarProductMessage`, anyways.
     fn compute_scalar_product_message<M1, M2>(
         self,
         setup: &Self::Setup,
@@ -221,7 +226,6 @@ where
         // Apply `fold-scalars`` transformation to the vectors:
         // v1' = v1 + γ * s1 * H1
         // v2' = v2 + γ^(-1) * s2 * H2
-        // @TODO(markosg04) move `fold-scalars` to it's own function?
 
         let gamma_s1_product = gamma.mul(&self.s1[0]);
         let e1 = self.v1[0].add(&setup.h1.scale(&gamma_s1_product));
@@ -229,14 +233,10 @@ where
         let gamma_inv_s2_product = gamma_inv.mul(&self.s2[0]);
         let e2 = self.v2[0].add(&setup.h2.scale(&gamma_inv_s2_product));
 
-        // let e1 = &self.v1[0];
-        // let e2 = &self.v2[0];
-
         ScalarProductMessage {
             e1: e1.clone(),
             e2: e2.clone(),
         }
-        // ScalarProductMessage { e1, e2 }
     }
 }
 
@@ -293,7 +293,7 @@ where
             (beta.clone(), beta_inv.clone()),
         );
 
-        // Update E₁ and E₂ for the **extended** protocol @TODO(markosg04) wrong formulas here?
+        // Update E₁ and E₂ for the **extended** protocol
         // E₁' <- E₁ + β * E₁β + α * E₁+ + α⁻¹ * E₁-
         // E₂' <- E₂ + β⁻¹ * E₂β + α * E₂+ + α⁻¹ * E₂-
         Self::dory_reduce_verify_update_es(
@@ -312,9 +312,10 @@ where
         // We update s1_tensor and s2_tensor if they exist, mirroring `fold s-vectors` in `reduce_fold`:
         if let (Some(s1), Some(s2)) = (self.s1_tensor.as_mut(), self.s2_tensor.as_mut()) {
             let n2 = 1usize << (self.nu - 1);
-            println!("tensor length s1 before split: {:?}", s1.len());
-            println!("tensor length s1 before split: {:?}", s2.len());
-            println!("required length {:?}", n2);
+            // println!("tensor length s1 before split: {:?}", s1.len());
+            // println!("tensor length s1 before split: {:?}", s2.len());
+            // println!("required length {:?}", n2);
+            
             // Split s1 and s2 into left and right halves
             let (s1_l, s1_r) = s1.split_at_mut(n2);
             let (s2_l, s2_r) = s2.split_at_mut(n2);
@@ -553,7 +554,6 @@ where
         let left_side = E::pair(&e1_modified, &e2_modified);
 
         // Right side of the equation: (C + chi[0] + D_2 * gamma + D_1 * gamma_inv)
-        // This formula is correct without hiding, but @TODO(markosg04): chi[0] is correct index?
         let mut right_side = self.c.clone();
 
         // Add chi[0]

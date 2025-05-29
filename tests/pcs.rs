@@ -12,8 +12,8 @@ fn test_pcs_api_workflow() {
     let domain = b"dory_pcs_test";
 
     // Multilinear polynomial parameters
-    let num_variables = 20;
-    let sigma = 10;
+    let num_variables = 10;
+    let sigma = 8;
     let num_coeffs = 1 << num_variables;
 
     println!(

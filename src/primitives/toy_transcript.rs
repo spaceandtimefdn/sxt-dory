@@ -65,7 +65,7 @@ impl<F: PrimeField, H: Digest + Default + Clone> ToyTranscript<F, H> {
         let fe = F::from_le_bytes_mod_order(&repr);
 
         if fe.is_zero() {
-            panic!("Challenge value cannot be identity") //TODO(markosg04): this is low chance?
+            panic!("Challenge value cannot be identity")
         } else {
             fe
         }
