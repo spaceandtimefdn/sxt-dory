@@ -1,6 +1,6 @@
 //! Defines the structures which manage state during interactive execution of the prover and verifier
 use crate::{
-    arithmetic::{Group, Pairing},
+    arithmetic::{Group, MultiScalarMul, Pairing},
     messages::{
         FirstReduceChallenge, FirstReduceMessage, FoldScalarsChallenge, ScalarProductMessage,
         SecondReduceChallenge, SecondReduceMessage,
@@ -44,10 +44,10 @@ pub trait ProverState {
         setup: &Self::Setup,
     ) -> FirstReduceMessage<Self::G1, Self::G2, Self::GT>
     where
-        Self::G1: crate::arithmetic::Group,
-        Self::G2: crate::arithmetic::Group,
-        M1: crate::arithmetic::MultiScalarMul<Self::G1>,
-        M2: crate::arithmetic::MultiScalarMul<Self::G2>;
+        Self::G1: Group,
+        Self::G2: Group,
+        M1: MultiScalarMul<Self::G1>,
+        M2: MultiScalarMul<Self::G2>;
     /// Combines $\vec{v_i}$ and $\Gamma_i$ using the [`FirstReduceChallenge`].
     /// That is,
     /// $$\begin{aligned}
@@ -80,10 +80,10 @@ pub trait ProverState {
         setup: &Self::Setup,
     ) -> SecondReduceMessage<Self::G1, Self::G2, Self::GT>
     where
-        Self::G1: crate::arithmetic::Group,
-        Self::G2: crate::arithmetic::Group,
-        M1: crate::arithmetic::MultiScalarMul<Self::G1>,
-        M2: crate::arithmetic::MultiScalarMul<Self::G2>;
+        Self::G1: Group,
+        Self::G2: Group,
+        M1: MultiScalarMul<Self::G1>,
+        M2: MultiScalarMul<Self::G2>;
     /// Folds the $v_i$ and $s_i$ vectors using the [`SecondReduceChallenge`].
     /// That is,
     /// $$\begin{aligned}
@@ -115,10 +115,10 @@ pub trait ProverState {
         fold_scalars_challenge: FoldScalarsChallenge<Self::Scalar>,
     ) -> ScalarProductMessage<Self::G1, Self::G2>
     where
-        Self::G1: crate::arithmetic::Group,
-        Self::G2: crate::arithmetic::Group,
-        M1: crate::arithmetic::MultiScalarMul<Self::G1>,
-        M2: crate::arithmetic::MultiScalarMul<Self::G2>;
+        Self::G1: Group,
+        Self::G2: Group,
+        M1: MultiScalarMul<Self::G1>,
+        M2: MultiScalarMul<Self::G2>;
 }
 
 // Verifier

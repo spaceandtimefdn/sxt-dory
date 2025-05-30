@@ -50,7 +50,7 @@ where
 
 /// Compute the size of the matrix M that is derived from the coefficients
 /// 2^nu is the side length of M
-pub(super) fn compute_nu(num_vars: usize, sigma: usize) -> usize {
+pub fn compute_nu(num_vars: usize, sigma: usize) -> usize {
     if num_vars <= sigma * 2 {
         // No padding needed
         sigma
@@ -72,7 +72,7 @@ where
     E::G1: Group,
     <E::G1 as Group>::Scalar: Field + Clone,
 {
-    let bases = &prover_setup.g1_pows[nu];
+    let bases = &prover_setup.g1_vec[..1 << nu];
 
     let res = a
         .chunks(1 << sigma)

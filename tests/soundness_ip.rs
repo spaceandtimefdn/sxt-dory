@@ -24,8 +24,8 @@ fn setup_test_environment(
     let mut rng = test_rng();
     let vector_size = 1 << log_n;
 
-    // Setup
-    let prover_setup = ProverSetup::<ArkBn254Pairing>::new(&mut rng, log_n);
+    // Setup - max_log_n should be 2 * log_n because g1_vec/g2_vec have length sqrt(n)
+    let prover_setup = ProverSetup::<ArkBn254Pairing>::new(&mut rng, 2 * log_n);
     let verifier_setup = prover_setup.to_verifier_setup();
 
     // Generate vectors
@@ -41,11 +41,12 @@ fn setup_test_environment(
     // Create states
     let prover_state = DoryProverState::new(v1.clone(), v2.clone(), s1.clone(), s2.clone(), log_n);
     let c = ArkBn254Pairing::multi_pair(&v1, &v2);
-    let d_1 = ArkBn254Pairing::multi_pair(&v1, &prover_setup.g2_pows[log_n]);
-    let d_2 = ArkBn254Pairing::multi_pair(&prover_setup.g1_pows[log_n], &v2);
-    let e_1 = OptimizedMsmG1::msm(&prover_setup.g1_pows[log_n], &s2);
-    let e_2 = OptimizedMsmG2::msm(&prover_setup.g2_pows[log_n], &s1);
+    let d_1 = ArkBn254Pairing::multi_pair(&v1, &prover_setup.g2_vec[..1 << log_n]);
+    let d_2 = ArkBn254Pairing::multi_pair(&prover_setup.g1_vec[..1 << log_n], &v2);
+    let e_1 = OptimizedMsmG1::msm(&prover_setup.g1_vec[..1 << log_n], &s2);
+    let e_2 = OptimizedMsmG2::msm(&prover_setup.g2_vec[..1 << log_n], &s1);
     let verifier_state = DoryVerifierState::new_with_s(c, d_1, d_2, e_1, e_2, s1, s2, log_n);
+
 
     (prover_setup, verifier_setup, prover_state, verifier_state)
 }

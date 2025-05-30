@@ -48,8 +48,8 @@ where
         /* ---------- COMPUTE D ---------- */
 
         // Collapsed Γ-vectors of length n/2 (Γ₁′, Γ₂′)
-        let g2_prime = &setup.g2_pows[self.nu - 1];
-        let g1_prime = &setup.g1_pows[self.nu - 1];
+        let g2_prime = &setup.g2_vec[..1 << (self.nu - 1)];
+        let g1_prime = &setup.g1_vec[..1 << (self.nu - 1)];
 
         // D₁L,R = ⟨v₁L/R , Γ₂′⟩
         let d1_left = E::multi_pair(v1_l, g2_prime);
@@ -61,9 +61,9 @@ where
 
         /* ---------- COMPUTE E (for extended protocol) ---------- */
         // E₁β = ⟨Γ₁ , s₂⟩
-        let e1_beta = M1::msm(&setup.g1_pows[self.nu], &self.s2);
+        let e1_beta = M1::msm(&setup.g1_vec[..1 << self.nu], &self.s2);
         // E₂β = ⟨Γ₂ , s₁⟩
-        let e2_beta = M2::msm(&setup.g2_pows[self.nu], &self.s1);
+        let e2_beta = M2::msm(&setup.g2_vec[..1 << self.nu], &self.s1);
 
         FirstReduceMessage {
             d1_left,
@@ -84,10 +84,10 @@ where
         let beta = chall.beta;
         let beta_inv = chall.beta_inverse;
 
-        let g1_prime = &setup.g1_pows[self.nu];
-        let g2_prime = &setup.g2_pows[self.nu];
+        let g1_prime = &setup.g1_vec[..1 << self.nu];
+        let g2_prime = &setup.g2_vec[..1 << self.nu];
 
-        // Prover work P(*): 
+        // Prover work P(*):
         // ṽ₁ ← ṽ₁ + β·Γ₁
         self.v1
             .par_iter_mut()
@@ -315,7 +315,7 @@ where
             // println!("tensor length s1 before split: {:?}", s1.len());
             // println!("tensor length s1 before split: {:?}", s2.len());
             // println!("required length {:?}", n2);
-            
+
             // Split s1 and s2 into left and right halves
             let (s1_l, s1_r) = s1.split_at_mut(n2);
             let (s2_l, s2_r) = s2.split_at_mut(n2);

@@ -1,5 +1,6 @@
 //! Implementation of the extended Dory-Innerproduct protocol.
 //! The protocol is outlined in sections 3.3 & 4.3 of the Dory paper.
+use crate::arithmetic::{Field, Group, MultiScalarMul};
 use crate::builder::{ProofBuilder, VerificationBuilder};
 use crate::state::{ProverState, VerifierState};
 
@@ -12,14 +13,14 @@ pub fn inner_product_prove<Builder, State, G1, G2, GT, Scalar, Setup, M1, M2>(
     num_rounds: usize,
 ) -> Builder
 where
-    G1: crate::arithmetic::Group,
-    G2: crate::arithmetic::Group,
-    GT: crate::arithmetic::Group,
-    Scalar: crate::arithmetic::Field,
+    G1: Group,
+    G2: Group,
+    GT: Group,
+    Scalar: Field,
     Builder: ProofBuilder<G1 = G1, G2 = G2, GT = GT, Scalar = Scalar>,
     State: ProverState<G1 = G1, G2 = G2, GT = GT, Scalar = Scalar, Setup = Setup>,
-    M1: crate::arithmetic::MultiScalarMul<G1>,
-    M2: crate::arithmetic::MultiScalarMul<G2>,
+    M1: MultiScalarMul<G1>,
+    M2: MultiScalarMul<G2>,
 {
     let (builder, state) = (0..num_rounds).fold((builder, state), |(builder, state), _| {
         let first_reduce_msg = state.compute_first_reduce_message::<M1, M2>(setup);
@@ -47,10 +48,10 @@ pub fn inner_product_verify<B, State, G1, G2, GT, Scalar, Setup>(
     num_rounds: usize,
 ) -> Result<(), usize>
 where
-    G1: crate::arithmetic::Group,
-    G2: crate::arithmetic::Group,
-    GT: crate::arithmetic::Group,
-    Scalar: crate::arithmetic::Field,
+    G1: Group,
+    G2: Group,
+    GT: Group,
+    Scalar: Field,
     State: VerifierState<G1 = G1, G2 = G2, GT = GT, Scalar = Scalar, Setup = Setup>,
     B: VerificationBuilder<G1 = G1, G2 = G2, GT = GT, Scalar = Scalar>,
 {

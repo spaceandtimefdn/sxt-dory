@@ -5,9 +5,6 @@ use ark_std::rand::RngCore;
 use std::fs::File;
 use std::io::{Read, Write};
 
-// @TODO(markosg04) we don't need both g1_vec and g1_pows (and likewise same for g2)
-// This would entail just using slices everywhere rather than the usage of g1_pows[nu]
-
 /// Dory transparent setup for the prover
 #[derive(Clone, Debug)]
 pub struct ProverSetup<E: Pairing> {
@@ -23,10 +20,6 @@ pub struct ProverSetup<E: Pairing> {
     pub ht: E::GT,
     /// gamma_fin in the paper
     pub g_fin: E::G2,
-    /// Pre-computed powers of two of `g1_vec` for online computation
-    pub g1_pows: Vec<Vec<E::G1>>,
-    /// Pre-computed powers of two of `g2_vec` for online computation
-    pub g2_pows: Vec<Vec<E::G2>>,
 }
 
 /// Dory transparent setup for the verifier with precomputed values
@@ -64,7 +57,8 @@ impl<E: Pairing> ProverSetup<E> {
     /// Constructor for new prover setup
     pub fn new<R: RngCore>(mut rng: R, max_log_n: usize) -> Self {
         // We want \sqrt(n) generators for each of G1, G2
-        let n = 1usize << (max_log_n / 2);
+        // We take max_log_n + 1 to effectively take ceiling for odd max_log_n cases
+        let n = 1usize << ((max_log_n + 1) / 2);
 
         let g1_vec: Vec<_> = (0..n).map(|_| E::G1::random(&mut rng)).collect();
         let g2_vec: Vec<_> = (0..n).map(|_| E::G2::random(&mut rng)).collect();
@@ -73,16 +67,6 @@ impl<E: Pairing> ProverSetup<E> {
         let h2 = E::G2::random(&mut rng);
         let ht = E::pair(&h1, &h2);
 
-        let mut g1_pows = Vec::with_capacity(max_log_n + 1);
-        let mut g2_pows = Vec::with_capacity(max_log_n + 1);
-
-        // Store each k up to sqrt(n)
-        for k in 0..=max_log_n / 2 {
-            let len = 1 << k;
-            g1_pows.push(g1_vec[..len].to_vec());
-            g2_pows.push(g2_vec[..len].to_vec());
-        }
-
         Self {
             g1_vec,
             g2_vec,
@@ -90,8 +74,6 @@ impl<E: Pairing> ProverSetup<E> {
             h2,
             ht,
             g_fin,
-            g1_pows,
-            g2_pows,
         }
     }
     /// Convert to verifier side
@@ -212,7 +194,8 @@ impl<E: Pairing> ProverSetup<E> {
 impl<E: Pairing> VerifierSetup<E> {
     /// Constructor from an existing prover setup
     pub fn from_prover_setup(prover_setup: &ProverSetup<E>) -> Self {
-        let max_log_n = prover_setup.g1_pows.len() - 1;
+        // Since g1_vec has length n = 1 << (max_log_n / 2), we have max_log_n = 2 * log2(g1_vec.len())
+        let max_log_n = prover_setup.g1_vec.len().trailing_zeros() as usize;
 
         let mut delta_1l = Vec::with_capacity(max_log_n + 1);
         let mut delta_1r = Vec::with_capacity(max_log_n + 1);
@@ -356,8 +339,6 @@ where
         self.h1.serialize_with_mode(&mut writer, compress)?;
         self.h2.serialize_with_mode(&mut writer, compress)?;
         self.ht.serialize_with_mode(&mut writer, compress)?;
-        self.g1_pows.serialize_with_mode(&mut writer, compress)?;
-        self.g2_pows.serialize_with_mode(&mut writer, compress)?;
         Ok(())
     }
 
@@ -368,8 +349,6 @@ where
             + self.h1.serialized_size(compress)
             + self.h2.serialized_size(compress)
             + self.ht.serialized_size(compress)
-            + self.g1_pows.serialized_size(compress)
-            + self.g2_pows.serialized_size(compress)
     }
 }
 
@@ -391,8 +370,6 @@ where
         let h1 = E::G1::deserialize_with_mode(&mut reader, compress, validate)?;
         let h2 = E::G2::deserialize_with_mode(&mut reader, compress, validate)?;
         let ht = E::GT::deserialize_with_mode(&mut reader, compress, validate)?;
-        let g1_pows = Vec::<Vec<E::G1>>::deserialize_with_mode(&mut reader, compress, validate)?;
-        let g2_pows = Vec::<Vec<E::G2>>::deserialize_with_mode(&mut reader, compress, validate)?;
 
         Ok(ProverSetup {
             g1_vec,
@@ -401,8 +378,6 @@ where
             h2,
             ht,
             g_fin,
-            g1_pows,
-            g2_pows,
         })
     }
 }
@@ -420,8 +395,6 @@ where
         self.h1.check()?;
         self.h2.check()?;
         self.ht.check()?;
-        self.g1_pows.check()?;
-        self.g2_pows.check()?;
         Ok(())
     }
 }

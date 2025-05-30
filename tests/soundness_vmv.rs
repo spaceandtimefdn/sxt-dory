@@ -3,10 +3,10 @@ use ark_bn254::{Fq12, Fr, G1Affine};
 use blake2::Blake2s256;
 use dory::{
     arithmetic::{Field, Group, MultiScalarMul},
-    builder::DoryProofBuilder,
     curve::{test_rng, ArkBn254Pairing, DummyMsm, G2AffineWrapper, OptimizedMsmG1, OptimizedMsmG2},
     setup::ProverSetup,
     toy_transcript::ToyTranscript,
+    vmv::compute_nu,
     vmv::{
         commit_and_evaluate_batch, compute_polynomial_commitment, create_evaluation_proof,
         verify_evaluation_proof,
@@ -32,7 +32,7 @@ fn setup_vmv_test_environment(
     let verifier_setup = prover_setup.to_verifier_setup();
 
     // Calculate nu
-    let nu = length.next_power_of_two().trailing_zeros() as usize;
+    let nu = compute_nu(max_log_n, sigma);
 
     // Generate random polynomial coefficients
     let a = core::iter::repeat_with(|| Fr::random(&mut rng))

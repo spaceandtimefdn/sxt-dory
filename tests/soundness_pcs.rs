@@ -270,7 +270,7 @@ fn test_soundness_polynomial_mismatch() {
 #[test]
 fn test_soundness_offset_manipulation() {
     println!("=== Testing soundness: commitment offset manipulation ===");
-    let mut rng = test_rng();
+    let rng = test_rng();
     let domain = b"pcs_soundness_test";
 
     let num_variables = 10;

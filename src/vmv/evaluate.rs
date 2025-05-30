@@ -50,12 +50,8 @@ where
     if prover_state.v1.is_empty() || prover_state.s1.is_empty() {
         println!("v1 or s1 is empty in eval_vmv_re_prove");
     }
-    if prover_setup
-        .g1_pows
-        .get(prover_state.nu)
-        .map_or(true, |v| v.is_empty())
-    {
-        println!("prover_setup.g1_pows[nu] is empty or nu is out of bounds");
+    if prover_state.nu > 0 && prover_setup.g1_vec.len() < (1 << prover_state.nu) {
+        println!("prover_setup.g1_vec doesn't have enough elements for nu");
     }
 
     // --- Protocol computations (Dory Section 5) ---
@@ -66,10 +62,12 @@ where
 
     // D₂ = e(⟨Γ₁[nu], ~v⟩, Γ₂,fin)
     // Protocol: D₂ = e(⟨Γ₁,~v⟩, Γ₂,fin) + rD₂·HT (randomness omitted)
-    let g1_bases_at_nu = prover_setup
-        .g1_pows
-        .get(prover_state.nu)
-        .map_or_else(|| &[][..], |bases_vec| bases_vec.as_slice());
+    let g1_bases_at_nu =
+        if prover_state.nu > 0 && prover_setup.g1_vec.len() >= (1 << prover_state.nu) {
+            &prover_setup.g1_vec[..1 << prover_state.nu]
+        } else {
+            &[][..]
+        };
 
     let gamma1_v_inner_product = if g1_bases_at_nu.is_empty() || prover_state.s1.is_empty() {
         E::G1::identity()
