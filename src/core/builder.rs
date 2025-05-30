@@ -5,7 +5,7 @@ use crate::transcript::Transcript;
 use std::marker::PhantomData;
 
 use ark_ff::PrimeField;
-use ark_serialize::CanonicalSerialize;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use blake2::Blake2s256;
 
 use crate::{
@@ -17,6 +17,24 @@ use crate::{
     toy_transcript::ToyTranscript,
 };
 
+/// A serializable proof struct that contains all the messages exchanged
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
+pub struct DoryProof<G1, G2, GT> 
+where
+    G1: Group,
+    G2: Group,
+    GT: Group,
+{
+    /// First prover messages for each round
+    pub first_messages: Vec<FirstReduceMessage<G1, G2, GT>>,
+    /// Second prover messages for each round
+    pub second_messages: Vec<SecondReduceMessage<G1, G2, GT>>,
+    /// Final scalar product message
+    pub final_message: Option<ScalarProductMessage<G1, G2>>,
+    /// Vector-matrix-vector message (for PCS)
+    pub vmv_message: Option<VMVMessage<G1, GT>>,
+}
+
 /// Trait that defines the structure of the Dory proof.
 ///
 /// A type implementing this trait acts as both the transcript and the proof serializer.
@@ -26,13 +44,13 @@ pub trait ProofBuilder {
     /// G1 x G2 -> GT
     type Pairing;
     /// The $\mathbb{G}_1$ group
-    type G1;
+    type G1: Group;
     /// The $\mathbb{G}_2$ group
-    type G2;
+    type G2: Group;
     /// The target group, $\mathbb{G}_T$
-    type GT;
+    type GT: Group;
     /// The scalar field, $\mathbb{F}$, of the groups
-    type Scalar;
+    type Scalar: Field;
 
     /// Append a [`FirstReduceMessage`] to the proof and transcript and return a [`FirstReduceChallenge`] drawn from the transcript.
     #[must_use]
@@ -61,11 +79,12 @@ pub trait ProofBuilder {
 }
 
 /// Concrete ProofBuilder to collect messages and perform transcript tasks
+#[derive(Clone, Debug)]
 pub struct DoryProofBuilder<G1, G2, GT, Scalar, T>
 where
-    G1: Group<Scalar = Scalar> + CanonicalSerialize,
-    G2: Group<Scalar = Scalar> + CanonicalSerialize,
-    GT: Group<Scalar = Scalar> + CanonicalSerialize,
+    G1: Group<Scalar = Scalar>,
+    G2: Group<Scalar = Scalar>,
+    GT: Group<Scalar = Scalar>,
     Scalar: Field + PrimeField,
     T: Transcript<Scalar = Scalar>,
 {
@@ -86,9 +105,9 @@ where
 
 impl<G1, G2, GT, Scalar, T> DoryProofBuilder<G1, G2, GT, Scalar, T>
 where
-    G1: Group<Scalar = Scalar> + CanonicalSerialize,
-    G2: Group<Scalar = Scalar> + CanonicalSerialize,
-    GT: Group<Scalar = Scalar> + CanonicalSerialize,
+    G1: Group<Scalar = Scalar>,
+    G2: Group<Scalar = Scalar>,
+    GT: Group<Scalar = Scalar>,
     Scalar: Field + PrimeField,
     T: Transcript<Scalar = Scalar>,
 {
@@ -121,14 +140,24 @@ where
             _phantom: PhantomData,
         }
     }
+
+    /// Extract a serializable proof from the builder
+    pub fn to_proof(&self) -> DoryProof<G1, G2, GT> {
+        DoryProof {
+            first_messages: self.first_messages.clone(),
+            second_messages: self.second_messages.clone(),
+            final_message: self.final_message.clone(),
+            vmv_message: self.vmv_message.clone(),
+        }
+    }
 }
 
 impl<G1Arg, G2Arg, GTArg, ScalarArg, T> ProofBuilder
     for DoryProofBuilder<G1Arg, G2Arg, GTArg, ScalarArg, T>
 where
-    G1Arg: Group<Scalar = ScalarArg> + CanonicalSerialize,
-    G2Arg: Group<Scalar = ScalarArg> + CanonicalSerialize,
-    GTArg: Group<Scalar = ScalarArg> + CanonicalSerialize,
+    G1Arg: Group<Scalar = ScalarArg>,
+    G2Arg: Group<Scalar = ScalarArg>,
+    GTArg: Group<Scalar = ScalarArg>,
     ScalarArg: Field + PrimeField,
     T: Transcript<Scalar = ScalarArg>,
 {
@@ -266,9 +295,9 @@ pub trait VerificationBuilder {
 /// Concrete Dory verify builder
 pub struct DoryVerifyBuilder<G1, G2, GT, Scalar, T>
 where
-    G1: Group<Scalar = Scalar> + CanonicalSerialize,
-    G2: Group<Scalar = Scalar> + CanonicalSerialize,
-    GT: Group<Scalar = Scalar> + CanonicalSerialize,
+    G1: Group<Scalar = Scalar>,
+    G2: Group<Scalar = Scalar>,
+    GT: Group<Scalar = Scalar>,
     Scalar: Field + PrimeField,
     T: Transcript<Scalar = Scalar>,
 {
@@ -283,9 +312,9 @@ where
 
 impl<G1, G2, GT, Scalar, T> DoryVerifyBuilder<G1, G2, GT, Scalar, T>
 where
-    G1: Group<Scalar = Scalar> + CanonicalSerialize,
-    G2: Group<Scalar = Scalar> + CanonicalSerialize,
-    GT: Group<Scalar = Scalar> + CanonicalSerialize,
+    G1: Group<Scalar = Scalar>,
+    G2: Group<Scalar = Scalar>,
+    GT: Group<Scalar = Scalar>,
     Scalar: Field + PrimeField,
     T: Transcript<Scalar = Scalar>,
 {
@@ -319,9 +348,9 @@ where
 
 impl<G1, G2, GT, Scalar, T> VerificationBuilder for DoryVerifyBuilder<G1, G2, GT, Scalar, T>
 where
-    G1: Group<Scalar = Scalar> + CanonicalSerialize,
-    G2: Group<Scalar = Scalar> + CanonicalSerialize,
-    GT: Group<Scalar = Scalar> + CanonicalSerialize,
+    G1: Group<Scalar = Scalar>,
+    G2: Group<Scalar = Scalar>,
+    GT: Group<Scalar = Scalar>,
     Scalar: Field + PrimeField,
     T: Transcript<Scalar = Scalar>,
 {
@@ -428,9 +457,9 @@ where
 /// Additional debug helpers:
 impl<G1, G2, GT, Scalar, T> DoryProofBuilder<G1, G2, GT, Scalar, T>
 where
-    G1: Group<Scalar = Scalar> + CanonicalSerialize,
-    G2: Group<Scalar = Scalar> + CanonicalSerialize,
-    GT: Group<Scalar = Scalar> + CanonicalSerialize,
+    G1: Group<Scalar = Scalar>,
+    G2: Group<Scalar = Scalar>,
+    GT: Group<Scalar = Scalar>,
     Scalar: Field + PrimeField,
     T: Transcript<Scalar = Scalar>,
 {

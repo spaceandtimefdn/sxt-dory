@@ -12,7 +12,7 @@ use crate::toy_transcript::ToyTranscript;
 use crate::transcript::Transcript;
 
 use ark_ff::PrimeField;
-use ark_serialize::CanonicalSerialize;
+// use ark_serialize::CanonicalSerialize;
 use ark_std::rand::RngCore;
 use blake2::Blake2s256;
 
@@ -74,9 +74,6 @@ pub fn setup_with_srs_file<E: Pairing, R: RngCore>(
     srs_filename: Option<&str>,
 ) -> (ProverSetup<E>, VerifierSetup<E>)
 where
-    E::G1: ark_serialize::CanonicalSerialize + ark_serialize::CanonicalDeserialize,
-    E::G2: ark_serialize::CanonicalSerialize + ark_serialize::CanonicalDeserialize,
-    E::GT: ark_serialize::CanonicalSerialize + ark_serialize::CanonicalDeserialize,
 {
     match srs_filename {
         Some(filename) => {
@@ -146,9 +143,6 @@ pub fn generate_srs<E: Pairing, R: RngCore>(
     max_log_n: usize,
 ) -> Result<String, Box<dyn std::error::Error>>
 where
-    E::G1: ark_serialize::CanonicalSerialize,
-    E::G2: ark_serialize::CanonicalSerialize,
-    E::GT: ark_serialize::CanonicalSerialize,
 {
     let filename = format!("k_{}.srs", max_log_n);
     let prover_setup = ProverSetup::<E>::new(rng, max_log_n);
@@ -216,9 +210,9 @@ pub fn evaluate<
     DoryProofBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>,
 )
 where
-    E::G1: Group + CanonicalSerialize,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + CanonicalSerialize,
-    E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + CanonicalSerialize,
+    E::G1: Group,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
     <E::G1 as Group>::Scalar: Field + PrimeField + Clone,
 {
     // Compute the evaluation
@@ -262,9 +256,9 @@ pub fn verify<
     domain: &[u8],
 ) -> Result<(), DoryError>
 where
-    E::G1: Group + CanonicalSerialize,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + CanonicalSerialize,
-    E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + CanonicalSerialize,
+    E::G1: Group,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
     <E::G1 as Group>::Scalar: Field + PrimeField,
 {
     // Prepare verification data

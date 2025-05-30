@@ -80,6 +80,31 @@ impl Group for G1Affine {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct G2AffineWrapper(G2Affine);
 
+// Implement operator traits for G2AffineWrapper
+impl std::ops::Add for G2AffineWrapper {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        G2AffineWrapper((self.0.into_group() + rhs.0.into_group()).into_affine())
+    }
+}
+
+impl std::ops::Add<&G2AffineWrapper> for G2AffineWrapper {
+    type Output = Self;
+
+    fn add(self, rhs: &G2AffineWrapper) -> Self::Output {
+        G2AffineWrapper((self.0.into_group() + rhs.0.into_group()).into_affine())
+    }
+}
+
+impl std::ops::Neg for G2AffineWrapper {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        G2AffineWrapper((-self.0.into_group()).into_affine())
+    }
+}
+
 impl From<G2Affine> for G2AffineWrapper {
     fn from(value: G2Affine) -> Self {
         G2AffineWrapper(value)

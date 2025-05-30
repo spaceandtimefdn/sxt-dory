@@ -1,6 +1,6 @@
 //! Defines the structures which manage state during interactive execution of the prover and verifier
 use crate::{
-    arithmetic::{Group, MultiScalarMul, Pairing},
+    arithmetic::{Field, Group, MultiScalarMul, Pairing},
     messages::{
         FirstReduceChallenge, FirstReduceMessage, FoldScalarsChallenge, ScalarProductMessage,
         SecondReduceChallenge, SecondReduceMessage,
@@ -17,13 +17,13 @@ use super::ScalarProductChallenge;
 /// [`ProofBuilder`](crate::ProofBuilder) trait. This is so that P and V actors can compute things as needed.
 pub trait ProverState {
     /// The $\mathbb{G}_1$ group
-    type G1;
+    type G1: Group;
     /// The $\mathbb{G}_2$ group
-    type G2;
+    type G2: Group;
     /// The target group, $\mathbb{G}_T$
-    type GT;
+    type GT: Group;
     /// The scalar, $\mathbb{F}$, field of the groups
-    type Scalar;
+    type Scalar: Field;
     /// The setup type. This should contain the public parameters needed for the protocol.
     type Setup;
 
@@ -129,13 +129,13 @@ pub trait ProverState {
 /// needed to verify the messages from the prover.
 pub trait VerifierState {
     /// The $\mathbb{G}_1$ group
-    type G1;
+    type G1: Group;
     /// The $\mathbb{G}_2$ group
-    type G2;
+    type G2: Group;
     /// The target group, $\mathbb{G}_T$
-    type GT;
+    type GT: Group;
     /// The scalar, $\mathbb{F}$, field of the groups
-    type Scalar;
+    type Scalar: Field;
     /// The setup type. This should contain the public parameters needed for verification.
     type Setup;
 

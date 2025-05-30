@@ -1,8 +1,18 @@
 #![allow(missing_docs)]
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Valid};
 use ark_std::rand::RngCore;
 
 /// --------- field ----------------------------------------------------------
-pub trait Field: Sized + Clone + PartialEq + Send + Sync {
+pub trait Field:
+    Sized
+    + Clone
+    + PartialEq
+    + Send
+    + Sync
+    + CanonicalSerialize
+    + CanonicalDeserialize
+    + Valid
+{
     fn zero() -> Self;
     fn one() -> Self;
 
@@ -15,7 +25,16 @@ pub trait Field: Sized + Clone + PartialEq + Send + Sync {
 }
 
 /// --------- group ----------------------------------------------------------
-pub trait Group: Sized + Clone + PartialEq + Send + Sync {
+pub trait Group:
+    Sized
+    + Clone
+    + PartialEq
+    + Send
+    + Sync
+    + CanonicalSerialize
+    + CanonicalDeserialize
+    + Valid
+{
     type Scalar: Field;
 
     fn identity() -> Self;

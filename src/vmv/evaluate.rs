@@ -2,7 +2,7 @@
 //! Primarily makes use of the `eval_vmv_re` protocol
 //! `eval_vmv_re` is essentially the `eval` algorithm of the tuple of PCS algorithms
 use ark_ff::{Field, PrimeField};
-use ark_serialize::CanonicalSerialize;
+// use ark_serialize::CanonicalSerialize;
 
 use crate::{
     arithmetic::{Group, MultiScalarMul, Pairing},
@@ -14,7 +14,6 @@ use crate::{
     inner_product::inner_product_verify,
     inner_product_prove,
     messages::VMVMessage,
-    primitives::poly::compute_l_r_tensors, //@TODO(markosg04) need to decide what i want to do with this
     setup::{ProverSetup, VerifierSetup},
     state::{DoryProverState, DoryVerifierState},
     transcript::Transcript,
@@ -41,9 +40,9 @@ fn eval_vmv_re_prove<
     DoryProverState<E>,
 )
 where
-    E::G1: Group + CanonicalSerialize,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + CanonicalSerialize,
-    E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + CanonicalSerialize,
+    E::G1: Group,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
     <E::G1 as Group>::Scalar: Field + PrimeField,
 {
     // Validate inputs
@@ -117,9 +116,9 @@ pub fn create_evaluation_proof<
     prover_setup: &ProverSetup<E>,
 ) -> DoryProofBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>
 where
-    E::G1: Group + CanonicalSerialize,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + CanonicalSerialize,
-    E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + CanonicalSerialize,
+    E::G1: Group,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
     <E::G1 as Group>::Scalar: Field + PrimeField,
 {
     // 1. Compute parameters
@@ -168,7 +167,7 @@ where
 {
     // @TODO(markosg04) was tensor before
     let (l_tensor, r_tensor) = compute_left_right_vec(b_point, sigma, nu);
-    // println!("tensor length: {:?}", l_tensor.len());
+
     VMVVerifierState {
         y,
         t,
@@ -224,9 +223,9 @@ fn eval_vmv_re_verify<
     DoryVerifierState<E>,
 )
 where
-    E::G1: Group + CanonicalSerialize,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + CanonicalSerialize,
-    E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + CanonicalSerialize,
+    E::G1: Group,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
     <E::G1 as Group>::Scalar: Field + PrimeField,
 {
     let vmv_message = verify_builder.process_vmv_message();
@@ -255,9 +254,9 @@ pub fn verify_evaluation_proof<
     domain: &[u8],
 ) -> Result<(), DoryError>
 where
-    E::G1: Group + CanonicalSerialize,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + CanonicalSerialize,
-    E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + CanonicalSerialize,
+    E::G1: Group,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
     <E::G1 as Group>::Scalar: Field + PrimeField,
 {
     // 1. Compute the MSM of commits and the factors
