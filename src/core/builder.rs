@@ -318,6 +318,27 @@ where
     Scalar: Field + PrimeField,
     T: Transcript<Scalar = Scalar>,
 {
+    /// Build from a serializable `DoryProof` and a fresh transcript.
+    /// This is useful when you have a serialized proof that you want to verify.
+    pub fn new_from_dory_proof(proof: DoryProof<G1, G2, GT>, transcript: T) -> Self {
+        // Extract messages from the proof
+        let first_messages = proof.first_messages;
+        let second_messages = proof.second_messages;
+        let scalar_msg = proof
+            .final_message
+            .expect("DoryProof must have a final (scalar product) message");
+        let vmv_msg = proof.vmv_message;
+
+        Self {
+            transcript,
+            first_messages,
+            second_messages,
+            scalar_msg,
+            vmv_msg,
+            _phantom: PhantomData,
+        }
+    }
+
     /// Build from a *proof* (any concrete `DoryProofBuilder`) and a transcript.
     pub fn new_from_proof(domain: &[u8], proof: DoryProofBuilder<G1, G2, GT, Scalar, T>) -> Self {
         // destructure

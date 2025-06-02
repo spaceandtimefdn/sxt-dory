@@ -203,7 +203,7 @@ where
 
     /* ---------- Final Scalar‑Product input -------------------------- */
     // Note: we apply `fold-scalars` transform onto e1 and e1 before sending to verifier.
-    // We apply it here as this ist he last step of the IP protocol and the transformation mutates
+    // We apply it here as this is the last step of the IP protocol and the transformation mutates
     // the contents of `ScalarProductMessage`, anyways.
     fn compute_scalar_product_message<M1, M2>(
         self,
@@ -312,9 +312,6 @@ where
         // We update s1_tensor and s2_tensor if they exist, mirroring `fold s-vectors` in `reduce_fold`:
         if let (Some(s1), Some(s2)) = (self.s1_tensor.as_mut(), self.s2_tensor.as_mut()) {
             let n2 = 1usize << (self.nu - 1);
-            // println!("tensor length s1 before split: {:?}", s1.len());
-            // println!("tensor length s1 before split: {:?}", s2.len());
-            // println!("required length {:?}", n2);
 
             // Split s1 and s2 into left and right halves
             let (s1_l, s1_r) = s1.split_at_mut(n2);
@@ -338,7 +335,7 @@ where
         // Decrease the rounds
         self.nu -= 1;
 
-        // set membership?
+        // TODO(markosg04): change to Ok ? 
         true
     }
 

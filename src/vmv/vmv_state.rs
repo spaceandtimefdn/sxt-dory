@@ -61,7 +61,7 @@ pub fn compute_nu(num_vars: usize, sigma: usize) -> usize {
 }
 
 /// Compute the (Pedersen) commitments to the rows of the matrix M that is derived from coeffs `a`.
-/// This produces T`` in the paper.
+/// This produces T` in the paper.
 pub fn commit_to_rows<E: Pairing, M1: MultiScalarMul<E::G1>>(
     a: &[<E::G1 as Group>::Scalar],
     sigma: usize,
@@ -118,9 +118,9 @@ where
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
     // Extract values from VMV state
-    // Note: the paper has a typo and we want to set s1 = R, s2 = L (as we do below)
+    // Note: the paper has a typo and we want to actually set s1 = R, s2 = L (as we do below)
     let v_vec = vmv_state.v_vec;
-    let s1 = vmv_state.r_vec; //intermediate vector from L^T × M
+    let s1 = vmv_state.r_vec; // intermediate vector from L^T × M
     let s2 = vmv_state.l_vec; // left evaluation vector
     let v1 = vmv_state.t_vec_prime; // row commitments
     let nu = vmv_state.nu; // nu

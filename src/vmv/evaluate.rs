@@ -2,7 +2,6 @@
 //! Primarily makes use of the `eval_vmv_re` protocol
 //! `eval_vmv_re` is essentially the `eval` algorithm of the tuple of PCS algorithms
 use ark_ff::{Field, PrimeField};
-// use ark_serialize::CanonicalSerialize;
 
 use crate::{
     arithmetic::{Group, MultiScalarMul, Pairing},

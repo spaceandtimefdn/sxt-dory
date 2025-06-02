@@ -75,8 +75,8 @@ impl Group for G1Affine {
     }
 }
 
-/* --------- Wrapper for G2Affine to avoid conflict ----------------- */
-
+/// G1Affine and G2Affine are the same up to alias from arkworks.
+/// Hence, we have to use newType idiom here to avoid compiler conflicts
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct G2AffineWrapper(G2Affine);
 
