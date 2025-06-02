@@ -18,7 +18,7 @@ use crate::{
 };
 
 /// A serializable proof struct that contains all the messages exchanged
-#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Debug, Default, CanonicalSerialize, CanonicalDeserialize)]
 pub struct DoryProof<G1, G2, GT> 
 where
     G1: Group,
@@ -141,8 +141,8 @@ where
         }
     }
 
-    /// Extract a serializable proof from the builder
-    pub fn to_proof(&self) -> DoryProof<G1, G2, GT> {
+    /// Build a serializable Dory proof
+    pub fn build(&self) -> DoryProof<G1, G2, GT> {
         DoryProof {
             first_messages: self.first_messages.clone(),
             second_messages: self.second_messages.clone(),
