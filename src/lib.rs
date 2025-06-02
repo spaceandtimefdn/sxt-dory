@@ -42,7 +42,6 @@ pub use vmv::*;
 /// # Parameters
 /// - `rng`: Random number generator for setup generation
 /// - `max_log_n`: Maximum log of the polynomial size (n = 2^max_log_n)
-/// - `srs_filename`: Optional filename to load/save SRS parameters
 ///
 /// # Returns
 /// A tuple containing (ProverSetup, VerifierSetup)
