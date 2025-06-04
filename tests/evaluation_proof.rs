@@ -2,7 +2,6 @@
 use std::time::Instant;
 
 use ark_bn254::{Fq12, Fr};
-use blake2::Blake2s256;
 use dory::{
     arithmetic::{Field, Group},
     builder::DoryProofBuilder,
@@ -74,7 +73,7 @@ fn test_evaluation_proof_sigma_2() {
 
     // ----- Create transcript -----
     println!("\n[3/4] Creating transcript and generating proof...");
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
 
     // ----- Generate evaluation proof -----
     let proof_start = Instant::now();
@@ -82,7 +81,7 @@ fn test_evaluation_proof_sigma_2() {
     // Create the evaluation proof
     let proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript, &a, &b_points, sigma, &prover_setup);
@@ -126,12 +125,12 @@ fn test_evaluation_proof_sigma_2() {
     let verifier_setup = prover_setup.to_verifier_setup();
 
     // Create fresh transcript for verification
-    let verify_transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let verify_transcript = ToyTranscript::new(domain);
 
     // Call verify_evaluation_proof
     let verification_result = verify_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
         DummyMsm<Fq12>,
@@ -214,12 +213,12 @@ fn test_evaluation_proof_verification_should_fail() {
 
     // ----- Create transcript and generate proof -----
     println!("\n[3/5] Generating proof...");
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
     let proof_start = Instant::now();
 
     let proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript, &a, &b_points, sigma, &prover_setup);
@@ -249,11 +248,11 @@ fn test_evaluation_proof_verification_should_fail() {
         let verifier_setup = prover_setup.to_verifier_setup();
 
         // Create fresh transcript for verification
-        let verify_transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+        let verify_transcript = ToyTranscript::new(domain);
 
         let verification_result = verify_evaluation_proof::<
             ArkBn254Pairing,
-            ToyTranscript<Fr, Blake2s256>,
+            ToyTranscript,
             OptimizedMsmG1,
             OptimizedMsmG2,
             DummyMsm<Fq12>,
@@ -328,12 +327,12 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
 
     // ----- Create transcript and generate proof -----
     println!("\n[3/4] Generating proof...");
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
     let proof_start = Instant::now();
 
     let proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript, &a, &b_points, sigma, &prover_setup);
@@ -380,11 +379,11 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
     let verifier_setup = prover_setup.to_verifier_setup();
 
     // Create fresh transcript for verification
-    let verify_transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let verify_transcript = ToyTranscript::new(domain);
 
     let verification_result = dory::vmv::verify_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
         DummyMsm<Fq12>,

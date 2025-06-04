@@ -61,10 +61,10 @@ fn test_soundness_tamper_vmv_message_c() {
         setup_vmv_test_environment(length, max_log_n, sigma);
 
     // Generate proof
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
     let mut proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript, &a, &b_points, sigma, &prover_setup);
@@ -85,11 +85,11 @@ fn test_soundness_tamper_vmv_message_c() {
         vmv_msg.c = Fq12::random(&mut rng);
 
         // Create fresh transcript for verification
-        let verify_transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+        let verify_transcript = ToyTranscript::new(domain);
 
         let verification_result = verify_evaluation_proof::<
             ArkBn254Pairing,
-            ToyTranscript<Fr, Blake2s256>,
+            ToyTranscript,
             OptimizedMsmG1,
             OptimizedMsmG2,
             DummyMsm<Fq12>,
@@ -126,10 +126,10 @@ fn test_soundness_tamper_vmv_message_d2() {
         setup_vmv_test_environment(length, max_log_n, sigma);
 
     // Generate proof
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
     let mut proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript, &a, &b_points, sigma, &prover_setup);
@@ -150,11 +150,11 @@ fn test_soundness_tamper_vmv_message_d2() {
         vmv_msg.d2 = Fq12::random(&mut rng);
 
         // Create fresh transcript for verification
-        let verify_transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+        let verify_transcript = ToyTranscript::new(domain);
 
         let verification_result = verify_evaluation_proof::<
             ArkBn254Pairing,
-            ToyTranscript<Fr, Blake2s256>,
+            ToyTranscript,
             OptimizedMsmG1,
             OptimizedMsmG2,
             DummyMsm<Fq12>,
@@ -191,10 +191,10 @@ fn test_soundness_tamper_vmv_message_e1() {
         setup_vmv_test_environment(length, max_log_n, sigma);
 
     // Generate proof
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
     let mut proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript, &a, &b_points, sigma, &prover_setup);
@@ -215,11 +215,11 @@ fn test_soundness_tamper_vmv_message_e1() {
         vmv_msg.e1 = G1Affine::random(&mut rng);
 
         // Create fresh transcript for verification
-        let verify_transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+        let verify_transcript = ToyTranscript::new(domain);
 
         let verification_result = verify_evaluation_proof::<
             ArkBn254Pairing,
-            ToyTranscript<Fr, Blake2s256>,
+            ToyTranscript,
             OptimizedMsmG1,
             OptimizedMsmG2,
             DummyMsm<Fq12>,
@@ -256,10 +256,10 @@ fn test_soundness_wrong_commitment() {
         setup_vmv_test_environment(length, max_log_n, sigma);
 
     // Generate proof
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
     let proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript, &a, &b_points, sigma, &prover_setup);
@@ -278,11 +278,11 @@ fn test_soundness_wrong_commitment() {
     commitment_batch[0] = Fq12::random(&mut rng);
 
     // Create fresh transcript for verification
-    let verify_transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let verify_transcript = ToyTranscript::new(domain);
 
     let verification_result = verify_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
         DummyMsm<Fq12>,
@@ -318,10 +318,10 @@ fn test_soundness_wrong_evaluation() {
         setup_vmv_test_environment(length, max_log_n, sigma);
 
     // Generate proof
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
     let proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript, &a, &b_points, sigma, &prover_setup);
@@ -341,7 +341,7 @@ fn test_soundness_wrong_evaluation() {
 
     let verification_result = verify_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
         DummyMsm<Fq12>,
@@ -353,7 +353,7 @@ fn test_soundness_wrong_evaluation() {
         &b_points,
         sigma,
         &verifier_setup,
-        ToyTranscript::<Fr, Blake2s256>::new(domain),
+        ToyTranscript::new(domain),
     );
 
     assert!(
@@ -377,10 +377,10 @@ fn test_soundness_wrong_evaluation_point() {
         setup_vmv_test_environment(length, max_log_n, sigma);
 
     // Generate proof
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
     let proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript, &a, &b_points, sigma, &prover_setup);
@@ -402,7 +402,7 @@ fn test_soundness_wrong_evaluation_point() {
 
     let verification_result = verify_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
         DummyMsm<Fq12>,
@@ -414,7 +414,7 @@ fn test_soundness_wrong_evaluation_point() {
         &wrong_b_points,
         sigma,
         &verifier_setup,
-        ToyTranscript::<Fr, Blake2s256>::new(domain),
+        ToyTranscript::new(domain),
     );
 
     assert!(
@@ -443,10 +443,10 @@ fn test_soundness_commitment_evaluation_mismatch() {
         .collect::<Vec<_>>();
 
     // Generate proof for original polynomial
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
     let proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript, &a, &b_points, sigma, &prover_setup);
@@ -472,7 +472,7 @@ fn test_soundness_commitment_evaluation_mismatch() {
 
     let verification_result = verify_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
         DummyMsm<Fq12>,
@@ -484,7 +484,7 @@ fn test_soundness_commitment_evaluation_mismatch() {
         &b_points,
         sigma,
         &verifier_setup,
-        ToyTranscript::<Fr, Blake2s256>::new(domain),
+        ToyTranscript::new(domain),
     );
 
     assert!(
@@ -508,10 +508,10 @@ fn test_soundness_wrong_batching_factors() {
         setup_vmv_test_environment(length, max_log_n, sigma);
 
     // Generate proof
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
     let proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript, &a, &b_points, sigma, &prover_setup);
@@ -531,7 +531,7 @@ fn test_soundness_wrong_batching_factors() {
 
     let verification_result = verify_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
         DummyMsm<Fq12>,
@@ -543,7 +543,7 @@ fn test_soundness_wrong_batching_factors() {
         &b_points,
         sigma,
         &verifier_setup,
-        ToyTranscript::<Fr, Blake2s256>::new(domain),
+        ToyTranscript::new(domain),
     );
 
     assert!(
@@ -567,10 +567,10 @@ fn test_soundness_tamper_proof_structure() {
         setup_vmv_test_environment(length, max_log_n, sigma);
 
     // Generate proof
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
     let mut proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript, &a, &b_points, sigma, &prover_setup);
@@ -598,7 +598,7 @@ fn test_soundness_tamper_proof_structure() {
 
     let verification_result = verify_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
         DummyMsm<Fq12>,
@@ -610,7 +610,7 @@ fn test_soundness_tamper_proof_structure() {
         &b_points,
         sigma,
         &verifier_setup,
-        ToyTranscript::<Fr, Blake2s256>::new(domain),
+        ToyTranscript::new(domain),
     );
 
     assert!(
@@ -634,10 +634,10 @@ fn test_soundness_offset_manipulation() {
         setup_vmv_test_environment(length, max_log_n, sigma);
 
     // Generate proof with offset 0
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
     let proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript, &a, &b_points, sigma, &prover_setup);
@@ -665,7 +665,7 @@ fn test_soundness_offset_manipulation() {
 
     let verification_result = verify_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
         DummyMsm<Fq12>,
@@ -677,7 +677,7 @@ fn test_soundness_offset_manipulation() {
         &b_points,
         sigma,
         &verifier_setup,
-        ToyTranscript::<Fr, Blake2s256>::new(domain),
+        ToyTranscript::new(domain),
     );
 
     assert!(
@@ -707,10 +707,10 @@ fn test_soundness_different_polynomial_degree() {
         .collect::<Vec<_>>();
 
     // Generate proof for wrong polynomial
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
     let proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(
@@ -733,7 +733,7 @@ fn test_soundness_different_polynomial_degree() {
 
     let verification_result = verify_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
         DummyMsm<Fq12>,
@@ -745,7 +745,7 @@ fn test_soundness_different_polynomial_degree() {
         &b_points,
         sigma,
         &verifier_setup,
-        ToyTranscript::<Fr, Blake2s256>::new(domain),
+        ToyTranscript::new(domain),
     );
 
     assert!(
@@ -769,10 +769,10 @@ fn test_soundness_all_vmv_messages_tampered() {
         setup_vmv_test_environment(length, max_log_n, sigma);
 
     // Generate proof
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
     let mut proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript, &a, &b_points, sigma, &prover_setup);
@@ -795,11 +795,11 @@ fn test_soundness_all_vmv_messages_tampered() {
         vmv_msg.e1 = G1Affine::random(&mut rng);
 
         // Create fresh transcript for verification
-        let verify_transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+        let verify_transcript = ToyTranscript::new(domain);
 
         let verification_result = verify_evaluation_proof::<
             ArkBn254Pairing,
-            ToyTranscript<Fr, Blake2s256>,
+            ToyTranscript,
             OptimizedMsmG1,
             OptimizedMsmG2,
             DummyMsm<Fq12>,
@@ -841,19 +841,19 @@ fn test_soundness_relationship_attack() {
         .collect::<Vec<_>>();
 
     // Generate proof for first polynomial
-    let transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript = ToyTranscript::new(domain);
     let mut proof = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript, &a, &b_points, sigma, &prover_setup);
 
     // Get VMV message from a different polynomial
-    let transcript2 = ToyTranscript::<Fr, Blake2s256>::new(domain);
+    let transcript2 = ToyTranscript::new(domain);
     let proof2 = create_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
     >(transcript2, &a2, &b_points, sigma, &prover_setup);
@@ -877,7 +877,7 @@ fn test_soundness_relationship_attack() {
 
     let verification_result = verify_evaluation_proof::<
         ArkBn254Pairing,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
         DummyMsm<Fq12>,
@@ -889,7 +889,7 @@ fn test_soundness_relationship_attack() {
         &b_points,
         sigma,
         &verifier_setup,
-        ToyTranscript::<Fr, Blake2s256>::new(domain),
+        ToyTranscript::new(domain),
     );
 
     assert!(

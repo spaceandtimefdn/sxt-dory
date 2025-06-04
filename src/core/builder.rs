@@ -4,9 +4,7 @@
 use crate::transcript::Transcript;
 use std::marker::PhantomData;
 
-use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use blake2::Blake2s256;
 
 use crate::{
     arithmetic::{Field, Group},
@@ -85,7 +83,7 @@ where
     G1: Group<Scalar = Scalar>,
     G2: Group<Scalar = Scalar>,
     GT: Group<Scalar = Scalar>,
-    Scalar: Field + PrimeField,
+    Scalar: Field,
     T: Transcript<Scalar = Scalar>,
 {
     /// First prover message for round i
@@ -108,7 +106,7 @@ where
     G1: Group<Scalar = Scalar>,
     G2: Group<Scalar = Scalar>,
     GT: Group<Scalar = Scalar>,
-    Scalar: Field + PrimeField,
+    Scalar: Field,
     T: Transcript<Scalar = Scalar>,
 {
     /// Constructor from new transcript
@@ -126,11 +124,11 @@ where
     /// Constructor to create with ToyTranscript for testing
     pub fn new_with_toy_transcript(
         domain: &[u8],
-    ) -> DoryProofBuilder<G1, G2, GT, Scalar, ToyTranscript<Scalar, Blake2s256>>
+    ) -> DoryProofBuilder<G1, G2, GT, Scalar, ToyTranscript>
     where
-        ToyTranscript<Scalar, Blake2s256>: Transcript<Scalar = Scalar>,
+        ToyTranscript: Transcript<Scalar = Scalar>,
     {
-        let transcript = ToyTranscript::<Scalar, Blake2s256>::new(domain);
+        let transcript = ToyTranscript::new(domain);
         DoryProofBuilder {
             first_messages: Vec::new(),
             second_messages: Vec::new(),
@@ -185,7 +183,7 @@ where
     G1Arg: Group<Scalar = ScalarArg>,
     G2Arg: Group<Scalar = ScalarArg>,
     GTArg: Group<Scalar = ScalarArg>,
-    ScalarArg: Field + PrimeField,
+    ScalarArg: Field,
     T: Transcript<Scalar = ScalarArg>,
 {
     type G1 = G1Arg;
@@ -273,7 +271,7 @@ pub trait VerificationBuilder {
     /// GT
     type GT: Group;
     /// F_r
-    type Scalar: Field + PrimeField;
+    type Scalar: Field;
 
     /// Number of rounds (nu)
     fn rounds(&mut self) -> usize;
@@ -325,7 +323,7 @@ where
     G1: Group<Scalar = Scalar>,
     G2: Group<Scalar = Scalar>,
     GT: Group<Scalar = Scalar>,
-    Scalar: Field + PrimeField,
+    Scalar: Field,
     T: Transcript<Scalar = Scalar>,
 {
     transcript: T,
@@ -342,7 +340,7 @@ where
     G1: Group<Scalar = Scalar>,
     G2: Group<Scalar = Scalar>,
     GT: Group<Scalar = Scalar>,
-    Scalar: Field + PrimeField,
+    Scalar: Field,
     T: Transcript<Scalar = Scalar>,
 {
     /// Build from a serializable `DoryProof` and a fresh transcript.
@@ -396,7 +394,7 @@ where
     G1: Group<Scalar = Scalar>,
     G2: Group<Scalar = Scalar>,
     GT: Group<Scalar = Scalar>,
-    Scalar: Field + PrimeField,
+    Scalar: Field,
     T: Transcript<Scalar = Scalar>,
 {
     type G1 = G1;
@@ -505,7 +503,7 @@ where
     G1: Group<Scalar = Scalar>,
     G2: Group<Scalar = Scalar>,
     GT: Group<Scalar = Scalar>,
-    Scalar: Field + PrimeField,
+    Scalar: Field,
     T: Transcript<Scalar = Scalar>,
 {
     /// Print statistics about the proof structure

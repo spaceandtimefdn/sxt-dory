@@ -1,12 +1,11 @@
 //! Transcript trait for fiat shamir
 use crate::arithmetic::Field;
-use ark_ff::PrimeField;
 use ark_serialize::CanonicalSerialize;
 
 /// Transcript to standardize fiat shamir for generic concrete transcripts
 pub trait Transcript {
     /// The scalar field associated with the transcript, matching the groups used.
-    type Scalar: Field + PrimeField;
+    type Scalar: Field;
 
     /// Appends arbitrary bytes to the transcript.
     ///

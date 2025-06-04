@@ -67,7 +67,7 @@ where
         if mid >= v.len() {
             // No right portion if we've filled the vector, just multiply all by (1-p)
             for li in v.iter_mut() {
-                *li = li.clone().mul(&one_minus_p);
+                *li = li.clone() * one_minus_p;
             }
         } else {
             // We can split the vector:
@@ -76,13 +76,13 @@ where
 
             // Transform paired elements
             for (li, ri) in left[..k].iter_mut().zip(right[..k].iter_mut()) {
-                *ri = li.clone().mul(p); // New basis function with current variable
-                *li = li.clone().mul(&one_minus_p); // Existing basis function without current variable
+                *ri = li.clone() * (*p); // New basis function with current variable
+                *li = li.clone() * one_minus_p; // Existing basis function without current variable
             }
 
             // Handle remaining left elements (when left is longer than right)
             for li in left[k..].iter_mut() {
-                *li = li.clone().mul(&one_minus_p);
+                *li = li.clone() * one_minus_p;
             }
         }
     }

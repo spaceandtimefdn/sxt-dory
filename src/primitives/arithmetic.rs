@@ -4,10 +4,11 @@ use ark_std::rand::RngCore;
 
 /// --------- field ----------------------------------------------------------
 pub trait Field:
-    Sized + Clone + PartialEq + Send + Sync + CanonicalSerialize + CanonicalDeserialize + Valid
+    Sized + Clone + Copy + PartialEq + Send + Sync + CanonicalSerialize + CanonicalDeserialize + Valid + std::ops::Mul<Output = Self> + std::iter::Sum
 {
     fn zero() -> Self;
     fn one() -> Self;
+    fn is_zero(&self) -> bool;
 
     fn add(&self, rhs: &Self) -> Self;
     fn sub(&self, rhs: &Self) -> Self;

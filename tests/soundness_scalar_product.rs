@@ -68,7 +68,7 @@ fn test_soundness_scalar_product_wrong_e1() {
         G2AffineWrapper,
         Fq12,
         Fr,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
     >::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
@@ -88,9 +88,9 @@ fn test_soundness_scalar_product_wrong_e1() {
             G2AffineWrapper,
             Fq12,
             Fr,
-            ToyTranscript<Fr, Blake2s256>,
+            ToyTranscript,
         >::new_from_proof(
-            proof_builder, ToyTranscript::<Fr, Blake2s256>::new(domain)
+            proof_builder, ToyTranscript::new(domain)
         );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
@@ -117,7 +117,7 @@ fn test_soundness_scalar_product_wrong_e2() {
         G2AffineWrapper,
         Fq12,
         Fr,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
     >::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
@@ -137,9 +137,9 @@ fn test_soundness_scalar_product_wrong_e2() {
             G2AffineWrapper,
             Fq12,
             Fr,
-            ToyTranscript<Fr, Blake2s256>,
+            ToyTranscript,
         >::new_from_proof(
-            proof_builder, ToyTranscript::<Fr, Blake2s256>::new(domain)
+            proof_builder, ToyTranscript::new(domain)
         );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
@@ -166,7 +166,7 @@ fn test_soundness_scalar_product_both_wrong() {
         G2AffineWrapper,
         Fq12,
         Fr,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
     >::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
@@ -187,9 +187,9 @@ fn test_soundness_scalar_product_both_wrong() {
             G2AffineWrapper,
             Fq12,
             Fr,
-            ToyTranscript<Fr, Blake2s256>,
+            ToyTranscript,
         >::new_from_proof(
-            proof_builder, ToyTranscript::<Fr, Blake2s256>::new(domain)
+            proof_builder, ToyTranscript::new(domain)
         );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
@@ -219,7 +219,7 @@ fn test_soundness_scalar_product_scaled_values() {
         G2AffineWrapper,
         Fq12,
         Fr,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
     >::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
@@ -244,9 +244,9 @@ fn test_soundness_scalar_product_scaled_values() {
             G2AffineWrapper,
             Fq12,
             Fr,
-            ToyTranscript<Fr, Blake2s256>,
+            ToyTranscript,
         >::new_from_proof(
-            proof_builder, ToyTranscript::<Fr, Blake2s256>::new(domain)
+            proof_builder, ToyTranscript::new(domain)
         );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
@@ -278,7 +278,7 @@ fn test_soundness_scalar_product_relationship_attack() {
         G2AffineWrapper,
         Fq12,
         Fr,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
     >::new_with_toy_transcript(domain);
     let proof1 = inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
         builder1,
@@ -293,7 +293,7 @@ fn test_soundness_scalar_product_relationship_attack() {
         G2AffineWrapper,
         Fq12,
         Fr,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
     >::new_with_toy_transcript(domain);
     let mut proof2 = inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
         builder2,
@@ -314,9 +314,9 @@ fn test_soundness_scalar_product_relationship_attack() {
             G2AffineWrapper,
             Fq12,
             Fr,
-            ToyTranscript<Fr, Blake2s256>,
+            ToyTranscript,
         >::new_from_proof(
-            proof2, ToyTranscript::<Fr, Blake2s256>::new(domain)
+            proof2, ToyTranscript::new(domain)
         );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
@@ -345,7 +345,7 @@ fn test_soundness_scalar_product_missing_message() {
         G2AffineWrapper,
         Fq12,
         Fr,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
     >::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
@@ -364,9 +364,9 @@ fn test_soundness_scalar_product_missing_message() {
         G2AffineWrapper,
         Fq12,
         Fr,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
     >::new_from_proof(
-        proof_builder, ToyTranscript::<Fr, Blake2s256>::new(domain)
+        proof_builder, ToyTranscript::new(domain)
     );
     let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
@@ -395,7 +395,7 @@ fn test_soundness_scalar_product_pairing_check() {
         G2AffineWrapper,
         Fq12,
         Fr,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
     >::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
@@ -421,9 +421,9 @@ fn test_soundness_scalar_product_pairing_check() {
             G2AffineWrapper,
             Fq12,
             Fr,
-            ToyTranscript<Fr, Blake2s256>,
+            ToyTranscript,
         >::new_from_proof(
-            proof_builder, ToyTranscript::<Fr, Blake2s256>::new(domain)
+            proof_builder, ToyTranscript::new(domain)
         );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
@@ -453,7 +453,7 @@ fn test_soundness_scalar_product_after_valid_rounds() {
         G2AffineWrapper,
         Fq12,
         Fr,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
     >::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
@@ -476,9 +476,9 @@ fn test_soundness_scalar_product_after_valid_rounds() {
             G2AffineWrapper,
             Fq12,
             Fr,
-            ToyTranscript<Fr, Blake2s256>,
+            ToyTranscript,
         >::new_from_proof(
-            proof_builder, ToyTranscript::<Fr, Blake2s256>::new(domain)
+            proof_builder, ToyTranscript::new(domain)
         );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
@@ -514,7 +514,7 @@ fn test_soundness_scalar_product_identity_elements() {
         G2AffineWrapper,
         Fq12,
         Fr,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
     >::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
@@ -535,9 +535,9 @@ fn test_soundness_scalar_product_identity_elements() {
             G2AffineWrapper,
             Fq12,
             Fr,
-            ToyTranscript<Fr, Blake2s256>,
+            ToyTranscript,
         >::new_from_proof(
-            proof_builder, ToyTranscript::<Fr, Blake2s256>::new(domain)
+            proof_builder, ToyTranscript::new(domain)
         );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
@@ -567,7 +567,7 @@ fn test_soundness_scalar_product_consistency_check() {
         G2AffineWrapper,
         Fq12,
         Fr,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
     >::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
@@ -598,9 +598,9 @@ fn test_soundness_scalar_product_consistency_check() {
             G2AffineWrapper,
             Fq12,
             Fr,
-            ToyTranscript<Fr, Blake2s256>,
+            ToyTranscript,
         >::new_from_proof(
-            proof_builder, ToyTranscript::<Fr, Blake2s256>::new(domain)
+            proof_builder, ToyTranscript::new(domain)
         );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 

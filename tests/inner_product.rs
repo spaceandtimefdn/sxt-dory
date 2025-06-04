@@ -96,7 +96,7 @@ fn test_inner_product_prove_verify() {
         G2AffineWrapper,
         Fq12,
         Fr,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
     >::new_with_toy_transcript(domain);
 
     // Generate proof
@@ -114,8 +114,8 @@ fn test_inner_product_prove_verify() {
         G2AffineWrapper,
         Fq12,
         Fr,
-        ToyTranscript<Fr, Blake2s256>,
-    >::new_from_proof(proof, ToyTranscript::<Fr, Blake2s256>::new(domain));
+        ToyTranscript,
+    >::new_from_proof(proof, ToyTranscript::new(domain));
 
     // ----- Verification phase -----
     println!("Verifying proof...");
@@ -191,7 +191,7 @@ fn test_inner_product_verify_should_fail() {
         G2AffineWrapper,
         Fq12,
         Fr,
-        ToyTranscript<Fr, Blake2s256>,
+        ToyTranscript,
     >::new_with_toy_transcript(domain);
 
     // Generate proof
@@ -223,7 +223,7 @@ fn test_inner_product_verify_should_fail() {
             let corrupt_d1_left = Fq12::random(&mut rng);
             corrupt_proof.first_messages[0].d1_left = corrupt_d1_left;
 
-            let verify_transcript = ToyTranscript::<Fr, Blake2s256>::new(domain);
+            let verify_transcript = ToyTranscript::new(domain);
 
             // create a verifier
             let verify_builder = DoryVerifyBuilder::<
@@ -231,7 +231,7 @@ fn test_inner_product_verify_should_fail() {
                 G2AffineWrapper,
                 Fq12,
                 Fr,
-                ToyTranscript<Fr, Blake2s256>,
+                ToyTranscript,
             >::new_from_proof(corrupt_proof, verify_transcript);
 
             // Test verification

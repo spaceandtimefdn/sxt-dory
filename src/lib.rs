@@ -11,10 +11,8 @@ use crate::error::DoryError;
 use crate::toy_transcript::ToyTranscript;
 use crate::transcript::Transcript;
 
-use ark_ff::PrimeField;
 // use ark_serialize::CanonicalSerialize;
 use ark_std::rand::RngCore;
-use blake2::Blake2s256;
 
 mod core;
 mod error;
@@ -212,7 +210,7 @@ where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
     E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
-    <E::G1 as Group>::Scalar: Field + PrimeField + Clone,
+    <E::G1 as Group>::Scalar: Field + Clone,
 {
     // Compute the evaluation
     let evaluation = compute_polynomial_evaluation(coeffs, point);
@@ -258,7 +256,7 @@ where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
     E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
-    <E::G1 as Group>::Scalar: Field + PrimeField,
+    <E::G1 as Group>::Scalar: Field,
 {
     // Prepare verification data
     let commitment_batch = vec![commitment];
@@ -285,11 +283,6 @@ where
 ///
 /// # Returns
 /// A new transcript instance using Blake2s256 hasher
-pub fn create_transcript<Scalar: Field + PrimeField>(
-    domain: &[u8],
-) -> ToyTranscript<Scalar, Blake2s256>
-where
-    ToyTranscript<Scalar, Blake2s256>: Transcript<Scalar = Scalar>,
-{
-    ToyTranscript::<Scalar, Blake2s256>::new(domain)
+pub fn create_transcript(domain: &[u8]) -> ToyTranscript {
+    ToyTranscript::new(domain)
 }

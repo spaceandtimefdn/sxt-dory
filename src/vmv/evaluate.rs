@@ -1,10 +1,10 @@
 //! Contains the utility required to turn Dory arguments into a full-fledged PCS
 //! Primarily makes use of the `eval_vmv_re` protocol
 //! `eval_vmv_re` is essentially the `eval` algorithm of the tuple of PCS algorithms
-use ark_ff::{Field, PrimeField};
+// use ark_ff::Field;
 
 use crate::{
-    arithmetic::{Group, MultiScalarMul, Pairing},
+    arithmetic::{Field, Group, MultiScalarMul, Pairing},
     build_vmv_prover_state,
     builder::{DoryProofBuilder, DoryVerifyBuilder, VerificationBuilder},
     commit_to_rows, compute_left_right_vec,
@@ -40,7 +40,7 @@ where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
     E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
-    <E::G1 as Group>::Scalar: Field + PrimeField,
+    <E::G1 as Group>::Scalar: Field,
 {
     // Validate inputs
     if prover_state.v1.is_empty() || prover_state.s1.is_empty() {
@@ -116,7 +116,7 @@ where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
     E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
-    <E::G1 as Group>::Scalar: Field + PrimeField,
+    <E::G1 as Group>::Scalar: Field,
 {
     // 1. Compute parameters
     let nu = compute_nu(point.len(), sigma);
@@ -223,7 +223,7 @@ where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
     E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
-    <E::G1 as Group>::Scalar: Field + PrimeField,
+    <E::G1 as Group>::Scalar: Field,
 {
     let vmv_message = verify_builder.process_vmv_message();
     let final_verifier_state =
@@ -254,7 +254,7 @@ where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
     E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
-    <E::G1 as Group>::Scalar: Field + PrimeField,
+    <E::G1 as Group>::Scalar: Field,
 {
     // 1. Compute the MSM of commits and the factors
     let a_commit = MGT::msm(commitment_batch, batching_factors);

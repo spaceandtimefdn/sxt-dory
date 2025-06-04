@@ -25,6 +25,9 @@ impl Field for Fr {
     fn one() -> Self {
         One::one()
     }
+    fn is_zero(&self) -> bool {
+        Zero::is_zero(self)
+    }
 
     fn add(&self, rhs: &Self) -> Self {
         *self + *rhs
@@ -36,7 +39,7 @@ impl Field for Fr {
         *self * *rhs
     }
     fn inv(&self) -> Option<Self> {
-        if self.is_zero() {
+        if Zero::is_zero(self) {
             None
         } else {
             Some(self.inverse().unwrap())
@@ -223,7 +226,7 @@ impl Group for Fq12 {
     }
 
     fn neg(&self) -> Self {
-        if self.is_zero() {
+        if Zero::is_zero(self) {
             *self
         } else {
             self.inverse().unwrap()

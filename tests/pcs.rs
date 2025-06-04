@@ -43,7 +43,7 @@ fn test_pcs_api_workflow() {
 
     // Evaluate and prove
     let eval_start = Instant::now();
-    let transcript = create_transcript::<Fr>(domain);
+    let transcript = create_transcript(domain);
     let (evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
         &coeffs,
         &point,
@@ -59,7 +59,7 @@ fn test_pcs_api_workflow() {
 
     // Verify - create fresh transcript for verification
     let verify_start = Instant::now();
-    let verify_transcript = create_transcript::<Fr>(domain);
+    let verify_transcript = create_transcript(domain);
     let result = verify::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2, DummyMsm<_>>(
         commitment,
         evaluation,
