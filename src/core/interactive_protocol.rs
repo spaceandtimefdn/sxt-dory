@@ -3,7 +3,7 @@
 use rayon::prelude::*;
 
 use crate::{
-    arithmetic::{Field, Group, MultiScalarMul, Pairing},
+    arithmetic::{Field, Group, MultiScalarMul, MultilinearPolynomial, Pairing},
     messages::{
         FirstReduceChallenge, FirstReduceMessage, FoldScalarsChallenge, ScalarProductMessage,
         SecondReduceChallenge, SecondReduceMessage,
@@ -61,9 +61,9 @@ where
 
         /* ---------- COMPUTE E (for extended protocol) ---------- */
         // E₁β = ⟨Γ₁ , s₂⟩
-        let e1_beta = M1::msm(&setup.g1_vec[..1 << self.nu], &self.s2);
+        let e1_beta = M1::msm(&setup.g1_vec[..1 << self.nu], &MultilinearPolynomial::LargeScalars(&self.s2));
         // E₂β = ⟨Γ₂ , s₁⟩
-        let e2_beta = M2::msm(&setup.g2_vec[..1 << self.nu], &self.s1);
+        let e2_beta = M2::msm(&setup.g2_vec[..1 << self.nu], &MultilinearPolynomial::LargeScalars(&self.s1));
 
         FirstReduceMessage {
             d1_left,
@@ -128,11 +128,11 @@ where
         let c_minus = E::multi_pair(v1_r, v2_l); // ⟨v₁R, v₂L⟩
 
         // ---- E terms (extended protocol) ---------------------------------------
-        let e1_plus = M1::msm(v1_l, s2_r); // ⟨v₁L, s₂R⟩
-        let e1_minus = M1::msm(v1_r, s2_l); // ⟨v₁R, s₂L⟩
+        let e1_plus = M1::msm(v1_l, &MultilinearPolynomial::LargeScalars(s2_r)); // ⟨v₁L, s₂R⟩
+        let e1_minus = M1::msm(v1_r, &MultilinearPolynomial::LargeScalars(s2_l)); // ⟨v₁R, s₂L⟩
 
-        let e2_plus = M2::msm(v2_r, s1_l); // ⟨v₂R, s₁L⟩
-        let e2_minus = M2::msm(v2_l, s1_r); // ⟨v₂L, s₁R⟩
+        let e2_plus = M2::msm(v2_r, &MultilinearPolynomial::LargeScalars(s1_l)); // ⟨v₂R, s₁L⟩
+        let e2_minus = M2::msm(v2_l, &MultilinearPolynomial::LargeScalars(s1_r)); // ⟨v₂L, s₁R⟩
 
         SecondReduceMessage {
             c_plus,

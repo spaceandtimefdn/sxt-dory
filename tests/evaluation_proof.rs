@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use ark_bn254::{Fq12, Fr};
 use dory::{
-    arithmetic::{Field, Group},
+    arithmetic::{Field, Group, MultilinearPolynomial},
     builder::DoryProofBuilder,
     setup::ProverSetup,
     toy_transcript::ToyTranscript,
@@ -84,7 +84,7 @@ fn test_evaluation_proof_sigma_2() {
         ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
-    >(transcript, &a, &b_points, sigma, &prover_setup);
+    >(transcript, &MultilinearPolynomial::LargeScalars(&a), &b_points, sigma, &prover_setup);
 
     let proof_time = proof_start.elapsed();
     println!("Proof generated in: {:?}", proof_time);
@@ -221,7 +221,7 @@ fn test_evaluation_proof_verification_should_fail() {
         ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
-    >(transcript, &a, &b_points, sigma, &prover_setup);
+    >(transcript, &MultilinearPolynomial::LargeScalars(&a), &b_points, sigma, &prover_setup);
 
     let proof_time = proof_start.elapsed();
     println!("Proof generated in: {:?}", proof_time);
@@ -335,7 +335,7 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
         ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
-    >(transcript, &a, &b_points, sigma, &prover_setup);
+    >(transcript, &MultilinearPolynomial::LargeScalars(&a), &b_points, sigma, &prover_setup);
 
     let proof_time = proof_start.elapsed();
     println!("Proof generated in: {:?}", proof_time);

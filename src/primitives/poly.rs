@@ -1,10 +1,10 @@
 //! (multilinear) polynomial utlities
-use crate::arithmetic::Field;
+use crate::arithmetic::{Field, MultilinearPolynomial};
 
 /// Compute the evaluation of a multilinear polynomial at a given point
 /// Uses the lagrange evaluation basis
 /// Ref: Section 2.5 of Dory paper.
-pub fn compute_polynomial_evaluation<F: Field + Clone>(coeffs: &[F], point: &[F]) -> F {
+pub fn compute_polynomial_evaluation<F: Field + Clone>(coeffs: &MultilinearPolynomial<F>, point: &[F]) -> F {
     let mut eval_vec: Vec<F> = vec![F::zero(); coeffs.len()];
 
     let expected_size = 1 << point.len();
@@ -175,29 +175,34 @@ pub fn compute_l_r_tensors<F: Field + Copy>(
 /// Computes v = L^T × M in Dory's VMV protocol
 /// First step of Vector-Matrix-Vector: L^T * M
 pub fn compute_v_vec<F: Field + Clone>(
-    a: &[F],        // Polynomial coefficients (flattened matrix M)
-    left_vec: &[F], // L vector (row evaluation weights)
-    sigma: usize,   // log₂(columns) - matrix width
-    nu: usize,      // log₂(rows) - matrix height
+    a: &MultilinearPolynomial<F>, // Polynomial coefficients (flattened matrix M)
+    left_vec: &[F],               // L vector (row evaluation weights)
+    sigma: usize,                 // log₂(columns) - matrix width
+    nu: usize,                    // log₂(rows) - matrix height
 ) -> Vec<F> {
     let mut v = vec![F::zero(); 1 << nu]; // Result: v = L^T × M
+    let cols_per_row = 1 << sigma;
 
     // Process each row of matrix M
-    for (row_idx, row_coeffs) in a.chunks(1 << sigma).enumerate() {
+    for row_idx in 0..(1 << nu) {
         if row_idx >= left_vec.len() {
             break;
         }
 
         let l_weight = &left_vec[row_idx]; // Weight for this row
+        let row_start = row_idx * cols_per_row;
 
         // Add weighted row to result: v += l_weight * row
-        for (col_idx, a_coeff) in row_coeffs.iter().enumerate() {
+        for col_idx in 0..cols_per_row {
             if col_idx >= v.len() {
                 break;
             }
 
-            let product = l_weight.mul(a_coeff);
-            v[col_idx] = v[col_idx].add(&product);
+            let coeff_idx = row_start + col_idx;
+            if let Some(a_coeff) = a.get(coeff_idx) {
+                let product = l_weight.mul(&a_coeff);
+                v[col_idx] = v[col_idx].add(&product);
+            }
         }
     }
 

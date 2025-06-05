@@ -1,5 +1,5 @@
 //! Multilinear polynomial commitmnets as a matrix
-use crate::arithmetic::{Field, Group, MultiScalarMul, Pairing};
+use crate::arithmetic::{Field, Group, MultiScalarMul, MultilinearPolynomial, Pairing};
 use crate::poly::compute_polynomial_evaluation;
 use crate::setup::ProverSetup;
 
@@ -27,7 +27,7 @@ pub fn compute_polynomial_commitment<E: Pairing, M1: MultiScalarMul<E::G1>>(
     let first_row_commit = if first_row_len > 0 {
         M1::msm(
             &prover_setup.g1_vec[first_row_offset..first_row_offset + first_row_len],
-            first_row_coeffs,
+            &MultilinearPolynomial::LargeScalars(first_row_coeffs),
         )
     } else {
         E::G1::identity()
@@ -38,7 +38,7 @@ pub fn compute_polynomial_commitment<E: Pairing, M1: MultiScalarMul<E::G1>>(
 
     // Remaining row commitments (full rows)
     for row_coeffs in remaining_coeffs.chunks(num_columns) {
-        let row_commit = M1::msm(&prover_setup.g1_vec[0..row_coeffs.len()], row_coeffs);
+        let row_commit = M1::msm(&prover_setup.g1_vec[0..row_coeffs.len()], &MultilinearPolynomial::LargeScalars(row_coeffs));
         g1_row_commitments.push(row_commit);
     }
 
@@ -70,7 +70,7 @@ where
     let commitment = compute_polynomial_commitment::<E, M1>(coeffs, offset, sigma, prover_setup);
 
     // Compute the evaluation of the polynomial at the point
-    let evaluation = compute_polynomial_evaluation(coeffs, point);
+    let evaluation = compute_polynomial_evaluation(&MultilinearPolynomial::LargeScalars(coeffs), point);
 
     // For a single polynomial, we use a single batching factor of 1
     let commitment_batch = vec![commitment];

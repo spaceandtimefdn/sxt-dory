@@ -2,7 +2,7 @@
 use ark_bn254::{Fq12, Fr};
 use ark_ff::UniformRand;
 use dory::{
-    arithmetic::Field as DoryField, commit, create_transcript, evaluate, setup_with_srs_file,
+    arithmetic::{Field as DoryField, MultilinearPolynomial}, commit, create_transcript, evaluate, setup_with_srs_file,
     verify,
 };
 
@@ -52,7 +52,7 @@ fn test_soundness_wrong_evaluation() {
     // Generate proof
     let transcript = create_transcript(domain);
     let (correct_evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &coeffs,
+        &MultilinearPolynomial::LargeScalars(&coeffs),
         &point,
         sigma,
         &prover_setup,
@@ -95,7 +95,7 @@ fn test_soundness_wrong_commitment() {
     // Generate proof
     let transcript = create_transcript(domain);
     let (evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &coeffs,
+        &MultilinearPolynomial::LargeScalars(&coeffs),
         &point,
         sigma,
         &prover_setup,
@@ -141,7 +141,7 @@ fn test_soundness_wrong_evaluation_point() {
     // Generate proof for one point
     let transcript = create_transcript(domain);
     let (evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &coeffs,
+        &MultilinearPolynomial::LargeScalars(&coeffs),
         &point,
         sigma,
         &prover_setup,
@@ -201,7 +201,7 @@ fn test_soundness_binding_property() {
     // Generate proof for first polynomial
     let transcript = create_transcript(domain);
     let (eval1, proof1) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &coeffs1,
+        &MultilinearPolynomial::LargeScalars(&coeffs1),
         &point,
         sigma,
         &prover_setup,
@@ -250,7 +250,7 @@ fn test_soundness_polynomial_mismatch() {
     // Generate proof for second polynomial
     let transcript = create_transcript(domain);
     let (eval2, proof2) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &coeffs2,
+        &MultilinearPolynomial::LargeScalars(&coeffs2),
         &point,
         sigma,
         &prover_setup,
@@ -296,7 +296,7 @@ fn test_soundness_offset_manipulation() {
     // Generate proof for offset 0
     let transcript = create_transcript(domain);
     let (evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &coeffs,
+        &MultilinearPolynomial::LargeScalars(&coeffs),
         &point,
         sigma,
         &prover_setup,
@@ -341,7 +341,7 @@ fn test_soundness_zero_polynomial() {
 
     let transcript = create_transcript(domain);
     let (evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &zero_coeffs,
+        &MultilinearPolynomial::LargeScalars(&zero_coeffs),
         &point,
         sigma,
         &prover_setup,
@@ -395,7 +395,7 @@ fn test_soundness_constant_polynomial() {
 
     let transcript = create_transcript(domain);
     let (evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &coeffs,
+        &MultilinearPolynomial::LargeScalars(&coeffs),
         &point,
         sigma,
         &prover_setup,
@@ -448,7 +448,7 @@ fn test_soundness_completeness_multiple_points() {
 
         let transcript = create_transcript(domain);
         let (evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-            &coeffs,
+            &MultilinearPolynomial::LargeScalars(&coeffs),
             &point,
             sigma,
             &prover_setup,
@@ -494,7 +494,7 @@ fn test_soundness_cross_polynomial_attack() {
     // Generate proofs for both
     let transcript1 = create_transcript(domain);
     let (eval1, proof1) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &coeffs1,
+        &MultilinearPolynomial::LargeScalars(&coeffs1),
         &point,
         sigma,
         &prover_setup,
@@ -503,7 +503,7 @@ fn test_soundness_cross_polynomial_attack() {
 
     let transcript2 = create_transcript(domain);
     let (eval2, proof2) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &coeffs2,
+        &MultilinearPolynomial::LargeScalars(&coeffs2),
         &point,
         sigma,
         &prover_setup,
@@ -569,7 +569,7 @@ fn test_soundness_batch_verification() {
 
         let transcript = create_transcript(domain);
         let (evaluation, _) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-            &coeffs,
+            &MultilinearPolynomial::LargeScalars(&coeffs),
             &point,
             sigma,
             &prover_setup,
@@ -588,7 +588,7 @@ fn test_soundness_batch_verification() {
         // Generate valid proof for first polynomial
         let transcript = create_transcript(domain);
         let (_, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-            &coeffs_batch[0],
+            &MultilinearPolynomial::LargeScalars(&coeffs_batch[0]),
             &point,
             sigma,
             &prover_setup,
@@ -638,7 +638,7 @@ fn test_soundness_sparse_polynomial() {
 
     let transcript = create_transcript(domain);
     let (evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &sparse_coeffs,
+        &MultilinearPolynomial::LargeScalars(&sparse_coeffs),
         &point,
         sigma,
         &prover_setup,
@@ -689,7 +689,7 @@ fn test_soundness_commitment_consistency() {
     // Generate proof
     let transcript = create_transcript(domain);
     let (evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &coeffs,
+        &MultilinearPolynomial::LargeScalars(&coeffs),
         &point,
         sigma,
         &prover_setup,
@@ -710,7 +710,7 @@ fn test_soundness_commitment_consistency() {
     // Generate proof again for second verification (can't clone DoryProofBuilder)
     let transcript2 = create_transcript(domain);
     let (evaluation2, proof2) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &coeffs,
+        &MultilinearPolynomial::LargeScalars(&coeffs),
         &point,
         sigma,
         &prover_setup,
@@ -759,7 +759,7 @@ fn test_soundness_degree_bound() {
 
     let transcript = create_transcript(domain);
     let (evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &max_degree_coeffs,
+        &MultilinearPolynomial::LargeScalars(&max_degree_coeffs),
         &point,
         sigma,
         &prover_setup,
@@ -781,7 +781,7 @@ fn test_soundness_degree_bound() {
     // Generate new proof for wrong evaluation test (can't reuse proof)
     let transcript2 = create_transcript(domain);
     let (evaluation2, proof2) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &max_degree_coeffs,
+        &MultilinearPolynomial::LargeScalars(&max_degree_coeffs),
         &point,
         sigma,
         &prover_setup,

@@ -2,6 +2,7 @@
 use ark_bn254::Fr;
 use ark_ff::UniformRand;
 use dory::*;
+use dory::arithmetic::MultilinearPolynomial;
 use std::time::Instant;
 
 use dory::curve::{test_rng, ArkBn254Pairing, DummyMsm, OptimizedMsmG1, OptimizedMsmG2};
@@ -45,7 +46,7 @@ fn test_pcs_api_workflow() {
     let eval_start = Instant::now();
     let transcript = create_transcript(domain);
     let (evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
-        &coeffs,
+        &MultilinearPolynomial::LargeScalars(&coeffs),
         &point,
         sigma,
         &prover_setup,

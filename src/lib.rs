@@ -6,7 +6,7 @@
 //! This crate provides a Rust implementation of the commitment scheme, intended to be usable as a
 //! building block for other zk/SNARK protocols.
 
-use crate::arithmetic::{Field, Group, MultiScalarMul, Pairing};
+use crate::arithmetic::{Field, Group, MultiScalarMul, MultilinearPolynomial, Pairing};
 use crate::error::DoryError;
 use crate::toy_transcript::ToyTranscript;
 use crate::transcript::Transcript;
@@ -197,7 +197,7 @@ pub fn evaluate<
     M1: MultiScalarMul<E::G1>,
     M2: MultiScalarMul<E::G2>,
 >(
-    coeffs: &[<E::G1 as Group>::Scalar],
+    polynomial: &MultilinearPolynomial<'_, <E::G1 as Group>::Scalar>,
     point: &[<E::G1 as Group>::Scalar],
     sigma: usize,
     prover_setup: &ProverSetup<E>,
@@ -213,11 +213,10 @@ where
     <E::G1 as Group>::Scalar: Field + Clone,
 {
     // Compute the evaluation
-    let evaluation = compute_polynomial_evaluation(coeffs, point);
+    let evaluation = compute_polynomial_evaluation(polynomial, point);
 
     // Create the evaluation proof
-    let proof =
-        create_evaluation_proof::<E, T, M1, M2>(transcript, coeffs, point, sigma, prover_setup);
+    let proof = create_evaluation_proof::<E, T, M1, M2>(transcript, polynomial, point, sigma, prover_setup);
     (evaluation, proof)
 }
 

@@ -3,7 +3,7 @@ use ark_bn254::{Fq12, Fr, G1Affine};
 use ark_ff::UniformRand;
 use blake2::Blake2s256;
 use dory::{
-    arithmetic::{Field, Group, MultiScalarMul, Pairing},
+    arithmetic::{Field, Group, MultiScalarMul, MultilinearPolynomial, Pairing},
     builder::{DoryProofBuilder, DoryVerifyBuilder},
     inner_product::{inner_product_prove, inner_product_verify},
     messages::ScalarProductMessage,
@@ -45,8 +45,8 @@ fn setup_scalar_product_test_environment(
     let c = ArkBn254Pairing::multi_pair(&v1, &v2);
     let d_1 = ArkBn254Pairing::multi_pair(&v1, &prover_setup.g2_vec[..1 << log_n]);
     let d_2 = ArkBn254Pairing::multi_pair(&prover_setup.g1_vec[..1 << log_n], &v2);
-    let e_1 = OptimizedMsmG1::msm(&prover_setup.g1_vec[..1 << log_n], &s2);
-    let e_2 = OptimizedMsmG2::msm(&prover_setup.g2_vec[..1 << log_n], &s1);
+    let e_1 = OptimizedMsmG1::msm(&prover_setup.g1_vec[..1 << log_n], &MultilinearPolynomial::LargeScalars(&s2));
+    let e_2 = OptimizedMsmG2::msm(&prover_setup.g2_vec[..1 << log_n], &MultilinearPolynomial::LargeScalars(&s1));
     let verifier_state = DoryVerifierState::new_with_s(c, d_1, d_2, e_1, e_2, s1, s2, log_n);
 
     (prover_setup, verifier_setup, prover_state, verifier_state)

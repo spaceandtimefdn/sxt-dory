@@ -1,7 +1,7 @@
 //! Utilities related to the VMV commitment strategy for multilinear polynomials
 //! Defines VMV states for both provers, verifiers
 use crate::{
-    arithmetic::{Field, Group, Pairing},
+    arithmetic::{Field, Group, MultilinearPolynomial, Pairing},
     compute_left_right_vec, compute_v_vec,
     setup::ProverSetup,
     state::DoryProverState,
@@ -63,7 +63,7 @@ pub fn compute_nu(num_vars: usize, sigma: usize) -> usize {
 /// Compute the (Pedersen) commitments to the rows of the matrix M that is derived from coeffs `a`.
 /// This produces T` in the paper.
 pub fn commit_to_rows<E: Pairing, M1: MultiScalarMul<E::G1>>(
-    a: &[<E::G1 as Group>::Scalar],
+    polynomial: &MultilinearPolynomial<'_, <E::G1 as Group>::Scalar>,
     sigma: usize,
     nu: usize,
     prover_setup: &ProverSetup<E>,
@@ -74,9 +74,9 @@ where
 {
     let bases = &prover_setup.g1_vec[..1 << nu];
 
-    let res = a
+    let res = polynomial
         .chunks(1 << sigma)
-        .map(|row| M1::msm(bases, row))
+        .map(|row| M1::msm(bases, &row.to_multilinear_polynomial()))
         .chain(core::iter::repeat(E::G1::identity()))
         .take(1 << nu)
         .collect();
@@ -86,7 +86,7 @@ where
 
 /// Build the prover state for the VMV protocol
 pub fn build_vmv_prover_state<E: Pairing>(
-    a: &[<E::G1 as Group>::Scalar], // Multilinear polynomial coefficients
+    polynomial: &MultilinearPolynomial<'_, <E::G1 as Group>::Scalar>, // Multilinear polynomial coefficients
     b_point: &[<E::G1 as Group>::Scalar], // Evaluation point ( $v \in \mathbb{R}^d) for d variables
     row_commitments: Vec<E::G1>,
     sigma: usize,
@@ -97,7 +97,7 @@ where
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
     let (l_vec, r_vec) = compute_left_right_vec(b_point, sigma, nu);
-    let v_vec = compute_v_vec(a, &l_vec, sigma, nu);
+    let v_vec = compute_v_vec(polynomial, &l_vec, sigma, nu);
 
     VMVProverState {
         v_vec,
