@@ -116,7 +116,7 @@ fn test_evaluation_proof_sigma_2() {
     // Compute proper commitment, batching factors, and evaluations
     let (commitment_batch, batching_factors, evaluations) =
         commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-            &a,
+            &MultilinearPolynomial::LargeScalars(&a),
             &b_points,
             0, // offset
             sigma,
@@ -234,7 +234,7 @@ fn test_evaluation_proof_verification_should_fail() {
         // Get correct verification data
         let (mut commitment_batch, batching_factors, evaluations) =
             commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-                &a,
+                &MultilinearPolynomial::LargeScalars(&a),
                 &b_points,
                 0,
                 sigma,
@@ -347,7 +347,7 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
     // Get correct verification data (no tampering with verification data)
     let (commitment_batch, batching_factors, evaluations) =
         commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-            &a,
+            &MultilinearPolynomial::LargeScalars(&a),
             &b_points,
             0,
             sigma,

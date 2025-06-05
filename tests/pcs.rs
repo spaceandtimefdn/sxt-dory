@@ -38,7 +38,8 @@ fn test_pcs_api_workflow() {
 
     // Commit to polynomial
     let commit_start = Instant::now();
-    let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&coeffs, 0, sigma, &prover_setup);
+    let polynomial = MultilinearPolynomial::LargeScalars(&coeffs);
+    let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&polynomial, 0, sigma, &prover_setup);
     let commit_time = commit_start.elapsed();
     println!("Commit time: {:?}", commit_time);
 

@@ -72,7 +72,7 @@ fn test_soundness_tamper_vmv_message_c() {
     // Get verification data
     let (commitment_batch, batching_factors, evaluations) =
         commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-            &a,
+            &MultilinearPolynomial::LargeScalars(&a),
             &b_points,
             0,
             sigma,
@@ -137,7 +137,7 @@ fn test_soundness_tamper_vmv_message_d2() {
     // Get verification data
     let (commitment_batch, batching_factors, evaluations) =
         commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-            &a,
+            &MultilinearPolynomial::LargeScalars(&a),
             &b_points,
             0,
             sigma,
@@ -202,7 +202,7 @@ fn test_soundness_tamper_vmv_message_e1() {
     // Get verification data
     let (commitment_batch, batching_factors, evaluations) =
         commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-            &a,
+            &MultilinearPolynomial::LargeScalars(&a),
             &b_points,
             0,
             sigma,
@@ -267,7 +267,7 @@ fn test_soundness_wrong_commitment() {
     // Get verification data but use wrong commitment
     let (mut commitment_batch, batching_factors, evaluations) =
         commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-            &a,
+            &MultilinearPolynomial::LargeScalars(&a),
             &b_points,
             0,
             sigma,
@@ -329,7 +329,7 @@ fn test_soundness_wrong_evaluation() {
     // Get verification data but use wrong evaluation
     let (commitment_batch, batching_factors, mut evaluations) =
         commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-            &a,
+            &MultilinearPolynomial::LargeScalars(&a),
             &b_points,
             0,
             sigma,
@@ -388,7 +388,7 @@ fn test_soundness_wrong_evaluation_point() {
     // Get verification data
     let (commitment_batch, batching_factors, evaluations) =
         commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-            &a,
+            &MultilinearPolynomial::LargeScalars(&a),
             &b_points,
             0,
             sigma,
@@ -453,14 +453,14 @@ fn test_soundness_commitment_evaluation_mismatch() {
 
     // Get commitment for different polynomial but evaluation of original
     let commitment = compute_polynomial_commitment::<ArkBn254Pairing, OptimizedMsmG1>(
-        &a_different,
+        &MultilinearPolynomial::LargeScalars(&a_different),
         0,
         sigma,
         &prover_setup,
     );
 
     let (_, _, evaluations) = commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-        &a,
+        &MultilinearPolynomial::LargeScalars(&a),
         &b_points,
         0,
         sigma,
@@ -519,7 +519,7 @@ fn test_soundness_wrong_batching_factors() {
     // Get verification data but modify batching factors
     let (commitment_batch, mut batching_factors, evaluations) =
         commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-            &a,
+            &MultilinearPolynomial::LargeScalars(&a),
             &b_points,
             0,
             sigma,
@@ -578,7 +578,7 @@ fn test_soundness_tamper_proof_structure() {
     // Get verification data
     let (commitment_batch, batching_factors, evaluations) =
         commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-            &a,
+            &MultilinearPolynomial::LargeScalars(&a),
             &b_points,
             0,
             sigma,
@@ -645,7 +645,7 @@ fn test_soundness_offset_manipulation() {
     // Get commitment with different offset
     let wrong_offset = 16; // Different offset
     let commitment = compute_polynomial_commitment::<ArkBn254Pairing, OptimizedMsmG1>(
-        &a,
+        &MultilinearPolynomial::LargeScalars(&a),
         wrong_offset,
         sigma,
         &prover_setup,
@@ -653,7 +653,7 @@ fn test_soundness_offset_manipulation() {
 
     // Get evaluation with correct offset
     let (_, _, evaluations) = commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-        &a,
+        &MultilinearPolynomial::LargeScalars(&a),
         &b_points,
         0,
         sigma,
@@ -720,7 +720,7 @@ fn test_soundness_different_polynomial_degree() {
     // Get verification data for original polynomial
     let (commitment_batch, batching_factors, evaluations) =
         commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-            &a,
+            &MultilinearPolynomial::LargeScalars(&a),
             &b_points,
             0,
             sigma,
@@ -776,7 +776,7 @@ fn test_soundness_all_vmv_messages_tampered() {
     // Get verification data
     let (commitment_batch, batching_factors, evaluations) =
         commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-            &a,
+            &MultilinearPolynomial::LargeScalars(&a),
             &b_points,
             0,
             sigma,
@@ -864,7 +864,7 @@ fn test_soundness_relationship_attack() {
     // Get verification data for first polynomial
     let (commitment_batch, batching_factors, evaluations) =
         commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-            &a,
+            &MultilinearPolynomial::LargeScalars(&a),
             &b_points,
             0,
             sigma,

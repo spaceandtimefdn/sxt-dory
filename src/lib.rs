@@ -153,7 +153,7 @@ where
 /// a simple interface for committing to polynomial coefficients.
 ///
 /// # Parameters
-/// - `coeffs`: The polynomial coefficients to commit to
+/// - `polynomial`: The polynomial to commit to
 /// - `offset`: Starting offset in the coefficient array
 /// - `sigma`: matrix to commit is of size 2^sigma
 /// - `prover_setup`: The prover setup containing generators
@@ -161,7 +161,7 @@ where
 /// # Returns
 /// A commitment element in the target group GT
 pub fn commit<E: Pairing, M1: MultiScalarMul<E::G1>>(
-    coeffs: &[<E::G1 as Group>::Scalar],
+    polynomial: &MultilinearPolynomial<<E::G1 as Group>::Scalar>,
     offset: usize,
     sigma: usize,
     prover_setup: &ProverSetup<E>,
@@ -170,7 +170,7 @@ where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
-    let result = compute_polynomial_commitment::<E, M1>(coeffs, offset, sigma, prover_setup);
+    let result = compute_polynomial_commitment::<E, M1>(polynomial, offset, sigma, prover_setup);
 
     result
 }

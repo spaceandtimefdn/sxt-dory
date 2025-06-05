@@ -47,7 +47,8 @@ fn test_soundness_wrong_evaluation() {
         setup_pcs_test_environment(num_variables, sigma);
 
     // Commit to polynomial
-    let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&coeffs, 0, sigma, &prover_setup);
+    let polynomial = MultilinearPolynomial::LargeScalars(&coeffs);
+    let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&polynomial, 0, sigma, &prover_setup);
 
     // Generate proof
     let transcript = create_transcript(domain);
@@ -136,7 +137,8 @@ fn test_soundness_wrong_evaluation_point() {
         setup_pcs_test_environment(num_variables, sigma);
 
     // Commit to polynomial
-    let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&coeffs, 0, sigma, &prover_setup);
+    let polynomial = MultilinearPolynomial::LargeScalars(&coeffs);
+    let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&polynomial, 0, sigma, &prover_setup);
 
     // Generate proof for one point
     let transcript = create_transcript(domain);
@@ -189,8 +191,10 @@ fn test_soundness_binding_property() {
     coeffs2[0] = coeffs1[0] + Fr::rand(&mut rng); // Ensure difference
 
     // Commit to both polynomials
-    let commitment1 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&coeffs1, 0, sigma, &prover_setup);
-    let commitment2 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&coeffs2, 0, sigma, &prover_setup);
+    let poly1 = MultilinearPolynomial::LargeScalars(&coeffs1);
+    let poly2 = MultilinearPolynomial::LargeScalars(&coeffs2);
+    let commitment1 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&poly1, 0, sigma, &prover_setup);
+    let commitment2 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&poly2, 0, sigma, &prover_setup);
 
     // Commitments should be different
     assert_ne!(
@@ -245,7 +249,8 @@ fn test_soundness_polynomial_mismatch() {
     let coeffs2: Vec<Fr> = (0..num_coeffs).map(|_| Fr::rand(&mut rng)).collect();
 
     // Commit to first polynomial
-    let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&coeffs1, 0, sigma, &prover_setup);
+    let polynomial = MultilinearPolynomial::LargeScalars(&coeffs1);
+    let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&polynomial, 0, sigma, &prover_setup);
 
     // Generate proof for second polynomial
     let transcript = create_transcript(domain);
@@ -288,10 +293,11 @@ fn test_soundness_offset_manipulation() {
         setup_pcs_test_environment(num_variables, sigma);
 
     // Commit with offset 0
-    let commitment1 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&coeffs, 0, sigma, &prover_setup);
+    let polynomial = MultilinearPolynomial::LargeScalars(&coeffs);
+    let commitment1 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&polynomial, 0, sigma, &prover_setup);
 
     // Commit with different offset
-    let commitment2 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&coeffs, 16, sigma, &prover_setup);
+    let commitment2 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&polynomial, 16, sigma, &prover_setup);
 
     // Generate proof for offset 0
     let transcript = create_transcript(domain);
@@ -336,8 +342,8 @@ fn test_soundness_zero_polynomial() {
     // Zero polynomial
     let zero_coeffs: Vec<Fr> = vec![Fr::zero(); num_coeffs];
 
-    let commitment =
-        commit::<ArkBn254Pairing, OptimizedMsmG1>(&zero_coeffs, 0, sigma, &prover_setup);
+    let zero_poly = MultilinearPolynomial::LargeScalars(&zero_coeffs);
+    let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&zero_poly, 0, sigma, &prover_setup);
 
     let transcript = create_transcript(domain);
     let (evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
@@ -391,7 +397,8 @@ fn test_soundness_constant_polynomial() {
     let mut coeffs = vec![Fr::zero(); num_coeffs];
     coeffs[0] = constant_value;
 
-    let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&coeffs, 0, sigma, &prover_setup);
+    let polynomial = MultilinearPolynomial::LargeScalars(&coeffs);
+    let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&polynomial, 0, sigma, &prover_setup);
 
     let transcript = create_transcript(domain);
     let (evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
@@ -439,7 +446,8 @@ fn test_soundness_completeness_multiple_points() {
     let (prover_setup, verifier_setup, coeffs, _) =
         setup_pcs_test_environment(num_variables, sigma);
 
-    let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&coeffs, 0, sigma, &prover_setup);
+    let polynomial = MultilinearPolynomial::LargeScalars(&coeffs);
+    let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&polynomial, 0, sigma, &prover_setup);
 
     // Test multiple evaluation points
     for i in 0..5 {
@@ -488,8 +496,10 @@ fn test_soundness_cross_polynomial_attack() {
     let coeffs2: Vec<Fr> = (0..num_coeffs).map(|_| Fr::rand(&mut rng)).collect();
 
     // Commit to both
-    let commitment1 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&coeffs1, 0, sigma, &prover_setup);
-    let commitment2 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&coeffs2, 0, sigma, &prover_setup);
+    let poly1 = MultilinearPolynomial::LargeScalars(&coeffs1);
+    let poly2 = MultilinearPolynomial::LargeScalars(&coeffs2);
+    let commitment1 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&poly1, 0, sigma, &prover_setup);
+    let commitment2 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&poly2, 0, sigma, &prover_setup);
 
     // Generate proofs for both
     let transcript1 = create_transcript(domain);
@@ -564,8 +574,8 @@ fn test_soundness_batch_verification() {
 
     for _ in 0..batch_size {
         let coeffs: Vec<Fr> = (0..num_coeffs).map(|_| Fr::rand(&mut rng)).collect();
-        let commitment =
-            commit::<ArkBn254Pairing, OptimizedMsmG1>(&coeffs, 0, sigma, &prover_setup);
+        let polynomial = MultilinearPolynomial::LargeScalars(&coeffs);
+        let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&polynomial, 0, sigma, &prover_setup);
 
         let transcript = create_transcript(domain);
         let (evaluation, _) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
@@ -633,8 +643,8 @@ fn test_soundness_sparse_polynomial() {
     sparse_coeffs[1] = Fr::rand(&mut rng);
     sparse_coeffs[num_coeffs - 1] = Fr::rand(&mut rng);
 
-    let commitment =
-        commit::<ArkBn254Pairing, OptimizedMsmG1>(&sparse_coeffs, 0, sigma, &prover_setup);
+    let sparse_poly = MultilinearPolynomial::LargeScalars(&sparse_coeffs);
+    let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&sparse_poly, 0, sigma, &prover_setup);
 
     let transcript = create_transcript(domain);
     let (evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
@@ -677,8 +687,9 @@ fn test_soundness_commitment_consistency() {
         setup_pcs_test_environment(num_variables, sigma);
 
     // Commit multiple times to same polynomial
-    let commitment1 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&coeffs, 0, sigma, &prover_setup);
-    let commitment2 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&coeffs, 0, sigma, &prover_setup);
+    let polynomial = MultilinearPolynomial::LargeScalars(&coeffs);
+    let commitment1 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&polynomial, 0, sigma, &prover_setup);
+    let commitment2 = commit::<ArkBn254Pairing, OptimizedMsmG1>(&polynomial, 0, sigma, &prover_setup);
 
     // Commitments should be deterministic
     assert_eq!(
@@ -754,8 +765,8 @@ fn test_soundness_degree_bound() {
     // Test with maximum degree polynomial
     let max_degree_coeffs: Vec<Fr> = (0..num_coeffs).map(|_| Fr::rand(&mut rng)).collect();
 
-    let commitment =
-        commit::<ArkBn254Pairing, OptimizedMsmG1>(&max_degree_coeffs, 0, sigma, &prover_setup);
+    let max_degree_poly = MultilinearPolynomial::LargeScalars(&max_degree_coeffs);
+    let commitment = commit::<ArkBn254Pairing, OptimizedMsmG1>(&max_degree_poly, 0, sigma, &prover_setup);
 
     let transcript = create_transcript(domain);
     let (evaluation, proof) = evaluate::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2>(
