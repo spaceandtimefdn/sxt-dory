@@ -4,19 +4,21 @@
 // use ark_ff::Field;
 
 use crate::{
-    arithmetic::{Field, Group, MultiScalarMul, MultilinearPolynomial, Pairing},
-    build_vmv_prover_state,
+    arithmetic::{Field, Group, MultiScalarMul, Pairing},
     builder::{DoryProofBuilder, DoryVerifyBuilder, VerificationBuilder},
-    commit_to_rows, compute_left_right_vec,
     error::DoryError,
     inner_product::inner_product_verify,
     inner_product_prove,
     messages::VMVMessage,
+    poly::{compute_left_right_vec, Polynomial},
     setup::{ProverSetup, VerifierSetup},
     state::{DoryProverState, DoryVerifierState},
     transcript::Transcript,
-    vmv::{compute_nu, VMVVerifierState},
-    vmv_state_to_dory_prover_state, ProofBuilder,
+    vmv::{
+        build_vmv_prover_state, commit_to_rows, compute_nu, vmv_state_to_dory_prover_state,
+        VMVVerifierState,
+    },
+    ProofBuilder,
 };
 
 /// Implements the Eval-VMV-RE protocol from Dory Section 5
@@ -53,7 +55,7 @@ where
     // --- Protocol computations (Dory Section 5) ---
 
     // C = e(⟨T~₀, ~v⟩, Γ₂,fin)
-    let t_vec_v_inner_product = M1::msm(&prover_state.v1, &MultilinearPolynomial::LargeScalars(&v_vec));
+    let t_vec_v_inner_product = M1::msm(&prover_state.v1, &v_vec);
     let c_val = E::pair(&t_vec_v_inner_product, &prover_setup.g_fin);
 
     // D₂ = e(⟨Γ₁[nu], ~v⟩, Γ₂,fin)
@@ -68,7 +70,7 @@ where
     let gamma1_v_inner_product = if g1_bases_at_nu.is_empty() || prover_state.s1.is_empty() {
         E::G1::identity()
     } else {
-        M1::msm(g1_bases_at_nu, &MultilinearPolynomial::LargeScalars(&v_vec))
+        M1::msm(g1_bases_at_nu, &v_vec)
     };
     let d2_val = E::pair(&gamma1_v_inner_product, &prover_setup.g_fin);
 
@@ -77,7 +79,7 @@ where
     if prover_state.s2.is_empty() && !prover_state.v1.is_empty() {
         println!("s2 is empty but v1 is not in E₁ calculation");
     }
-    let e1_val = M1::msm(&prover_state.v1, &MultilinearPolynomial::LargeScalars(&prover_state.s2));
+    let e1_val = M1::msm(&prover_state.v1, &prover_state.s2);
 
     // Create VMV message for transcript
     let vmv_message = VMVMessage {
@@ -105,9 +107,10 @@ pub fn create_evaluation_proof<
     T: Transcript<Scalar = <E::G1 as Group>::Scalar>,
     M1: MultiScalarMul<E::G1>,
     M2: MultiScalarMul<E::G2>,
+    P: Polynomial<<E::G1 as Group>::Scalar, E::G1> + ?Sized,
 >(
     initial_transcript: T, // DoryProofBuilder takes ownership of the transcript
-    polynomial: &MultilinearPolynomial<'_, <E::G1 as Group>::Scalar>,
+    polynomial: &P,
     point: &[<E::G1 as Group>::Scalar],
     sigma: usize,
     prover_setup: &ProverSetup<E>,
@@ -123,10 +126,10 @@ where
     // println!("nu length: {:?}", nu); -> useful for debug
 
     // 2. Compute row commits (T` in the paper?)
-    let t_vec_prime = commit_to_rows::<E, M1>(polynomial, sigma, nu, prover_setup);
+    let t_vec_prime = commit_to_rows::<E, M1, P>(polynomial, sigma, nu, prover_setup);
 
     // 3. Build VMV prover state
-    let vmv_state = build_vmv_prover_state::<E>(polynomial, point, t_vec_prime, sigma, nu);
+    let vmv_state = build_vmv_prover_state::<E, P>(polynomial, point, t_vec_prime, sigma, nu);
 
     // 4. Convert VMV state to DoryProverState
     let (v_vec, prover_state) = vmv_state_to_dory_prover_state(vmv_state, prover_setup);
@@ -257,7 +260,7 @@ where
     <E::G1 as Group>::Scalar: Field,
 {
     // 1. Compute the MSM of commits and the factors
-    let a_commit = MGT::msm(commitment_batch, &MultilinearPolynomial::LargeScalars(batching_factors));
+    let a_commit = MGT::msm(commitment_batch, batching_factors);
 
     // 2. Compute the product of evaluations and batching factors (batching factors should be 1)
     let product: <E::G1 as Group>::Scalar = evaluations

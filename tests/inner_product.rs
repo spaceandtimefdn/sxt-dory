@@ -4,7 +4,7 @@ use std::time::Instant;
 use ark_bn254::{Fq12, Fr, G1Affine};
 use blake2::Blake2s256;
 use dory::{
-    arithmetic::{Field, Group, MultiScalarMul, MultilinearPolynomial, Pairing},
+    arithmetic::{Field, Group, MultiScalarMul, Pairing},
     builder::{DoryProofBuilder, DoryVerifyBuilder},
     inner_product::{inner_product_prove, inner_product_verify},
     setup::ProverSetup,
@@ -12,7 +12,9 @@ use dory::{
     toy_transcript::ToyTranscript,
 };
 
-use dory::curve::{test_rng, ArkBn254Pairing, G2AffineWrapper, OptimizedMsmG1, OptimizedMsmG2};
+use dory::curve::{
+    test_rng, ArkBn254Pairing, G2AffineWrapper, OptimizedMsmG1, OptimizedMsmG2, StandardPolynomial,
+};
 
 #[test]
 fn test_inner_product_prove_verify() {
@@ -75,8 +77,8 @@ fn test_inner_product_prove_verify() {
     // Create the initial values for E1 and E2
     println!("Computing E1 and E2...");
     let e_start = Instant::now();
-    let e_1 = OptimizedMsmG1::msm(&prover_setup.g1_vec[..1 << log_n], &MultilinearPolynomial::LargeScalars(&s2));
-    let e_2 = OptimizedMsmG2::msm(&prover_setup.g2_vec[..1 << log_n], &MultilinearPolynomial::LargeScalars(&s1));
+    let e_1 = OptimizedMsmG1::msm(&prover_setup.g1_vec[..1 << log_n], &s2);
+    let e_2 = OptimizedMsmG2::msm(&prover_setup.g2_vec[..1 << log_n], &s1);
     println!("E1 and E2 computed in: {:?}", e_start.elapsed());
 
     // Create verifier state
@@ -174,8 +176,8 @@ fn test_inner_product_verify_should_fail() {
     let d_2 = ArkBn254Pairing::multi_pair(&prover_setup.g1_vec[..1 << log_n], &v2);
 
     // Create the initial values for E1 and E2
-    let e_1 = OptimizedMsmG1::msm(&prover_setup.g1_vec[..1 << log_n], &MultilinearPolynomial::LargeScalars(&s2));
-    let e_2 = OptimizedMsmG2::msm(&prover_setup.g2_vec[..1 << log_n], &MultilinearPolynomial::LargeScalars(&s1));
+    let e_1 = OptimizedMsmG1::msm(&prover_setup.g1_vec[..1 << log_n], &s2);
+    let e_2 = OptimizedMsmG2::msm(&prover_setup.g2_vec[..1 << log_n], &s1);
 
     // Create verifier state
     let verifier_state = DoryVerifierState::new_with_s(c, d_1, d_2, e_1, e_2, s1, s2, log_n);

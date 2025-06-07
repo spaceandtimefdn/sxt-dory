@@ -1,8 +1,8 @@
 //! Utilities related to the VMV commitment strategy for multilinear polynomials
 //! Defines VMV states for both provers, verifiers
 use crate::{
-    arithmetic::{Field, Group, MultilinearPolynomial, Pairing},
-    compute_left_right_vec, compute_v_vec,
+    arithmetic::{Field, Group, Pairing},
+    poly::{compute_left_right_vec, compute_v_vec, Polynomial},
     setup::ProverSetup,
     state::DoryProverState,
     MultiScalarMul,
@@ -62,37 +62,43 @@ pub fn compute_nu(num_vars: usize, sigma: usize) -> usize {
 
 /// Compute the (Pedersen) commitments to the rows of the matrix M that is derived from coeffs `a`.
 /// This produces T` in the paper.
-pub fn commit_to_rows<E: Pairing, M1: MultiScalarMul<E::G1>>(
-    polynomial: &MultilinearPolynomial<'_, <E::G1 as Group>::Scalar>,
+pub fn commit_to_rows<E, M1, P>(
+    polynomial: &P,
     sigma: usize,
     nu: usize,
     prover_setup: &ProverSetup<E>,
 ) -> Vec<E::G1>
 where
+    E: Pairing,
+    M1: MultiScalarMul<E::G1>,
+    P: Polynomial<<E::G1 as Group>::Scalar, E::G1> + ?Sized,
     E::G1: Group,
     <E::G1 as Group>::Scalar: Field + Clone,
 {
     let bases = &prover_setup.g1_vec[..1 << nu];
+    let row_len = 1 << sigma;
 
-    let res = polynomial
-        .chunks(1 << sigma)
-        .map(|row| M1::msm(bases, &row.to_multilinear_polynomial()))
-        .chain(core::iter::repeat(E::G1::identity()))
-        .take(1 << nu)
-        .collect();
+    let mut res = polynomial.commit_rows::<M1>(bases, row_len);
+
+    // Pad with identity elements if needed
+    while res.len() < (1 << nu) {
+        res.push(E::G1::identity());
+    }
 
     res
 }
 
 /// Build the prover state for the VMV protocol
-pub fn build_vmv_prover_state<E: Pairing>(
-    polynomial: &MultilinearPolynomial<'_, <E::G1 as Group>::Scalar>, // Multilinear polynomial coefficients
+pub fn build_vmv_prover_state<E, P>(
+    polynomial: &P,                       // Multilinear polynomial coefficients
     b_point: &[<E::G1 as Group>::Scalar], // Evaluation point ( $v \in \mathbb{R}^d) for d variables
     row_commitments: Vec<E::G1>,
     sigma: usize,
     nu: usize,
 ) -> VMVProverState<E>
 where
+    E: Pairing,
+    P: Polynomial<<E::G1 as Group>::Scalar, E::G1> + ?Sized,
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {

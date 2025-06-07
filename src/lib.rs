@@ -6,7 +6,7 @@
 //! This crate provides a Rust implementation of the commitment scheme, intended to be usable as a
 //! building block for other zk/SNARK protocols.
 
-use crate::arithmetic::{Field, Group, MultiScalarMul, MultilinearPolynomial, Pairing};
+use crate::arithmetic::{Field, Group, MultiScalarMul, Pairing};
 use crate::error::DoryError;
 use crate::toy_transcript::ToyTranscript;
 use crate::transcript::Transcript;
@@ -160,17 +160,25 @@ where
 ///
 /// # Returns
 /// A commitment element in the target group GT
-pub fn commit<E: Pairing, M1: MultiScalarMul<E::G1>>(
-    polynomial: &MultilinearPolynomial<<E::G1 as Group>::Scalar>,
+pub fn commit<E, M1, P>(
+    polynomial: &P,
     offset: usize,
     sigma: usize,
     prover_setup: &ProverSetup<E>,
 ) -> E::GT
 where
+    E: Pairing,
+    M1: MultiScalarMul<E::G1>,
+    P: Polynomial<<E::G1 as Group>::Scalar, E::G1> + ?Sized,
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
-    let result = compute_polynomial_commitment::<E, M1>(polynomial, offset, sigma, prover_setup);
+    let result = compute_polynomial_commitment::<E, M1, P, <E::G1 as Group>::Scalar, E::G1>(
+        polynomial,
+        offset,
+        sigma,
+        prover_setup,
+    );
 
     result
 }
@@ -196,8 +204,9 @@ pub fn evaluate<
     T: Transcript<Scalar = <E::G1 as Group>::Scalar>,
     M1: MultiScalarMul<E::G1>,
     M2: MultiScalarMul<E::G2>,
+    P: Polynomial<<E::G1 as Group>::Scalar, E::G1> + ?Sized,
 >(
-    polynomial: &MultilinearPolynomial<'_, <E::G1 as Group>::Scalar>,
+    polynomial: &P,
     point: &[<E::G1 as Group>::Scalar],
     sigma: usize,
     prover_setup: &ProverSetup<E>,
@@ -216,7 +225,13 @@ where
     let evaluation = compute_polynomial_evaluation(polynomial, point);
 
     // Create the evaluation proof
-    let proof = create_evaluation_proof::<E, T, M1, M2>(transcript, polynomial, point, sigma, prover_setup);
+    let proof = create_evaluation_proof::<E, T, M1, M2, P>(
+        transcript,
+        polynomial,
+        point,
+        sigma,
+        prover_setup,
+    );
     (evaluation, proof)
 }
 

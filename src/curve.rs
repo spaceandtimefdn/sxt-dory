@@ -7,6 +7,7 @@ use ark_serialize::{Read, Valid, Validate, Write};
 use ark_std::rand::{rngs::StdRng, RngCore, SeedableRng};
 
 use crate::arithmetic::*;
+use crate::poly::Polynomial;
 
 /// Create a fixed RNG for deterministic tests
 pub fn test_rng() -> StdRng {
@@ -50,11 +51,11 @@ impl Field for Fr {
         let mut rng = test_rng();
         Fr::rand(&mut rng)
     }
-    
+
     fn from_u64(val: u64) -> Self {
         Fr::from(val)
     }
-    
+
     fn from_i64(val: i64) -> Self {
         if val >= 0 {
             Fr::from(val as u64)
@@ -295,27 +296,16 @@ impl Pairing for ArkBn254Pairing {
 pub struct OptimizedMsmG1;
 
 impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
-    fn msm<'a>(bases: &'a [G1Affine], scalars: &MultilinearPolynomial<'a, Fr>) -> G1Affine {
+    fn msm(bases: &[G1Affine], scalars: &[Fr]) -> G1Affine {
         if bases.is_empty() {
             return G1Affine::identity();
         }
-        
+
         use ark_ec::VariableBaseMSM;
-        
-        match scalars {
-            MultilinearPolynomial::LargeScalars(scalar_slice) => {
-                G1Projective::msm(bases, scalar_slice)
-                    .unwrap_or_else(|_| G1Projective::zero())
-                    .into_affine()
-            }
-            _ => {
-                // Convert other scalar types to Fr
-                let fr_scalars: Vec<Fr> = scalars.iter().collect();
-                G1Projective::msm(bases, &fr_scalars)
-                    .unwrap_or_else(|_| G1Projective::zero())
-                    .into_affine()
-            }
-        }
+
+        G1Projective::msm(bases, scalars)
+            .unwrap_or_else(|_| G1Projective::zero())
+            .into_affine()
     }
 }
 
@@ -323,7 +313,7 @@ impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
 pub struct OptimizedMsmG2;
 
 impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
-    fn msm<'a>(bases: &'a [G2AffineWrapper], scalars: &MultilinearPolynomial<'a, Fr>) -> G2AffineWrapper {
+    fn msm(bases: &[G2AffineWrapper], scalars: &[Fr]) -> G2AffineWrapper {
         if bases.is_empty() {
             return G2AffineWrapper::identity();
         }
@@ -333,21 +323,10 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
 
         // Use ark-ec's optimized MSM
         use ark_ec::VariableBaseMSM;
-        
-        let result = match scalars {
-            MultilinearPolynomial::LargeScalars(scalar_slice) => {
-                G2Projective::msm(&native_bases, scalar_slice)
-                    .unwrap_or_else(|_| G2Projective::zero())
-                    .into_affine()
-            }
-            _ => {
-                // Convert other scalar types to Fr
-                let fr_scalars: Vec<Fr> = scalars.iter().collect();
-                G2Projective::msm(&native_bases, &fr_scalars)
-                    .unwrap_or_else(|_| G2Projective::zero())
-                    .into_affine()
-            }
-        };
+
+        let result = G2Projective::msm(&native_bases, scalars)
+            .unwrap_or_else(|_| G2Projective::zero())
+            .into_affine();
 
         G2AffineWrapper(result)
     }
@@ -359,7 +338,7 @@ pub struct DummyMsm<G: Group> {
 }
 
 impl<G: Group> MultiScalarMul<G> for DummyMsm<G> {
-    fn msm<'a>(bases: &'a [G], scalars: &MultilinearPolynomial<'a, G::Scalar>) -> G {
+    fn msm(bases: &[G], scalars: &[G::Scalar]) -> G {
         assert_eq!(
             bases.len(),
             scalars.len(),
@@ -373,7 +352,30 @@ impl<G: Group> MultiScalarMul<G> for DummyMsm<G> {
             .iter()
             .zip(scalars.iter())
             .fold(G::identity(), |acc, (base, scalar)| {
-                acc.add(&base.scale(&scalar))
+                acc.add(&base.scale(scalar))
             })
+    }
+}
+
+/// Standard polynomial with field elements for testing
+#[derive(Clone, Debug, PartialEq)]
+pub struct StandardPolynomial<'a, F: Field> {
+    pub coeffs: &'a [F],
+}
+
+impl<'a, F: Field> StandardPolynomial<'a, F> {
+    pub fn new(coeffs: &'a [F]) -> Self {
+        Self { coeffs }
+    }
+}
+
+// Implement Polynomial trait for StandardPolynomial
+impl<'a, F: Field + Clone, G1: Group<Scalar = F>> Polynomial<F, G1> for StandardPolynomial<'a, F> {
+    fn len(&self) -> usize {
+        self.coeffs.len()
+    }
+    
+    fn get(&self, index: usize) -> Option<F> {
+        self.coeffs.get(index).cloned()
     }
 }

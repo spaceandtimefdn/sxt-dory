@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use ark_bn254::{Fq12, Fr};
 use dory::{
-    arithmetic::{Field, Group, MultilinearPolynomial},
+    arithmetic::{Field, Group},
     builder::DoryProofBuilder,
     setup::ProverSetup,
     toy_transcript::ToyTranscript,
@@ -13,7 +13,9 @@ use dory::{
     },
 };
 
-use dory::curve::{test_rng, ArkBn254Pairing, DummyMsm, OptimizedMsmG1, OptimizedMsmG2};
+use dory::curve::{
+    test_rng, ArkBn254Pairing, DummyMsm, OptimizedMsmG1, OptimizedMsmG2, StandardPolynomial,
+};
 
 #[test]
 fn test_evaluation_proof_sigma_2() {
@@ -79,12 +81,14 @@ fn test_evaluation_proof_sigma_2() {
     let proof_start = Instant::now();
 
     // Create the evaluation proof
+    let polynomial = StandardPolynomial::new(&a);
     let proof = create_evaluation_proof::<
         ArkBn254Pairing,
         ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
-    >(transcript, &MultilinearPolynomial::LargeScalars(&a), &b_points, sigma, &prover_setup);
+        _,
+    >(transcript, &polynomial, &b_points, sigma, &prover_setup);
 
     let proof_time = proof_start.elapsed();
     println!("Proof generated in: {:?}", proof_time);
@@ -114,14 +118,19 @@ fn test_evaluation_proof_sigma_2() {
     let verify_start = Instant::now();
 
     // Compute proper commitment, batching factors, and evaluations
-    let (commitment_batch, batching_factors, evaluations) =
-        commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-            &MultilinearPolynomial::LargeScalars(&a),
-            &b_points,
-            0, // offset
-            sigma,
-            &prover_setup,
-        );
+    let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
+        ArkBn254Pairing,
+        OptimizedMsmG1,
+        _,
+        Fr,
+        <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+    >(
+        &polynomial,
+        &b_points,
+        0, // offset
+        sigma,
+        &prover_setup,
+    );
     let verifier_setup = prover_setup.to_verifier_setup();
 
     // Create fresh transcript for verification
@@ -216,12 +225,14 @@ fn test_evaluation_proof_verification_should_fail() {
     let transcript = ToyTranscript::new(domain);
     let proof_start = Instant::now();
 
+    let polynomial = StandardPolynomial::new(&a);
     let proof = create_evaluation_proof::<
         ArkBn254Pairing,
         ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
-    >(transcript, &MultilinearPolynomial::LargeScalars(&a), &b_points, sigma, &prover_setup);
+        _,
+    >(transcript, &polynomial, &b_points, sigma, &prover_setup);
 
     let proof_time = proof_start.elapsed();
     println!("Proof generated in: {:?}", proof_time);
@@ -233,13 +244,13 @@ fn test_evaluation_proof_verification_should_fail() {
 
         // Get correct verification data
         let (mut commitment_batch, batching_factors, evaluations) =
-            commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-                &MultilinearPolynomial::LargeScalars(&a),
-                &b_points,
-                0,
-                sigma,
-                &prover_setup,
-            );
+            commit_and_evaluate_batch::<
+                ArkBn254Pairing,
+                OptimizedMsmG1,
+                _,
+                Fr,
+                <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+            >(&polynomial, &b_points, 0, sigma, &prover_setup);
 
         // Tamper with the commitment
         commitment_batch[0] = Fq12::random(&mut rng); // Wrong commitment
@@ -330,12 +341,14 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
     let transcript = ToyTranscript::new(domain);
     let proof_start = Instant::now();
 
+    let polynomial = StandardPolynomial::new(&a);
     let proof = create_evaluation_proof::<
         ArkBn254Pairing,
         ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
-    >(transcript, &MultilinearPolynomial::LargeScalars(&a), &b_points, sigma, &prover_setup);
+        _,
+    >(transcript, &polynomial, &b_points, sigma, &prover_setup);
 
     let proof_time = proof_start.elapsed();
     println!("Proof generated in: {:?}", proof_time);
@@ -346,13 +359,13 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
 
     // Get correct verification data (no tampering with verification data)
     let (commitment_batch, batching_factors, evaluations) =
-        commit_and_evaluate_batch::<ArkBn254Pairing, OptimizedMsmG1>(
-            &MultilinearPolynomial::LargeScalars(&a),
-            &b_points,
-            0,
-            sigma,
-            &prover_setup,
-        );
+        commit_and_evaluate_batch::<
+            ArkBn254Pairing,
+            OptimizedMsmG1,
+            _,
+            Fr,
+            <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+        >(&polynomial, &b_points, 0, sigma, &prover_setup);
 
     // Create a corrupted copy of the proof by tampering with proof messages
     let mut corrupted_proof = DoryProofBuilder {
