@@ -1,161 +1,82 @@
 //! (multilinear) polynomial utlities
 use crate::arithmetic::{Field, Group, MultiScalarMul};
+use std::ops::Deref;
 
 /// multilinear polynomials trait for custom (optimized) primitive operations
 /// We provide generic implementations as well
-pub trait Polynomial<F: Field, G1: Group<Scalar = F>> {
-    /// Returns the number of coefficients in the polynomial
-    fn len(&self) -> usize {
-        len_generic(self)
-    }
+pub trait Polynomial<F: Field, G1: Group<Scalar = F>>: Deref<Target = [F]> {
 
     /// Evaluates the polynomial at a given point
     fn evaluate(&self, point: &[F]) -> F {
-        compute_polynomial_evaluation_generic(self, point)
+        let coeffs = self.deref();
+        let mut eval_vec: Vec<F> = vec![F::zero(); coeffs.len()];
+
+        let expected_size = 1 << point.len();
+        assert!(
+            coeffs.len() <= expected_size,
+            "Too many coefficients: got {}, max for {} variables is {}",
+            coeffs.len(),
+            point.len(),
+            expected_size
+        );
+
+        multilinear_lagrange_vec(&mut eval_vec, point);
+
+        // Compute inner product <coeffs, eval_vec>
+        let mut result = F::zero();
+        for (coeff, eval) in coeffs.iter().zip(eval_vec.iter()) {
+            result = result.add(&coeff.mul(eval));
+        }
+        result
     }
 
     /// Commits to rows of the polynomial when viewed as a matrix
     fn commit_rows<M1: MultiScalarMul<G1>>(&self, g1_generators: &[G1], row_len: usize) -> Vec<G1> {
-        commit_rows_generic::<F, G1, Self, M1>(self, g1_generators, row_len)
+        let mut commitments = Vec::new();
+        let coeffs = self.deref();
+
+        for row_coeffs in coeffs.chunks(row_len) {
+            if !row_coeffs.is_empty() {
+                let commitment = M1::msm(&g1_generators[..row_coeffs.len()], row_coeffs);
+                commitments.push(commitment);
+            }
+        }
+
+        commitments
     }
 
     /// Computes the vector-matrix product L^T * M where M is the polynomial as a matrix
     fn vector_matrix_product(&self, l_vec: &[F]) -> Vec<F> {
-        vector_matrix_product_generic(self, l_vec)
-    }
+        let n = l_vec.len();
+        let mut result = vec![F::zero(); n];
+        let coeffs = self.deref();
 
-    /// Gets coefficient at index
-    fn get(&self, index: usize) -> Option<F> {
-        get_generic(self, index)
-    }
-
-    /// Checks if polynomial is empty
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-}
-
-/// Generic length implementation
-fn len_generic<F, G1, P>(poly: &P) -> usize
-where
-    F: Field,
-    G1: Group<Scalar = F>,
-    P: Polynomial<F, G1> + ?Sized,
-{
-    // Find length by checking until we hit None
-    let mut len = 0;
-    while poly.get(len).is_some() {
-        len += 1;
-    }
-    len
-}
-
-/// Generic get implementation
-fn get_generic<F, G1, P>(poly: &P, index: usize) -> Option<F>
-where
-    F: Field + Clone,
-    G1: Group<Scalar = F>,
-    P: Polynomial<F, G1> + ?Sized,
-{
-    // This is now just a placeholder since implementations should override this
-    // Default behavior: return None (empty polynomial)
-    None
-}
-
-/// Generic polynomial evaluation function
-fn compute_polynomial_evaluation_generic<F, G1, P>(poly: &P, point: &[F]) -> F
-where
-    F: Field + Clone,
-    G1: Group<Scalar = F>,
-    P: Polynomial<F, G1> + ?Sized,
-{
-    let mut eval_vec: Vec<F> = vec![F::zero(); poly.len()];
-
-    let expected_size = 1 << point.len();
-    assert!(
-        poly.len() <= expected_size,
-        "Too many coefficients: got {}, max for {} variables is {}",
-        poly.len(),
-        point.len(),
-        expected_size
-    );
-
-    multilinear_lagrange_vec(&mut eval_vec, point);
-
-    // Compute inner product <coeffs, eval_vec>
-    let mut result = F::zero();
-    for i in 0..poly.len() {
-        if let Some(coeff) = poly.get(i) {
-            result = result.add(&coeff.mul(&eval_vec[i]));
-        }
-    }
-    result
-}
-
-/// Generic commit_rows implementation
-fn commit_rows_generic<F, G1, P, M1>(poly: &P, g1_generators: &[G1], row_len: usize) -> Vec<G1>
-where
-    F: Field + Clone,
-    G1: Group<Scalar = F>,
-    P: Polynomial<F, G1> + ?Sized,
-    M1: MultiScalarMul<G1>,
-{
-    let mut commitments = Vec::new();
-    let total_len = poly.len();
-
-    for row_start in (0..total_len).step_by(row_len) {
-        let row_end = (row_start + row_len).min(total_len);
-        
-        // Collect row coefficients using get()
-        let mut row_coeffs = Vec::with_capacity(row_end - row_start);
-        for i in row_start..row_end {
-            if let Some(coeff) = poly.get(i) {
-                row_coeffs.push(coeff);
-            } else {
-                break; // Stop if we hit None
+        for row in 0..n {
+            for col in 0..n {
+                let idx = row * n + col;
+                if idx < coeffs.len() {
+                    let product = l_vec[row].mul(&coeffs[idx]);
+                    result[col] = result[col].add(&product);
+                }
             }
         }
-        
-        if !row_coeffs.is_empty() {
-            let commitment = M1::msm(&g1_generators[..row_coeffs.len()], &row_coeffs);
-            commitments.push(commitment);
-        }
+
+        result
     }
 
-    commitments
-}
-
-/// Generic vector matrix product implementation
-fn vector_matrix_product_generic<F, G1, P>(poly: &P, l_vec: &[F]) -> Vec<F>
-where
-    F: Field + Clone,
-    G1: Group<Scalar = F>,
-    P: Polynomial<F, G1> + ?Sized,
-{
-    // Assuming square matrix for simplicity, adjust as needed
-    let n = l_vec.len();
-    let mut result = vec![F::zero(); n];
-
-    for row in 0..n {
-        for col in 0..n {
-            let idx = row * n + col;
-            if let Some(coeff) = poly.get(idx) {
-                let product = l_vec[row].mul(&coeff);
-                result[col] = result[col].add(&product);
-            }
-        }
+    /// Returns the number of coefficients in the polynomial
+    fn len(&self) -> usize {
+        self.deref().len()
     }
-
-    result
 }
+
 
 /// Compute the evaluation of a multilinear polynomial at a given point
 /// Uses the lagrange evaluation basis
 /// Ref: Section 2.5 of Dory paper.
 pub fn compute_polynomial_evaluation<F, G1, P>(poly: &P, point: &[F]) -> F
 where
-    F: Field + Clone,
+    F: Field,
     G1: Group<Scalar = F>,
     P: Polynomial<F, G1> + ?Sized,
 {
@@ -172,7 +93,7 @@ where
 /// result = coeffs · evaluation_vector
 pub fn multilinear_lagrange_vec<F>(v: &mut [F], point: &[F])
 where
-    F: Field + Clone,
+    F: Field,
 {
     assert!(
         v.len() <= (1 << point.len()),
@@ -189,7 +110,7 @@ where
     let one_minus_p0 = F::one().sub(&point[0]);
     v[0] = one_minus_p0;
     if v.len() > 1 {
-        v[1] = point[0].clone();
+        v[1] = point[0];
     }
 
     // For each subsequent variable, double the active portion of the evaluation vector
@@ -212,13 +133,14 @@ where
 
             // Transform paired elements
             for (li, ri) in left[..k].iter_mut().zip(right[..k].iter_mut()) {
-                *ri = li.clone().mul(p);
-                *li = li.clone().mul(&one_minus_p);
+                let li_val = *li;
+                *ri = li_val.mul(p);
+                *li = li_val.mul(&one_minus_p);
             }
 
             // Handle remaining left elements (when left is longer than right)
             for li in left[k..].iter_mut() {
-                *li = li.clone().mul(&one_minus_p);
+                *li = li.mul(&one_minus_p);
             }
         }
     }
@@ -227,7 +149,7 @@ where
 /// Compute vectors L and R for matrix-based polynomial evaluation
 /// Given a polynomial arranged as a matrix M, computes L and R such that:
 /// polynomial_evaluation(b_point) = L^T × M × R
-pub fn compute_left_right_vec<F: Field + Clone>(
+pub fn compute_left_right_vec<F: Field>(
     b_point: &[F],
     sigma: usize, // log₂(max_columns) - matrix width
     nu: usize,    // log₂(vector_length) - matrix length
@@ -275,7 +197,7 @@ pub fn compute_left_right_vec<F: Field + Clone>(
 
 /// Splits evaluation point coordinates into left/right tensors for matrix operations.
 /// Outputs can be fed to `multilinear_lagrange_vec` to get the same result as `compute_left_right_vec`.
-pub fn compute_l_r_tensors<F: Field + Copy>(
+pub fn compute_l_r_tensors<F: Field>(
     b_point: &[F],
     sigma: usize,
     nu: usize,
@@ -317,12 +239,13 @@ pub fn compute_v_vec<F, G1, P>(
     nu: usize,      // log₂(rows) - matrix height
 ) -> Vec<F>
 where
-    F: Field + Clone,
+    F: Field,
     G1: Group<Scalar = F>,
     P: Polynomial<F, G1> + ?Sized,
 {
     let mut v = vec![F::zero(); 1 << nu]; // Result: v = L^T × M
     let cols_per_row = 1 << sigma;
+    let coeffs = a.deref();
 
     // Process each row of matrix M
     for row_idx in 0..(1 << nu) {
@@ -340,8 +263,8 @@ where
             }
 
             let coeff_idx = row_start + col_idx;
-            if let Some(a_coeff) = a.get(coeff_idx) {
-                let product = l_weight.mul(&a_coeff);
+            if coeff_idx < coeffs.len() {
+                let product = l_weight.mul(&coeffs[coeff_idx]);
                 v[col_idx] = v[col_idx].add(&product);
             }
         }

@@ -369,13 +369,14 @@ impl<'a, F: Field> StandardPolynomial<'a, F> {
     }
 }
 
-// Implement Polynomial trait for StandardPolynomial
-impl<'a, F: Field + Clone, G1: Group<Scalar = F>> Polynomial<F, G1> for StandardPolynomial<'a, F> {
-    fn len(&self) -> usize {
-        self.coeffs.len()
-    }
+// Implement Deref for StandardPolynomial
+impl<'a, F: Field> std::ops::Deref for StandardPolynomial<'a, F> {
+    type Target = [F];
     
-    fn get(&self, index: usize) -> Option<F> {
-        self.coeffs.get(index).cloned()
+    fn deref(&self) -> &Self::Target {
+        self.coeffs
     }
 }
+
+// Implement Polynomial trait for StandardPolynomial
+impl<'a, F: Field + Clone, G1: Group<Scalar = F>> Polynomial<F, G1> for StandardPolynomial<'a, F> {}
