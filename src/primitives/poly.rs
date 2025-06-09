@@ -1,21 +1,25 @@
 //! (multilinear) polynomial utlities
 use crate::arithmetic::{Field, Group, MultiScalarMul};
-use std::ops::Deref;
 
 /// multilinear polynomials trait for custom (optimized) primitive operations
 /// We provide generic implementations as well
-pub trait Polynomial<F: Field, G1: Group<Scalar = F>>: Deref<Target = [F]> {
+pub trait Polynomial<F: Field, G1: Group<Scalar = F>> {
+    /// Get a coefficient at the given index, returns zero if out of bounds
+    fn get(&self, index: usize) -> F;
+    
+    /// Returns the number of coefficients in the polynomial
+    fn len(&self) -> usize;
 
     /// Evaluates the polynomial at a given point
     fn evaluate(&self, point: &[F]) -> F {
-        let coeffs = self.deref();
-        let mut eval_vec: Vec<F> = vec![F::zero(); coeffs.len()];
+        let len = self.len();
+        let mut eval_vec: Vec<F> = vec![F::zero(); len];
 
         let expected_size = 1 << point.len();
         assert!(
-            coeffs.len() <= expected_size,
+            len <= expected_size,
             "Too many coefficients: got {}, max for {} variables is {}",
-            coeffs.len(),
+            len,
             point.len(),
             expected_size
         );
@@ -24,7 +28,8 @@ pub trait Polynomial<F: Field, G1: Group<Scalar = F>>: Deref<Target = [F]> {
 
         // Compute inner product <coeffs, eval_vec>
         let mut result = F::zero();
-        for (coeff, eval) in coeffs.iter().zip(eval_vec.iter()) {
+        for (i, eval) in eval_vec.iter().enumerate() {
+            let coeff = self.get(i);
             result = result.add(&coeff.mul(eval));
         }
         result
@@ -33,11 +38,20 @@ pub trait Polynomial<F: Field, G1: Group<Scalar = F>>: Deref<Target = [F]> {
     /// Commits to rows of the polynomial when viewed as a matrix
     fn commit_rows<M1: MultiScalarMul<G1>>(&self, g1_generators: &[G1], row_len: usize) -> Vec<G1> {
         let mut commitments = Vec::new();
-        let coeffs = self.deref();
+        let len = self.len();
 
-        for row_coeffs in coeffs.chunks(row_len) {
-            if !row_coeffs.is_empty() {
-                let commitment = M1::msm(&g1_generators[..row_coeffs.len()], row_coeffs);
+        let num_rows = (len + row_len - 1) / row_len;
+        for row in 0..num_rows {
+            let row_start = row * row_len;
+            let row_end = (row_start + row_len).min(len);
+            let actual_row_len = row_end - row_start;
+            
+            if actual_row_len > 0 {
+                let mut row_coeffs = vec![F::zero(); actual_row_len];
+                for i in 0..actual_row_len {
+                    row_coeffs[i] = self.get(row_start + i);
+                }
+                let commitment = M1::msm(&g1_generators[..actual_row_len], &row_coeffs);
                 commitments.push(commitment);
             }
         }
@@ -49,24 +63,20 @@ pub trait Polynomial<F: Field, G1: Group<Scalar = F>>: Deref<Target = [F]> {
     fn vector_matrix_product(&self, l_vec: &[F]) -> Vec<F> {
         let n = l_vec.len();
         let mut result = vec![F::zero(); n];
-        let coeffs = self.deref();
+        let len = self.len();
 
         for row in 0..n {
             for col in 0..n {
                 let idx = row * n + col;
-                if idx < coeffs.len() {
-                    let product = l_vec[row].mul(&coeffs[idx]);
+                if idx < len {
+                    let coeff = self.get(idx);
+                    let product = l_vec[row].mul(&coeff);
                     result[col] = result[col].add(&product);
                 }
             }
         }
 
         result
-    }
-
-    /// Returns the number of coefficients in the polynomial
-    fn len(&self) -> usize {
-        self.deref().len()
     }
 }
 
@@ -245,7 +255,7 @@ where
 {
     let mut v = vec![F::zero(); 1 << nu]; // Result: v = L^T × M
     let cols_per_row = 1 << sigma;
-    let coeffs = a.deref();
+    let len = a.len();
 
     // Process each row of matrix M
     for row_idx in 0..(1 << nu) {
@@ -263,8 +273,9 @@ where
             }
 
             let coeff_idx = row_start + col_idx;
-            if coeff_idx < coeffs.len() {
-                let product = l_weight.mul(&coeffs[coeff_idx]);
+            if coeff_idx < len {
+                let coeff = a.get(coeff_idx);
+                let product = l_weight.mul(&coeff);
                 v[col_idx] = v[col_idx].add(&product);
             }
         }
