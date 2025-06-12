@@ -63,11 +63,12 @@ pub trait Polynomial<F: Field, G1: Group<Scalar = F>> {
     ///
     /// # Arguments
     /// * `left_vec` - The L vector (row evaluation weights)
-    /// * `sigma` - log₂(columns) - matrix width  
+    /// * `sigma` - log₂(columns) - matrix width
     /// * `nu` - log₂(rows) - matrix height
     ///
     /// # Returns
     /// Result vector v where v[j] = sum_i L[i] * M[i,j]
+    #[tracing::instrument(skip_all)]
     fn vector_matrix_product(&self, left_vec: &[F], sigma: usize, nu: usize) -> Vec<F> {
         let mut v = vec![F::zero(); 1 << sigma]; // Result: v = L^T × M
         let cols_per_row = 1 << sigma;
@@ -179,6 +180,7 @@ where
 /// Compute vectors L and R for matrix-based polynomial evaluation
 /// Given a polynomial arranged as a matrix M, computes L and R such that:
 /// polynomial_evaluation(b_point) = L^T × M × R
+#[tracing::instrument(skip_all)]
 pub fn compute_left_right_vec<F: Field>(
     b_point: &[F],
     sigma: usize, // log₂(max_columns) - matrix width
@@ -223,35 +225,4 @@ pub fn compute_left_right_vec<F: Field>(
     }
 
     (left_vec, right_vec)
-}
-
-/// Splits evaluation point coordinates into left/right tensors for matrix operations.
-/// Outputs can be fed to `multilinear_lagrange_vec` to get the same result as `compute_left_right_vec`.
-pub fn compute_l_r_tensors<F: Field>(b_point: &[F], sigma: usize, nu: usize) -> (Vec<F>, Vec<F>) {
-    let mut r_coords = vec![F::zero(); 1 << nu]; // Column coordinates
-    let mut l_coords = vec![F::zero(); 1 << nu]; // Row coordinates
-    let num_vars = b_point.len();
-
-    match num_vars {
-        0 => {}
-
-        n if n <= sigma => {
-            // All variables → columns
-            r_coords[..n].copy_from_slice(b_point);
-        }
-
-        n if n <= sigma * 2 => {
-            // Split variables between rows and columns
-            r_coords.copy_from_slice(&b_point[..nu]);
-            l_coords[..(n - nu)].copy_from_slice(&b_point[nu..]);
-        }
-
-        _ => {
-            // Too many variables: max columns, rest → rows
-            r_coords[..sigma].copy_from_slice(&b_point[..sigma]);
-            l_coords.copy_from_slice(&b_point[sigma..]);
-        }
-    }
-
-    (l_coords, r_coords)
 }

@@ -1,7 +1,10 @@
 //! Data structures and generation of the transparent setup for both prover and verifier
 use crate::arithmetic::*;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::rand::RngCore;
+use ark_std::rand::rngs::StdRng;
+use ark_std::rand::{RngCore, SeedableRng};
+use rand_chacha::ChaCha20Rng;
+use rayon::prelude::*;
 use std::fs::File;
 use std::io::{Read, Write};
 
@@ -16,7 +19,7 @@ pub struct ProverSetup<E: Pairing> {
     pub h1: E::G1,
     /// H₂  — Pedersen/AFGHO blinding in G2
     pub h2: E::G2,
-    /// e(H₁, H₂) cached once   
+    /// e(H₁, H₂) cached once
     pub ht: E::GT,
     /// gamma_fin in the paper
     pub g_fin: E::G2,
@@ -60,8 +63,32 @@ impl<E: Pairing> ProverSetup<E> {
         // We take max_log_n + 1 to effectively take ceiling for odd max_log_n cases
         let n = 1usize << ((max_log_n + 1) / 2);
 
-        let g1_vec: Vec<_> = (0..n).map(|_| E::G1::random(&mut rng)).collect();
-        let g2_vec: Vec<_> = (0..n).map(|_| E::G2::random(&mut rng)).collect();
+        // -------- 1. Derive one 256-bit seed per thread securely --------
+        let mut seeds = vec![[0u8; 32]; n];
+        for s in &mut seeds {
+            rng.fill_bytes(s); // 256 bits of entropy from the caller-supplied CSPRNG
+        }
+
+        // -------- 2. Use those seeds in parallel --------
+        let g1_vec: Vec<_> = seeds
+            .par_iter()
+            .map(|seed| {
+                let mut local_rng = ChaCha20Rng::from_seed(*seed);
+                E::G1::random(&mut local_rng)
+            })
+            .collect();
+
+        for s in &mut seeds {
+            rng.fill_bytes(s);
+        }
+        let g2_vec: Vec<_> = seeds
+            .par_iter()
+            .map(|seed| {
+                let mut local_rng = ChaCha20Rng::from_seed(*seed);
+                E::G2::random(&mut local_rng)
+            })
+            .collect();
+
         let g_fin = E::G2::random(&mut rng);
         let h1 = E::G1::random(&mut rng);
         let h2 = E::G2::random(&mut rng);
@@ -76,6 +103,7 @@ impl<E: Pairing> ProverSetup<E> {
             g_fin,
         }
     }
+
     /// Convert to verifier side
     pub fn to_verifier_setup(&self) -> VerifierSetup<E> {
         VerifierSetup::from_prover_setup(self)
@@ -188,6 +216,7 @@ impl<E: Pairing> VerifierSetup<E> {
         let mut chi = Vec::with_capacity(max_log_n + 1);
 
         for k in 0..=max_log_n {
+            println!("k: {k}");
             if k == 0 {
                 delta_1l.push(E::GT::identity());
                 delta_1r.push(E::GT::identity());
@@ -203,7 +232,7 @@ impl<E: Pairing> VerifierSetup<E> {
                 let g2_second_half = &prover_setup.g2_vec[half_len..full_len];
 
                 // Δ₁L[k] = Δ₂L[k] = e(Γ₁[..2^(k-1)], Γ₂[..2^(k-1)])
-                delta_1l.push(E::multi_pair(g1_first_half, g2_first_half));
+                delta_1l.push(chi[k - 1].clone());
 
                 // Δ₁R[k] = e(Γ₁[2^(k-1)..2^k], Γ₂[..2^(k-1)])
                 delta_1r.push(E::multi_pair(g1_second_half, g2_first_half));
@@ -212,10 +241,7 @@ impl<E: Pairing> VerifierSetup<E> {
                 delta_2r.push(E::multi_pair(g1_first_half, g2_second_half));
 
                 // χ[k] = e(Γ₁[..2^k], Γ₂[..2^k])
-                chi.push(E::multi_pair(
-                    &prover_setup.g1_vec[..full_len],
-                    &prover_setup.g2_vec[..full_len],
-                ));
+                chi.push(chi[k - 1].add(&E::multi_pair(g1_second_half, g2_second_half)));
             }
         }
 

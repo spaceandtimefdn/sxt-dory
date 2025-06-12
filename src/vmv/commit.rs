@@ -23,7 +23,8 @@ pub fn compute_polynomial_commitment<
     // Handle arbitrary offset within the matrix
     let first_row_offset = offset % num_columns; // Column start position
     let rows_offset = offset / num_columns; // Row start position
-    let _first_row_len = poly.len().min(num_columns - first_row_offset);
+
+    // let _first_row_len = poly.len().min(num_columns - first_row_offset);
 
     // TODO(moodlezoup): handle offset
     let row_len = num_columns;

@@ -2,7 +2,10 @@
 name = "dory"
 version = "1.0.0"
 edition = "2021"
-authors = ["Markos Georghiades <mgeorghiades@a16z.com>", "Jay White <jay@spaceandtime.io>"]
+authors = [
+    "Markos Georghiades <mgeorghiades@a16z.com>",
+    "Jay White <jay@spaceandtime.io>",
+]
 license = "Apache-2.0"
 description = "A generic implementation of the Dory polynomial commitment scheme."
 repository = "https://github.com/spaceandtimelabs/sxt-dory"
@@ -10,14 +13,20 @@ exclude = [".github", "README.md"]
 
 [dependencies]
 ark-bn254 = "0.5.0"
-ark-ec = { version = "0.5.0", default-features = false , features = ["parallel"] }
-ark-ff = { version = "0.5.0", default-features = false, features = ["parallel"] }
+ark-ec = { version = "0.5.0", default-features = false, features = [
+    "parallel",
+] }
+ark-ff = { version = "0.5.0", default-features = false, features = [
+    "parallel",
+] }
 ark-serialize = { version = "0.5.0", default-features = false, features = [
-    "derive", "parallel",
+    "derive",
+    "parallel",
 ] }
 ark-std = "0.5.0"
 bincode = "1.3.3"
 blake2 = "0.10.6"
+rand_chacha = { version = "0.3.0", default-features = false }
 digest = "0.10.7"
 rayon = "1.10.0"
 serde = { version = "1.0.219", default-features = false, features = ["derive"] }

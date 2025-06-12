@@ -25,6 +25,7 @@ use crate::{
 /// Proves the VMV relation: polynomial(point) = L^T × M × R
 ///
 /// Note: Randomness terms (rC, rD2, rE1) are omitted since we don't need hiding
+#[tracing::instrument(skip_all)]
 fn eval_vmv_re_prove<
     E: Pairing,
     T: Transcript<Scalar = <E::G1 as Group>::Scalar>,

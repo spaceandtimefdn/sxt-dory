@@ -89,6 +89,7 @@ where
 }
 
 /// Build the prover state for the VMV protocol
+#[tracing::instrument(skip_all)]
 pub fn build_vmv_prover_state<E, P>(
     polynomial: &P,                       // Multilinear polynomial coefficients
     b_point: &[<E::G1 as Group>::Scalar], // Evaluation point ( $v \in \mathbb{R}^d) for d variables

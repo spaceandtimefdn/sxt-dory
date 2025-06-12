@@ -6,6 +6,7 @@ use crate::state::{ProverState, VerifierState};
 
 /// Prover side of extended Dory-innerproduct
 /// Follows very closely the prover side of the protocol on Page 24.
+#[tracing::instrument(skip_all)]
 pub fn inner_product_prove<Builder, State, G1, G2, GT, Scalar, Setup, M1, M2>(
     builder: Builder,
     state: State,

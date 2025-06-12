@@ -28,6 +28,7 @@ where
     type Setup = ProverSetup<E>;
 
     /* ---------- First‑Reduce --------------------------------------- */
+    #[tracing::instrument(skip_all)]
     fn compute_first_reduce_message<M1, M2>(
         &self,
         setup: &Self::Setup,
@@ -76,6 +77,7 @@ where
     }
 
     /* ---------- Reduce-Combine --------------------------------------- */
+    #[tracing::instrument(skip_all)]
     fn reduce_combine(
         mut self,
         setup: &Self::Setup,
@@ -108,6 +110,7 @@ where
     }
 
     /* ---------- Second‑Reduce -------------------------------------- */
+    #[tracing::instrument(skip_all)]
     fn compute_second_reduce_message<M1, M2>(
         &self,
         _setup: &Self::Setup, // not used in this step
@@ -147,12 +150,13 @@ where
     /// On every round, cut the vector length in half and fold with the
     /// α-challenge:
     ///
-    ///   v₁ ← α · v₁L + v₁R  
-    ///   v₂ ← α⁻¹· v₂L + v₂R  
-    ///   s₁ ← α · s₁L + s₁R  
+    ///   v₁ ← α · v₁L + v₁R
+    ///   v₂ ← α⁻¹· v₂L + v₂R
+    ///   s₁ ← α · s₁L + s₁R
     ///   s₂ ← α⁻¹· s₂L + s₂R
     ///
     /// After folding, all four vectors are truncated to `n/2`.
+    #[tracing::instrument(skip_all)]
     fn reduce_fold(
         mut self,
         _setup: &Self::Setup,
@@ -205,6 +209,7 @@ where
     // Note: we apply `fold-scalars` transform onto e1 and e1 before sending to verifier.
     // We apply it here as this is the last step of the IP protocol and the transformation mutates
     // the contents of `ScalarProductMessage`, anyways.
+    #[tracing::instrument(skip_all)]
     fn compute_scalar_product_message<M1, M2>(
         self,
         setup: &Self::Setup,
