@@ -160,24 +160,36 @@ where
         // Prover work P(*):
         // ṽ₁ ← ṽ₁ + β·Γ₁
         profile("reduce_combine::v1_combine", || {
-            M1::fixed_scalar_variable_with_add(g1_prime, &mut self.v1, &beta);
-            // self.v1
-            // .par_iter_mut()
-            // .zip(g1_prime.par_iter())
-            // .for_each(|(v1_i, g1_i)| {
-            //     *v1_i = v1_i.add(&g1_i.scale(&beta));
-            // });
+            // Use cached version if cache is available
+            if setup.g1_cache.is_some() || setup.g2_cache.is_some() {
+                println!("USING CACHE V COMBINE!");
+                M1::fixed_scalar_variable_with_add_cached(
+                    g1_prime.len(),
+                    setup.g1_cache.as_ref(),
+                    setup.g2_cache.as_ref(),
+                    &mut self.v1,
+                    &beta,
+                );
+            } else {
+                M1::fixed_scalar_variable_with_add(g1_prime, &mut self.v1, &beta);
+            }
         });
 
         // ṽ₂ ← ṽ₂ + β⁻¹·Γ₂
         profile("reduce_combine::v2_combine", || {
-            M2::fixed_scalar_variable_with_add(g2_prime, &mut self.v2, &beta_inv);
-            //     self.v2
-            //     .par_iter_mut()
-            //     .zip(g2_prime.par_iter())
-            //     .for_each(|(v2_i, g2_i)| {
-            //         *v2_i = v2_i.add(&g2_i.scale(&beta_inv));
-            //     });
+            // Use cached version if cache is available
+            if setup.g1_cache.is_some() || setup.g2_cache.is_some() {
+                println!("USING CACHE V COMBINE!");
+                M2::fixed_scalar_variable_with_add_cached(
+                    g2_prime.len(),
+                    setup.g1_cache.as_ref(),
+                    setup.g2_cache.as_ref(),
+                    &mut self.v2,
+                    &beta_inv,
+                );
+            } else {
+                M2::fixed_scalar_variable_with_add(g2_prime, &mut self.v2, &beta_inv);
+            }
         });
 
         self

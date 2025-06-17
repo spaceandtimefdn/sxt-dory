@@ -238,6 +238,16 @@ impl<E: Pairing> ProverSetup<E> {
     pub fn has_cache(&self) -> bool {
         self.g1_cache.is_some() && self.g2_cache.is_some()
     }
+    
+    /// Get precomputed G1 data for a specific count if cache is available
+    pub fn get_g1_precomputed(&self, count: usize) -> Option<crate::curve::G1PrecomputedData> {
+        self.g1_cache.as_ref().map(|cache| cache.get_precomputed_slice(count))
+    }
+    
+    /// Get precomputed G2 data for a specific count if cache is available
+    pub fn get_g2_precomputed(&self, count: usize) -> Option<crate::curve::G2PrecomputedData> {
+        self.g2_cache.as_ref().map(|cache| cache.get_precomputed_slice(count))
+    }
 
     // Convenient accessors for core fields
     pub fn g1_vec(&self) -> &Vec<E::G1> {
