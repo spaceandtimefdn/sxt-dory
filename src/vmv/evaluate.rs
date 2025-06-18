@@ -3,6 +3,8 @@
 //! `eval_vmv_re` is essentially the `eval` algorithm of the tuple of PCS algorithms
 // use ark_ff::Field;
 
+use rayon::prelude::*;
+
 use crate::{
     arithmetic::{Field, Group, MultiScalarMul, Pairing},
     builder::{DoryProofBuilder, DoryVerifyBuilder, VerificationBuilder},
@@ -93,7 +95,7 @@ where
     // Transform intermediate vector ~v into G2 elements for next phase
     // v₂ = ~v · Γ₂,fin (scalar multiplication in G2)
     let updated_v2 = v_vec
-        .iter()
+        .par_iter()
         .map(|v_element| prover_setup.g_fin.scale(v_element))
         .collect::<Vec<E::G2>>();
 
