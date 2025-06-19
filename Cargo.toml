@@ -36,6 +36,7 @@ tracing-subscriber = "0.3.19"
 jolt-optimizations = { path = "/Users/mgeorghiades/a16z/arkworks-algebra/jolt-optimizations" }
 
 [patch.crates-io]
+ark-bn254 = { path = "/Users/mgeorghiades/a16z/arkworks-algebra/curves/bn254" }
 # ark-ff = { git = "https://github.com/a16z/arkworks-algebra", branch = "v0.5.0-optimize-mul-u64" }
 ark-ff = { path = "/Users/mgeorghiades/a16z/arkworks-algebra/ff" }
 # ark-ec = { git = "https://github.com/a16z/arkworks-algebra", branch = "v0.5.0-optimize-mul-u64" }

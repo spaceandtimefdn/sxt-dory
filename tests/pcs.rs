@@ -18,8 +18,8 @@ fn test_pcs_api_workflow() {
     let domain = b"dory_pcs_test";
 
     // Multilinear polynomial parameters
-    let num_variables = 26;
-    let sigma = 13; // sigma must be <= max_log_n / 2 for the SRS
+    let num_variables = 24;
+    let sigma = 12; // sigma must be <= max_log_n / 2 for the SRS
     let num_coeffs = 1 << num_variables;
 
     println!(
@@ -29,7 +29,7 @@ fn test_pcs_api_workflow() {
 
     // Setup with preloaded SRS file
     let setup_start = Instant::now();
-    let srs_path = "./k_13.srs";
+    let srs_path = "./k_12.srs";
     let (mut prover_setup, verifier_setup) =
         setup_with_srs_file::<ArkBn254Pairing, _>(&mut rng, num_variables, Some(srs_path));
 

@@ -611,11 +611,13 @@ pub struct G2Cache {
     pub entries: Vec<G2CacheEntry>,
     /// Full precomputed data for efficient slicing
     pub precomputed_data: Option<PrecomputedShamir4Data>,
+    /// Precomputed GLV tables for g_fin point (if provided)
+    pub g_fin_glv_tables: Option<PrecomputedShamir4Data>,
 }
 
 impl G2Cache {
     /// Initialize cache from a vector of G2 affine points
-    pub fn new(generators: &[G2Affine]) -> Self {
+    pub fn new(generators: &[G2Affine], g_fin: Option<&G2Affine>) -> Self {
         // First convert all generators to projective form
         let generators_proj: Vec<G2Projective> = generators.iter().map(|g| g.into_group()).collect();
         
@@ -647,16 +649,24 @@ impl G2Cache {
             })
             .collect();
 
+        // Precompute GLV tables for g_fin if provided
+        let g_fin_glv_tables = g_fin.map(|g_fin_point| {
+            let g_fin_proj = g_fin_point.into_group();
+            jolt_optimizations::glv_four_precompute(&[g_fin_proj])
+        });
+
         Self { 
             entries,
             precomputed_data: Some(precomputed_data),
+            g_fin_glv_tables,
         }
     }
 
     /// Initialize cache from a vector of G2AffineWrapper points
-    pub fn new_from_wrappers(generators: &[G2AffineWrapper]) -> Self {
+    pub fn new_from_wrappers(generators: &[G2AffineWrapper], g_fin: Option<&G2AffineWrapper>) -> Self {
         let native_generators: Vec<G2Affine> = generators.iter().map(|w| w.0).collect();
-        Self::new(&native_generators)
+        let native_g_fin = g_fin.map(|w| &w.0);
+        Self::new(&native_generators, native_g_fin)
     }
 
     /// Save cache to file
@@ -717,6 +727,12 @@ impl G2Cache {
             panic!("Precomputed data not available");
         }
     }
+    
+    /// Get precomputed GLV tables for g_fin if available
+    /// Returns a reference to avoid clones
+    pub fn get_g_fin_glv_tables(&self) -> Option<&PrecomputedShamir4Data> {
+        self.g_fin_glv_tables.as_ref()
+    }
 }
 
 // Create type aliases for cleaner code
@@ -739,7 +755,15 @@ impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
             .into_affine()
     }
 
-    fn fixed_base_vector_msm(base: &G1Affine, scalars: &[Fr]) -> Vec<G1Affine> {
+    fn fixed_base_vector_msm(
+        base: &G1Affine, 
+        scalars: &[Fr],
+        g1_cache: Option<&crate::curve::G1Cache>,
+        g2_cache: Option<&crate::curve::G2Cache>,
+    ) -> Vec<G1Affine> {
+        // Caches not used for G1 fixed base vector MSM
+        let _ = (g1_cache, g2_cache);
+        
         if scalars.is_empty() {
             return vec![];
         }
@@ -854,37 +878,6 @@ impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
 // Optimized MSM implementation using ark-ec's VariableBaseMSM for G2
 pub struct OptimizedMsmG2;
 
-// impl OptimizedMsmG2 {
-//     /// Cached version of fixed_scalar_variable_with_add that uses precomputed data
-//     pub fn fixed_scalar_variable_with_add_cached(
-//         precomputed_tables: &[jolt_optimizations::PrecomputedShamir4Table],
-//         vs: &mut [G2AffineWrapper], 
-//         scalar: &Fr
-//     ) {
-//         use crate::profiler::profile;
-        
-//         profile("g2_fixed_scalar_variable_with_add_cached", || {
-//             // Convert to projective for computation
-//             let mut vs_proj: Vec<G2Projective> = profile("g2_fixed_scalar_cached::to_projective", || {
-//                 vs.iter().map(|v| v.0.into_group()).collect()
-//             });
-            
-//             // Use jolt-optimizations function with precomputed data
-//             profile("g2_fixed_scalar_cached::vector_add_scalar_mul_precomputed", || {
-//                 jolt_optimizations::vector_add_scalar_mul_g2_precomputed(&mut vs_proj, *scalar, precomputed_tables);
-//             });
-            
-//             // Convert back to affine wrapper
-//             profile("g2_fixed_scalar_cached::to_affine", || {
-//                 let affines = G2Projective::normalize_batch(&vs_proj);
-//                 for (i, affine) in affines.into_iter().enumerate() {
-//                     vs[i] = G2AffineWrapper(affine);
-//                 }
-//             });
-//         });
-//     }
-// }
-
 impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
     fn msm(bases: &[G2AffineWrapper], scalars: &[Fr]) -> G2AffineWrapper {
         if bases.is_empty() {
@@ -904,29 +897,57 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
         G2AffineWrapper(result)
     }
 
-    fn fixed_base_vector_msm(base: &G2AffineWrapper, scalars: &[Fr]) -> Vec<G2AffineWrapper> {
+    fn fixed_base_vector_msm(
+        base: &G2AffineWrapper, 
+        scalars: &[Fr],
+        _g1_cache: Option<&crate::curve::G1Cache>,
+        g2_cache: Option<&crate::curve::G2Cache>,
+    ) -> Vec<G2AffineWrapper> {
+        use crate::profiler::profile;
+        
         if scalars.is_empty() {
             return vec![];
         }
 
-        // Convert base to projective for computation
-        let base_proj = base.0.into_group();
-        
-        // Use glv_four_scalar_mul_online for fixed base vector MSM
-        
-        // Compute scalar multiplication for each scalar with the fixed base
-        let results_proj: Vec<G2Projective> = scalars
-            .par_iter()
-            .map(|&scalar| {
-                jolt_optimizations::glv_four_scalar_mul_online(scalar, &[base_proj])[0]
+        // Check if we have cached GLV tables for g_fin
+        if let Some(glv_tables) = g2_cache.and_then(|cache| cache.get_g_fin_glv_tables()) {
+            println!("USING PRECOMPUTED GLV TABLES FOR G_FIN!");
+            profile("g2_fixed_base_vector_msm::precomputed", || {
+                // Use precomputed GLV tables
+                let results_proj: Vec<G2Projective> = scalars
+                    .par_iter()
+                    .map(|&scalar| {
+                        // glv_four_scalar_mul returns a vector, we need the first element
+                        jolt_optimizations::glv_four_scalar_mul(glv_tables, scalar)[0]
+                    })
+                    .collect();
+                
+                // Batch convert to affine
+                let affines = G2Projective::normalize_batch(&results_proj);
+                affines.into_iter()
+                    .map(|affine| G2AffineWrapper(affine))
+                    .collect()
             })
-            .collect();
-        
-        // Batch convert to affine
-        let affines = G2Projective::normalize_batch(&results_proj);
-        affines.into_iter()
-            .map(|affine| G2AffineWrapper(affine))
-            .collect()
+        } else {
+            profile("g2_fixed_base_vector_msm::online", || {
+                // Fall back to online computation
+                let base_proj = base.0.into_group();
+                
+                // Compute scalar multiplication for each scalar with the fixed base
+                let results_proj: Vec<G2Projective> = scalars
+                    .par_iter()
+                    .map(|&scalar| {
+                        jolt_optimizations::glv_four_scalar_mul_online(scalar, &[base_proj])[0]
+                    })
+                    .collect();
+                
+                // Batch convert to affine
+                let affines = G2Projective::normalize_batch(&results_proj);
+                affines.into_iter()
+                    .map(|affine| G2AffineWrapper(affine))
+                    .collect()
+            })
+        }
     }
 
     fn fixed_scalar_variable_with_add(
@@ -1057,8 +1078,14 @@ impl<G: Group> MultiScalarMul<G> for DummyMsm<G> {
             })
     }
 
-    fn fixed_base_vector_msm(base: &G, scalars: &[G::Scalar]) -> Vec<G> {
+    fn fixed_base_vector_msm(
+        base: &G, 
+        scalars: &[G::Scalar],
+        _g1_cache: Option<&crate::curve::G1Cache>,
+        _g2_cache: Option<&crate::curve::G2Cache>,
+    ) -> Vec<G> {
         // Naive implementation: compute base * scalar for each scalar
+        // Caches are ignored
         scalars.iter().map(|scalar| base.scale(scalar)).collect()
     }
 

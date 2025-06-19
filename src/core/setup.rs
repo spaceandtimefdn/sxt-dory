@@ -181,7 +181,8 @@ impl<E: Pairing> ProverSetup<E> {
         );
         let g2_elements: Vec<ark_bn254::G2Affine> =
             self.core.g2_vec.iter().map(|&g| g.into()).collect();
-        self.g2_cache = Some(G2Cache::new(&g2_elements));
+        let g_fin_element: ark_bn254::G2Affine = self.core.g_fin.into();
+        self.g2_cache = Some(G2Cache::new(&g2_elements, Some(&g_fin_element)));
 
         println!("Cache initialization complete.");
     }

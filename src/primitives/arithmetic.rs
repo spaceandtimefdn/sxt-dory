@@ -86,8 +86,15 @@ pub trait MultiScalarMul<G: Group> {
 
     /// Fixed-base vectorized scalar multiplication where the same base is scaled by each scalar individually
     /// Computes: [base * scalars[0], base * scalars[1], ..., base * scalars[n-1]]
-    fn fixed_base_vector_msm(base: &G, scalars: &[G::Scalar]) -> Vec<G> {
+    fn fixed_base_vector_msm(
+        base: &G, 
+        scalars: &[G::Scalar],
+        g1_cache: Option<&crate::curve::G1Cache>,
+        g2_cache: Option<&crate::curve::G2Cache>,
+    ) -> Vec<G> {
         // Default implementation: scale each scalar individually
+        // Caches are ignored in the default implementation
+        let _ = (g1_cache, g2_cache);
         scalars.iter().map(|scalar| base.scale(scalar)).collect()
     }
 

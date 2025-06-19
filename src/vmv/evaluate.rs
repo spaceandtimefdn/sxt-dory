@@ -106,7 +106,12 @@ where
     // v₂ = ~v · Γ₂,fin (scalar multiplication in G2)
     let updated_v2 = profile("eval_vmv_re_prove::g2_scaling", || {
         // Use fixed-base vectorized MSM since we're scaling the same base (g_fin) by each scalar
-        M2::fixed_base_vector_msm(prover_setup.g_fin(), &v_vec)
+        M2::fixed_base_vector_msm(
+            prover_setup.g_fin(), 
+            &v_vec,
+            prover_setup.g1_cache.as_ref(),
+            prover_setup.g2_cache.as_ref()
+        )
     });
 
     prover_state.v2 = updated_v2;
