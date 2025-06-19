@@ -37,31 +37,22 @@ where
         M1: MultiScalarMul<Self::G1>,
         M2: MultiScalarMul<Self::G2>,
     {
-        use crate::profiler::profile;
-
         if self.nu == 0 {
             panic!("Not enough rounds left in prover state");
         }
 
         // n/2
-        let n2 = profile("first_reduce::compute_n2", || 1usize << (self.nu - 1));
+        let n2 = 1usize << (self.nu - 1);
 
-        let (v1_l, v1_r, v2_l, v2_r) = profile("first_reduce::split_vectors", || {
-            let (v1_l, v1_r) = self.v1.split_at(n2);
-            let (v2_l, v2_r) = self.v2.split_at(n2);
-            (v1_l, v1_r, v2_l, v2_r)
-        });
+        let (v1_l, v1_r) = self.v1.split_at(n2);
+        let (v2_l, v2_r) = self.v2.split_at(n2);
 
         /* ---------- COMPUTE D ---------- */
-        let (g1_prime, g2_prime) = profile("first_reduce::get_gamma_vectors", || {
-            // Collapsed Γ-vectors of length n/2 (Γ₁′, Γ₂′)
-            let g2_prime = &setup.g2_vec()[..1 << (self.nu - 1)];
-            let g1_prime = &setup.g1_vec()[..1 << (self.nu - 1)];
-            (g1_prime, g2_prime)
-        });
+        // Collapsed Γ-vectors of length n/2 (Γ₁′, Γ₂′)
+        let g2_prime = &setup.g2_vec()[..1 << (self.nu - 1)];
+        let g1_prime = &setup.g1_vec()[..1 << (self.nu - 1)];
 
         let (d1_left, d1_right, d2_left, d2_right) =
-            profile("first_reduce::compute_d_terms", || {
                 // Use cached multi-pairing if available, otherwise fall back to regular multi-pairing
                 if setup.g1_cache.is_some() && setup.g2_cache.is_some() {
                     println!("USING CACHE!");
@@ -112,17 +103,13 @@ where
                     let d2_left = E::multi_pair(g1_prime, v2_l);
                     let d2_right = E::multi_pair(g1_prime, v2_r);
                     (d1_left, d1_right, d2_left, d2_right)
-                }
-            });
+                };
 
         /* ---------- COMPUTE E (for extended protocol) ---------- */
-        let (e1_beta, e2_beta) = profile("first_reduce::compute_e_terms", || {
-            // E₁β = ⟨Γ₁ , s₂⟩
-            let e1_beta = M1::msm(&setup.g1_vec()[..1 << self.nu], &self.s2);
-            // E₂β = ⟨Γ₂ , s₁⟩
-            let e2_beta = M2::msm(&setup.g2_vec()[..1 << self.nu], &self.s1);
-            (e1_beta, e2_beta)
-        });
+        // E₁β = ⟨Γ₁ , s₂⟩
+        let e1_beta = M1::msm(&setup.g1_vec()[..1 << self.nu], &self.s2);
+        // E₂β = ⟨Γ₂ , s₁⟩
+        let e2_beta = M2::msm(&setup.g2_vec()[..1 << self.nu], &self.s1);
 
         FirstReduceMessage {
             d1_left,
@@ -145,21 +132,15 @@ where
         M1: MultiScalarMul<Self::G1>,
         M2: MultiScalarMul<Self::G2>,
     {
-        use crate::profiler::profile;
 
         let beta = chall.beta;
         let beta_inv = chall.beta_inverse;
 
-        let g1_prime = profile("reduce_combine::get_g1_slice", || {
-            &setup.g1_vec()[..1 << self.nu]
-        });
-        let g2_prime = profile("reduce_combine::get_g2_slice", || {
-            &setup.g2_vec()[..1 << self.nu]
-        });
+        let g1_prime = &setup.g1_vec()[..1 << self.nu];
+        let g2_prime = &setup.g2_vec()[..1 << self.nu];
 
         // Prover work P(*):
         // ṽ₁ ← ṽ₁ + β·Γ₁
-        profile("reduce_combine::v1_combine", || {
             // Use cached version if cache is available
             if setup.g1_cache.is_some() || setup.g2_cache.is_some() {
                 println!("USING CACHE V COMBINE!");
@@ -173,10 +154,8 @@ where
             } else {
                 M1::fixed_scalar_variable_with_add(g1_prime, &mut self.v1, &beta);
             }
-        });
 
         // ṽ₂ ← ṽ₂ + β⁻¹·Γ₂
-        profile("reduce_combine::v2_combine", || {
             // Use cached version if cache is available
             if setup.g1_cache.is_some() || setup.g2_cache.is_some() {
                 println!("USING CACHE V COMBINE!");
@@ -190,7 +169,6 @@ where
             } else {
                 M2::fixed_scalar_variable_with_add(g2_prime, &mut self.v2, &beta_inv);
             }
-        });
 
         self
     }
@@ -205,35 +183,22 @@ where
         M1: MultiScalarMul<Self::G1>,
         M2: MultiScalarMul<Self::G2>,
     {
-        use crate::profiler::profile;
+        let n2 = 1usize << (self.nu - 1);
 
-        let n2 = profile("second_reduce::compute_n2", || 1usize << (self.nu - 1));
-
-        let (v1_l, v1_r, v2_l, v2_r, s1_l, s1_r, s2_l, s2_r) =
-            profile("second_reduce::split_vectors", || {
-                let (v1_l, v1_r) = self.v1.split_at(n2);
-                let (v2_l, v2_r) = self.v2.split_at(n2);
-                let (s1_l, s1_r) = self.s1.split_at(n2);
-                let (s2_l, s2_r) = self.s2.split_at(n2);
-                (v1_l, v1_r, v2_l, v2_r, s1_l, s1_r, s2_l, s2_r)
-            });
+        let (v1_l, v1_r) = self.v1.split_at(n2);
+        let (v2_l, v2_r) = self.v2.split_at(n2);
+        let (s1_l, s1_r) = self.s1.split_at(n2);
+        let (s2_l, s2_r) = self.s2.split_at(n2);
 
         // ---- C terms ----------------------------------------------------------
-        let (c_plus, c_minus) = profile("second_reduce::compute_c_terms", || {
-            let c_plus = E::multi_pair(v1_l, v2_r); // ⟨v₁L, v₂R⟩
-            let c_minus = E::multi_pair(v1_r, v2_l); // ⟨v₁R, v₂L⟩
-            (c_plus, c_minus)
-        });
+        let c_plus = E::multi_pair(v1_l, v2_r); // ⟨v₁L, v₂R⟩
+        let c_minus = E::multi_pair(v1_r, v2_l); // ⟨v₁R, v₂L⟩
 
         // ---- E terms (extended protocol) ---------------------------------------
-        let (e1_plus, e1_minus, e2_plus, e2_minus) =
-            profile("second_reduce::compute_e_terms", || {
-                let e1_plus = M1::msm(v1_l, s2_r); // ⟨v₁L, s₂R⟩
-                let e1_minus = M1::msm(v1_r, s2_l); // ⟨v₁R, s₂L⟩
-                let e2_plus = M2::msm(v2_r, s1_l); // ⟨v₂R, s₁L⟩
-                let e2_minus = M2::msm(v2_l, s1_r); // ⟨v₂L, s₁R⟩
-                (e1_plus, e1_minus, e2_plus, e2_minus)
-            });
+        let e1_plus = M1::msm(v1_l, s2_r); // ⟨v₁L, s₂R⟩
+        let e1_minus = M1::msm(v1_r, s2_l); // ⟨v₁R, s₂L⟩
+        let e2_plus = M2::msm(v2_r, s1_l); // ⟨v₂R, s₁L⟩
+        let e2_minus = M2::msm(v2_l, s1_r); // ⟨v₂L, s₁R⟩
 
         SecondReduceMessage {
             c_plus,
@@ -264,62 +229,42 @@ where
         M1: MultiScalarMul<Self::G1>,
         M2: MultiScalarMul<Self::G2>,
     {
-        use crate::profiler::profile;
-
         let (alpha, alpha_inv) = (chall.alpha, chall.alpha_inverse);
-        let n2 = profile("reduce_fold::compute_n2", || 1usize << (self.nu - 1));
+        let n2 = 1usize << (self.nu - 1);
 
         /* ─── fold v-vectors ────────────────────────────────────────────── */
-        profile("reduce_fold::v_vectors_fold", || {
-            let (v1_l, v1_r_slice) = self.v1.split_at_mut(n2);
-            let v1_r = &*v1_r_slice; // Convert mutable slice to immutable for par_iter()
+        let (v1_l, v1_r_slice) = self.v1.split_at_mut(n2);
+        let v1_r = &*v1_r_slice; // Convert mutable slice to immutable for par_iter()
 
-            let (v2_l, v2_r_slice) = self.v2.split_at_mut(n2);
-            let v2_r = &*v2_r_slice;
+        let (v2_l, v2_r_slice) = self.v2.split_at_mut(n2);
+        let v2_r = &*v2_r_slice;
 
-            profile("reduce_fold::v1_fold_operation", || {
-                M1::fixed_scalar_scale_with_add(v1_l, v1_r, &alpha);
-            });
+        M1::fixed_scalar_scale_with_add(v1_l, v1_r, &alpha);
 
-            profile("reduce_fold::v2_fold_operation", || {
-                M2::fixed_scalar_scale_with_add(v2_l, v2_r, &alpha_inv);
-            });
+        M2::fixed_scalar_scale_with_add(v2_l, v2_r, &alpha_inv);
 
-            profile("reduce_fold::v_vectors_truncate", || {
-                self.v1.truncate(n2);
-                self.v2.truncate(n2);
-            });
-        });
+        self.v1.truncate(n2);
+        self.v2.truncate(n2);
 
         /* ─── fold s-vectors (extended protocol)──────────-────────────────── */
-        profile("reduce_fold::s_vectors_fold", || {
-            let (s1_l, s1_r_slice) = self.s1.split_at_mut(n2);
-            let s1_r = &*s1_r_slice;
+        let (s1_l, s1_r_slice) = self.s1.split_at_mut(n2);
+        let s1_r = &*s1_r_slice;
 
-            let (s2_l, s2_r_slice) = self.s2.split_at_mut(n2);
-            let s2_r = s2_r_slice;
+        let (s2_l, s2_r_slice) = self.s2.split_at_mut(n2);
+        let s2_r = s2_r_slice;
 
-            profile("reduce_fold::s1_fold_operation", || {
-                s1_l.par_iter_mut()
-                    .zip(s1_r.par_iter())
-                    .for_each(|(s_l, s_r_val)| *s_l = s_l.mul(&alpha).add(s_r_val));
-            });
+        s1_l.par_iter_mut()
+            .zip(s1_r.par_iter())
+            .for_each(|(s_l, s_r_val)| *s_l = s_l.mul(&alpha).add(s_r_val));
 
-            profile("reduce_fold::s2_fold_operation", || {
-                s2_l.par_iter_mut()
-                    .zip(s2_r.par_iter())
-                    .for_each(|(s_l, s_r_val)| *s_l = s_l.mul(&alpha_inv).add(s_r_val));
-            });
+        s2_l.par_iter_mut()
+            .zip(s2_r.par_iter())
+            .for_each(|(s_l, s_r_val)| *s_l = s_l.mul(&alpha_inv).add(s_r_val));
 
-            profile("reduce_fold::s_vectors_truncate", || {
-                self.s1.truncate(n2);
-                self.s2.truncate(n2);
-            });
-        });
+        self.s1.truncate(n2);
+        self.s2.truncate(n2);
 
-        profile("reduce_fold::update_nu", || {
-            self.nu -= 1;
-        });
+        self.nu -= 1;
 
         self
     }
@@ -338,32 +283,23 @@ where
         M1: MultiScalarMul<Self::G1>,
         M2: MultiScalarMul<Self::G2>,
     {
-        use crate::profiler::profile;
+        debug_assert_eq!(self.nu, 0);
+        debug_assert_eq!(self.v1.len(), 1);
+        debug_assert_eq!(self.v2.len(), 1);
+        debug_assert_eq!(self.s1.len(), 1);
+        debug_assert_eq!(self.s2.len(), 1);
 
-        profile("scalar_product::debug_asserts", || {
-            debug_assert_eq!(self.nu, 0);
-            debug_assert_eq!(self.v1.len(), 1);
-            debug_assert_eq!(self.v2.len(), 1);
-            debug_assert_eq!(self.s1.len(), 1);
-            debug_assert_eq!(self.s2.len(), 1);
-        });
-
-        let (gamma, gamma_inv) = profile("scalar_product::extract_challenges", || {
-            (chall.gamma, chall.gamma_inverse)
-        });
+        let (gamma, gamma_inv) = (chall.gamma, chall.gamma_inverse);
 
         // Apply `fold-scalars`` transformation to the vectors:
         // v1' = v1 + γ * s1 * H1
         // v2' = v2 + γ^(-1) * s2 * H2
 
-        let (e1, e2) = profile("scalar_product::compute_fold_scalars", || {
-            let gamma_s1_product = gamma.mul(&self.s1[0]);
-            let e1 = self.v1[0].add(&setup.h1().scale(&gamma_s1_product));
+        let gamma_s1_product = gamma.mul(&self.s1[0]);
+        let e1 = self.v1[0].add(&setup.h1().scale(&gamma_s1_product));
 
-            let gamma_inv_s2_product = gamma_inv.mul(&self.s2[0]);
-            let e2 = self.v2[0].add(&setup.h2().scale(&gamma_inv_s2_product));
-            (e1, e2)
-        });
+        let gamma_inv_s2_product = gamma_inv.mul(&self.s2[0]);
+        let e2 = self.v2[0].add(&setup.h2().scale(&gamma_inv_s2_product));
 
         ScalarProductMessage {
             e1: e1.clone(),

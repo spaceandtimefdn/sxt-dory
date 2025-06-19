@@ -14,10 +14,8 @@ use ark_std::rand::{rngs::StdRng, RngCore, SeedableRng};
 use rayon::prelude::*;
 // Import jolt-optimizations types for precomputed data
 use jolt_optimizations::{
-    PrecomputedShamir2Data,
+    dory_g1::precompute_g1_generators, dory_g2::precompute_g2_generators, PrecomputedShamir2Data,
     PrecomputedShamir4Data,
-    dory_g1::precompute_g1_generators, 
-    dory_g2::precompute_g2_generators,
 };
 
 /// Create a fixed RNG for deterministic tests
@@ -296,13 +294,10 @@ impl Pairing for ArkBn254Pairing {
         g2_count: Option<usize>,
         g2_cache: Option<&G2Cache>,
     ) -> Self::GT {
-        use crate::profiler::profile;
 
-        profile("multi_pair_cached", || {
             match (g1_points, g1_count, g1_cache, g2_points, g2_count, g2_cache) {
                 // Case 1: Both G1 and G2 use cached prepared values (fully optimized)
                 (None, Some(g1_c), Some(g1_cache), None, Some(g2_c), Some(g2_cache)) => {
-                    profile("multi_pair_cached::both_cached", || {
                         assert_eq!(g1_c, g2_c, "G1 and G2 counts must be equal");
                         if g1_c == 0 {
                             return Fq12::one();
@@ -321,23 +316,17 @@ impl Pairing for ArkBn254Pairing {
                                 .expect("Index out of bounds in G2 cache")
                         });
 
-                        let ml_result = profile("multi_pair_cached::miller_loop", || {
-                            Bn254::multi_miller_loop(g1_prepared, g2_prepared).0
-                        });
+                        let ml_result = Bn254::multi_miller_loop_ref(g1_prepared, g2_prepared).0;
 
                         let pairing_result =
-                            profile("multi_pair_cached::final_exponentiation", || {
                                 Bn254::final_exponentiation(MillerLoopOutput(ml_result))
-                                    .expect("Final exponentiation should not fail")
-                            });
+                                    .expect("Final exponentiation should not fail");
 
                         pairing_result.0
-                    })
                 }
 
                 // Case 2: G1 cached, G2 fresh points (partial optimization)
                 (None, Some(g1_c), Some(g1_cache), Some(g2_points), _, _) => {
-                    profile("multi_pair_cached::g1_cached_g2_fresh", || {
                         assert_eq!(
                             g1_c,
                             g2_points.len(),
@@ -355,30 +344,22 @@ impl Pairing for ArkBn254Pairing {
                         });
 
                         let g2_prepared =
-                            profile("multi_pair_cached::prepare_g2_fresh_partial", || {
                                 g2_points
                                     .par_iter()
                                     .map(|q| BnG2Prepared::from(q.0))
-                                    .collect::<Vec<_>>()
-                            });
+                                    .collect::<Vec<_>>();
 
-                        let ml_result = profile("multi_pair_cached::miller_loop_partial", || {
-                            Bn254::multi_miller_loop(g1_prepared, g2_prepared).0
-                        });
+                        let ml_result = Bn254::multi_miller_loop_ref(g1_prepared, &g2_prepared).0;
 
                         let pairing_result =
-                            profile("multi_pair_cached::final_exponentiation_partial", || {
                                 Bn254::final_exponentiation(MillerLoopOutput(ml_result))
-                                    .expect("Final exponentiation should not fail")
-                            });
+                                    .expect("Final exponentiation should not fail");
 
                         pairing_result.0
-                    })
                 }
 
                 // Case 3: G1 fresh points, G2 cached (partial optimization)
                 (Some(g1_points), _, _, None, Some(g2_c), Some(g2_cache)) => {
-                    profile("multi_pair_cached::g1_fresh_g2_cached", || {
                         assert_eq!(
                             g1_points.len(),
                             g2_c,
@@ -390,12 +371,10 @@ impl Pairing for ArkBn254Pairing {
 
                         // G1 fresh preparation, G2 from cache as iterator
                         let g1_prepared =
-                            profile("multi_pair_cached::prepare_g1_fresh_partial", || {
                                 g1_points
                                     .par_iter()
                                     .map(|&g| BnG1Prepared::from(g))
-                                    .collect::<Vec<_>>()
-                            });
+                                    .collect::<Vec<_>>();
 
                         let g2_prepared = (0..g2_c).map(|i| {
                             g2_cache
@@ -403,23 +382,17 @@ impl Pairing for ArkBn254Pairing {
                                 .expect("Index out of bounds in G2 cache")
                         });
 
-                        let ml_result = profile("multi_pair_cached::miller_loop_partial", || {
-                            Bn254::multi_miller_loop(g1_prepared, g2_prepared).0
-                        });
+                        let ml_result = Bn254::multi_miller_loop_ref(&g1_prepared, g2_prepared).0;
 
                         let pairing_result =
-                            profile("multi_pair_cached::final_exponentiation_partial", || {
                                 Bn254::final_exponentiation(MillerLoopOutput(ml_result))
-                                    .expect("Final exponentiation should not fail")
-                            });
+                                    .expect("Final exponentiation should not fail");
 
                         pairing_result.0
-                    })
                 }
 
                 // Case 4: Both fresh points (no caching benefit)
                 (Some(g1_points), _, _, Some(g2_points), _, _) => {
-                    profile("multi_pair_cached::both_fresh", || {
                         assert_eq!(
                             g1_points.len(),
                             g2_points.len(),
@@ -429,37 +402,27 @@ impl Pairing for ArkBn254Pairing {
                             return Fq12::one();
                         }
 
-                        let left = profile("multi_pair_cached::prepare_g1_fresh", || {
-                            g1_points
+                        let left = g1_points
                                 .par_iter()
                                 .map(|&g| BnG1Prepared::from(g))
-                                .collect::<Vec<_>>()
-                        });
+                                .collect::<Vec<_>>();
 
-                        let right = profile("multi_pair_cached::prepare_g2_fresh", || {
-                            g2_points
+                        let right = g2_points
                                 .par_iter()
                                 .map(|q| BnG2Prepared::from(q.0))
-                                .collect::<Vec<_>>()
-                        });
+                                .collect::<Vec<_>>();
 
-                        let ml_result = profile("multi_pair_cached::miller_loop_fresh", || {
-                            Bn254::multi_miller_loop(left, right).0
-                        });
+                        let ml_result = Bn254::multi_miller_loop_ref(&left, &right).0;
 
                         let pairing_result =
-                            profile("multi_pair_cached::final_exponentiation_fresh", || {
                                 Bn254::final_exponentiation(MillerLoopOutput(ml_result))
-                                    .expect("Final exponentiation should not fail")
-                            });
+                                    .expect("Final exponentiation should not fail");
 
                         pairing_result.0
-                    })
                 }
 
                 _ => panic!("Invalid combination of parameters provided to multi_pair_cached"),
             }
-        })
     }
 }
 
@@ -493,11 +456,12 @@ impl G1Cache {
     /// Initialize cache from a vector of G1 affine points
     pub fn new(generators: &[G1Affine]) -> Self {
         // First convert all generators to projective form
-        let generators_proj: Vec<G1Projective> = generators.iter().map(|g| g.into_group()).collect();
-        
+        let generators_proj: Vec<G1Projective> =
+            generators.iter().map(|g| g.into_group()).collect();
+
         // Create precomputed Shamir data for all generators
         let precomputed_data = precompute_g1_generators(&generators_proj);
-        
+
         let entries: Vec<G1CacheEntry> = generators
             .par_iter()
             .enumerate()
@@ -523,7 +487,7 @@ impl G1Cache {
             })
             .collect();
 
-        Self { 
+        Self {
             entries,
             precomputed_data: Some(precomputed_data),
         }
@@ -575,12 +539,18 @@ impl G1Cache {
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
-    
+
     /// Get precomputed Shamir data for a slice of generators
     /// Returns a slice reference for zero-copy access
-    pub fn get_precomputed_slice(&self, count: usize) -> &[jolt_optimizations::PrecomputedShamir2Table] {
-        assert!(count <= self.entries.len(), "Requested count exceeds cache size");
-        
+    pub fn get_precomputed_slice(
+        &self,
+        count: usize,
+    ) -> &[jolt_optimizations::PrecomputedShamir2Table] {
+        assert!(
+            count <= self.entries.len(),
+            "Requested count exceeds cache size"
+        );
+
         if let Some(ref data) = self.precomputed_data {
             &data.shamir_tables[..count]
         } else {
@@ -619,11 +589,12 @@ impl G2Cache {
     /// Initialize cache from a vector of G2 affine points
     pub fn new(generators: &[G2Affine], g_fin: Option<&G2Affine>) -> Self {
         // First convert all generators to projective form
-        let generators_proj: Vec<G2Projective> = generators.iter().map(|g| g.into_group()).collect();
-        
+        let generators_proj: Vec<G2Projective> =
+            generators.iter().map(|g| g.into_group()).collect();
+
         // Create precomputed Shamir data for all generators
         let precomputed_data = precompute_g2_generators(&generators_proj);
-        
+
         let entries: Vec<G2CacheEntry> = generators
             .par_iter()
             .enumerate()
@@ -655,7 +626,7 @@ impl G2Cache {
             jolt_optimizations::glv_four_precompute(&[g_fin_proj])
         });
 
-        Self { 
+        Self {
             entries,
             precomputed_data: Some(precomputed_data),
             g_fin_glv_tables,
@@ -663,7 +634,10 @@ impl G2Cache {
     }
 
     /// Initialize cache from a vector of G2AffineWrapper points
-    pub fn new_from_wrappers(generators: &[G2AffineWrapper], g_fin: Option<&G2AffineWrapper>) -> Self {
+    pub fn new_from_wrappers(
+        generators: &[G2AffineWrapper],
+        g_fin: Option<&G2AffineWrapper>,
+    ) -> Self {
         let native_generators: Vec<G2Affine> = generators.iter().map(|w| w.0).collect();
         let native_g_fin = g_fin.map(|w| &w.0);
         Self::new(&native_generators, native_g_fin)
@@ -715,19 +689,25 @@ impl G2Cache {
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
-    
+
     /// Get precomputed Shamir data for a slice of generators
     /// Returns a slice reference for zero-copy access
-    pub fn get_precomputed_slice(&self, count: usize) -> &[jolt_optimizations::PrecomputedShamir4Table] {
-        assert!(count <= self.entries.len(), "Requested count exceeds cache size");
-        
+    pub fn get_precomputed_slice(
+        &self,
+        count: usize,
+    ) -> &[jolt_optimizations::PrecomputedShamir4Table] {
+        assert!(
+            count <= self.entries.len(),
+            "Requested count exceeds cache size"
+        );
+
         if let Some(ref data) = self.precomputed_data {
             &data.shamir_tables[..count]
         } else {
             panic!("Precomputed data not available");
         }
     }
-    
+
     /// Get precomputed GLV tables for g_fin if available
     /// Returns a reference to avoid clones
     pub fn get_g_fin_glv_tables(&self) -> Option<&PrecomputedShamir4Data> {
@@ -756,54 +736,49 @@ impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
     }
 
     fn fixed_base_vector_msm(
-        base: &G1Affine, 
+        base: &G1Affine,
         scalars: &[Fr],
         g1_cache: Option<&crate::curve::G1Cache>,
         g2_cache: Option<&crate::curve::G2Cache>,
     ) -> Vec<G1Affine> {
         // Caches not used for G1 fixed base vector MSM
         let _ = (g1_cache, g2_cache);
-        
+
         if scalars.is_empty() {
             return vec![];
         }
 
         // Convert base to projective for the jolt-optimizations function
         let base_proj = base.into_group();
-        
-        // Use jolt-optimizations fixed_base_vector_msm_g1 
+
+        // Use jolt-optimizations fixed_base_vector_msm_g1
         let results_proj = jolt_optimizations::fixed_base_vector_msm_g1(&base_proj, scalars);
-        
+
         // Convert results back to affine
         G1Projective::normalize_batch(&results_proj)
     }
 
     fn fixed_scalar_variable_with_add(bases: &[G1Affine], vs: &mut [G1Affine], scalar: &Fr) {
-        use crate::profiler::profile;
-        
-        assert_eq!(bases.len(), vs.len(), "bases and vs must have the same length");
-        
+
+        assert_eq!(
+            bases.len(),
+            vs.len(),
+            "bases and vs must have the same length"
+        );
+
         // Convert to projective for computation
-        let mut vs_proj: Vec<G1Projective> = profile("g1_online::to_projective_vs", || {
-            vs.iter().map(|v| v.into_group()).collect()
-        });
-        let bases_proj: Vec<G1Projective> = profile("g1_online::to_projective_bases", || {
-            bases.iter().map(|b| b.into_group()).collect()
-        });
-        
+        let mut vs_proj: Vec<G1Projective> = vs.iter().map(|v| v.into_group()).collect();
+        let bases_proj: Vec<G1Projective> = bases.iter().map(|b| b.into_group()).collect();
+
         // Use jolt-optimizations function: v[i] = v[i] + scalar * generators[i]
         // Note: We always use online version here. To use precomputed, call the cached version directly
-        profile("g1_online::vector_add_scalar_mul_online", || {
-            jolt_optimizations::vector_add_scalar_mul_g1_online(&mut vs_proj, &bases_proj, *scalar);
-        });
-        
+        jolt_optimizations::vector_add_scalar_mul_g1_online(&mut vs_proj, &bases_proj, *scalar);
+
         // Convert back to affine
-        profile("g1_online::to_affine", || {
-            let affines = G1Projective::normalize_batch(&vs_proj);
-            for (i, affine) in affines.into_iter().enumerate() {
-                vs[i] = affine;
-            }
-        });
+        let affines = G1Projective::normalize_batch(&vs_proj);
+        for (i, affine) in affines.into_iter().enumerate() {
+            vs[i] = affine;
+        }
     }
 
     fn fixed_scalar_variable_with_add_cached(
@@ -813,33 +788,28 @@ impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
         vs: &mut [G1Affine],
         scalar: &Fr,
     ) {
-        use crate::profiler::profile;
-        
+
         assert_eq!(bases_count, vs.len(), "bases_count must equal vs length");
-        
+
         if let Some(cache) = g1_cache {
             // Get precomputed data from cache
-            let precomputed = profile("g1_cached::get_precomputed_slice", || {
-                cache.get_precomputed_slice(bases_count)
-            });
-            
+            let precomputed = cache.get_precomputed_slice(bases_count);
+
             // Convert to projective for computation
-            let mut vs_proj: Vec<G1Projective> = profile("g1_cached::to_projective", || {
-                vs.iter().map(|v| v.into_group()).collect()
-            });
-            
+            let mut vs_proj: Vec<G1Projective> = vs.iter().map(|v| v.into_group()).collect();
+
             // Use jolt-optimizations function with precomputed data
-            profile("g1_cached::vector_add_scalar_mul_precomputed", || {
-                jolt_optimizations::vector_add_scalar_mul_g1_precomputed(&mut vs_proj, *scalar, precomputed);
-            });
-            
+            jolt_optimizations::vector_add_scalar_mul_g1_precomputed(
+                &mut vs_proj,
+                *scalar,
+                precomputed,
+            );
+
             // Convert back to affine
-            profile("g1_cached::to_affine", || {
-                let affines = G1Projective::normalize_batch(&vs_proj);
+            let affines = G1Projective::normalize_batch(&vs_proj);
                 for (i, affine) in affines.into_iter().enumerate() {
                     vs[i] = affine;
                 }
-            });
         } else {
             // Fall back to extracting bases from cache and using online version
             // This should not happen in practice as we check for cache availability
@@ -848,30 +818,29 @@ impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
     }
 
     fn fixed_scalar_scale_with_add(vs: &mut [G1Affine], addends: &[G1Affine], scalar: &Fr) {
-        use crate::profiler::profile;
-        
-        assert_eq!(vs.len(), addends.len(), "vs and addends must have the same length");
-        
+
+        assert_eq!(
+            vs.len(),
+            addends.len(),
+            "vs and addends must have the same length"
+        );
+
         // Convert to projective for computation
-        let mut vs_proj: Vec<G1Projective> = profile("g1_scale::to_projective_vs", || {
-            vs.iter().map(|v| v.into_group()).collect()
-        });
-        let addends_proj: Vec<G1Projective> = profile("g1_scale::to_projective_addends", || {
-            addends.iter().map(|a| a.into_group()).collect()
-        });
-        
+        let mut vs_proj: Vec<G1Projective> = vs.iter().map(|v| v.into_group()).collect();
+        let addends_proj: Vec<G1Projective> = addends.iter().map(|a| a.into_group()).collect();
+
         // Use jolt-optimizations function: v[i] = scalar * v[i] + gamma[i]
-        profile("g1_scale::vector_scalar_mul_add_gamma", || {
-            jolt_optimizations::vector_scalar_mul_add_gamma_g1_online(&mut vs_proj, *scalar, &addends_proj);
-        });
-        
+        jolt_optimizations::vector_scalar_mul_add_gamma_g1_online(
+            &mut vs_proj,
+            *scalar,
+            &addends_proj,
+        );
+
         // Convert back to affine
-        profile("g1_scale::to_affine", || {
-            let affines = G1Projective::normalize_batch(&vs_proj);
-            for (i, affine) in affines.into_iter().enumerate() {
-                vs[i] = affine;
-            }
-        });
+        let affines = G1Projective::normalize_batch(&vs_proj);
+        for (i, affine) in affines.into_iter().enumerate() {
+            vs[i] = affine;
+        }
     }
 }
 
@@ -898,13 +867,12 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
     }
 
     fn fixed_base_vector_msm(
-        base: &G2AffineWrapper, 
+        base: &G2AffineWrapper,
         scalars: &[Fr],
         _g1_cache: Option<&crate::curve::G1Cache>,
         g2_cache: Option<&crate::curve::G2Cache>,
     ) -> Vec<G2AffineWrapper> {
-        use crate::profiler::profile;
-        
+
         if scalars.is_empty() {
             return vec![];
         }
@@ -912,7 +880,6 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
         // Check if we have cached GLV tables for g_fin
         if let Some(glv_tables) = g2_cache.and_then(|cache| cache.get_g_fin_glv_tables()) {
             println!("USING PRECOMPUTED GLV TABLES FOR G_FIN!");
-            profile("g2_fixed_base_vector_msm::precomputed", || {
                 // Use precomputed GLV tables
                 let results_proj: Vec<G2Projective> = scalars
                     .par_iter()
@@ -921,18 +888,17 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
                         jolt_optimizations::glv_four_scalar_mul(glv_tables, scalar)[0]
                     })
                     .collect();
-                
+
                 // Batch convert to affine
                 let affines = G2Projective::normalize_batch(&results_proj);
-                affines.into_iter()
+                affines
+                    .into_iter()
                     .map(|affine| G2AffineWrapper(affine))
                     .collect()
-            })
         } else {
-            profile("g2_fixed_base_vector_msm::online", || {
                 // Fall back to online computation
                 let base_proj = base.0.into_group();
-                
+
                 // Compute scalar multiplication for each scalar with the fixed base
                 let results_proj: Vec<G2Projective> = scalars
                     .par_iter()
@@ -940,13 +906,13 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
                         jolt_optimizations::glv_four_scalar_mul_online(scalar, &[base_proj])[0]
                     })
                     .collect();
-                
+
                 // Batch convert to affine
                 let affines = G2Projective::normalize_batch(&results_proj);
-                affines.into_iter()
+                affines
+                    .into_iter()
                     .map(|affine| G2AffineWrapper(affine))
                     .collect()
-            })
         }
     }
 
@@ -955,30 +921,25 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
         vs: &mut [G2AffineWrapper],
         scalar: &Fr,
     ) {
-        use crate::profiler::profile;
-        
-        assert_eq!(bases.len(), vs.len(), "bases and vs must have the same length");
-        
+
+        assert_eq!(
+            bases.len(),
+            vs.len(),
+            "bases and vs must have the same length"
+        );
+
         // Convert to projective for computation
-        let mut vs_proj: Vec<G2Projective> = profile("g2_online::to_projective_vs", || {
-            vs.iter().map(|v| v.0.into_group()).collect()
-        });
-        let bases_proj: Vec<G2Projective> = profile("g2_online::to_projective_bases", || {
-            bases.iter().map(|b| b.0.into_group()).collect()
-        });
-        
+        let mut vs_proj: Vec<G2Projective> = vs.iter().map(|v| v.0.into_group()).collect();
+        let bases_proj: Vec<G2Projective> = bases.iter().map(|b| b.0.into_group()).collect();
+
         // Use jolt-optimizations function: v[i] = v[i] + scalar * generators[i]
-        profile("g2_online::vector_add_scalar_mul_online", || {
-            jolt_optimizations::vector_add_scalar_mul_g2_online(&mut vs_proj, &bases_proj, *scalar);
-        });
-        
+        jolt_optimizations::vector_add_scalar_mul_g2_online(&mut vs_proj, &bases_proj, *scalar);
+
         // Convert back to affine wrapper
-        profile("g2_online::to_affine", || {
             let affines = G2Projective::normalize_batch(&vs_proj);
             for (i, affine) in affines.into_iter().enumerate() {
                 vs[i] = G2AffineWrapper(affine);
             }
-        });
     }
 
     fn fixed_scalar_variable_with_add_cached(
@@ -988,33 +949,28 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
         vs: &mut [G2AffineWrapper],
         scalar: &Fr,
     ) {
-        use crate::profiler::profile;
-        
+
         assert_eq!(bases_count, vs.len(), "bases_count must equal vs length");
-        
+
         if let Some(cache) = g2_cache {
             // Get precomputed data from cache
-            let precomputed = profile("g2_cached::get_precomputed_slice", || {
-                cache.get_precomputed_slice(bases_count)
-            });
-            
+            let precomputed = cache.get_precomputed_slice(bases_count);
+
             // Convert to projective for computation
-            let mut vs_proj: Vec<G2Projective> = profile("g2_cached::to_projective", || {
-                vs.iter().map(|v| v.0.into_group()).collect()
-            });
-            
+            let mut vs_proj: Vec<G2Projective> = vs.iter().map(|v| v.0.into_group()).collect();
+
             // Use jolt-optimizations function with precomputed data
-            profile("g2_cached::vector_add_scalar_mul_precomputed", || {
-                jolt_optimizations::vector_add_scalar_mul_g2_precomputed(&mut vs_proj, *scalar, precomputed);
-            });
-            
+            jolt_optimizations::vector_add_scalar_mul_g2_precomputed(
+                &mut vs_proj,
+                *scalar,
+                precomputed,
+            );
+
             // Convert back to affine wrapper
-            profile("g2_cached::to_affine", || {
                 let affines = G2Projective::normalize_batch(&vs_proj);
                 for (i, affine) in affines.into_iter().enumerate() {
                     vs[i] = G2AffineWrapper(affine);
                 }
-            });
         } else {
             // Fall back to extracting bases from cache and using online version
             // This should not happen in practice as we check for cache availability
@@ -1027,30 +983,29 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
         addends: &[G2AffineWrapper],
         scalar: &Fr,
     ) {
-        use crate::profiler::profile;
-        
-        assert_eq!(vs.len(), addends.len(), "vs and addends must have the same length");
-        
+
+        assert_eq!(
+            vs.len(),
+            addends.len(),
+            "vs and addends must have the same length"
+        );
+
         // Convert to projective for computation
-        let mut vs_proj: Vec<G2Projective> = profile("g2_scale::to_projective_vs", || {
-            vs.iter().map(|v| v.0.into_group()).collect()
-        });
-        let addends_proj: Vec<G2Projective> = profile("g2_scale::to_projective_addends", || {
-            addends.iter().map(|a| a.0.into_group()).collect()
-        });
-        
+        let mut vs_proj: Vec<G2Projective> = vs.iter().map(|v| v.0.into_group()).collect();
+        let addends_proj: Vec<G2Projective> = addends.iter().map(|a| a.0.into_group()).collect();
+
         // Use jolt-optimizations function: v[i] = scalar * v[i] + gamma[i]
-        profile("g2_scale::vector_scalar_mul_add_gamma", || {
-            jolt_optimizations::vector_scalar_mul_add_gamma_g2_online(&mut vs_proj, *scalar, &addends_proj);
-        });
-        
+        jolt_optimizations::vector_scalar_mul_add_gamma_g2_online(
+            &mut vs_proj,
+            *scalar,
+            &addends_proj,
+        );
+
         // Convert back to affine wrapper
-        profile("g2_scale::to_affine", || {
             let affines = G2Projective::normalize_batch(&vs_proj);
             for (i, affine) in affines.into_iter().enumerate() {
                 vs[i] = G2AffineWrapper(affine);
             }
-        });
     }
 }
 
@@ -1079,7 +1034,7 @@ impl<G: Group> MultiScalarMul<G> for DummyMsm<G> {
     }
 
     fn fixed_base_vector_msm(
-        base: &G, 
+        base: &G,
         scalars: &[G::Scalar],
         _g1_cache: Option<&crate::curve::G1Cache>,
         _g2_cache: Option<&crate::curve::G2Cache>,
@@ -1090,8 +1045,12 @@ impl<G: Group> MultiScalarMul<G> for DummyMsm<G> {
     }
 
     fn fixed_scalar_variable_with_add(bases: &[G], vs: &mut [G], scalar: &G::Scalar) {
-        assert_eq!(bases.len(), vs.len(), "bases and vs must have the same length");
-        
+        assert_eq!(
+            bases.len(),
+            vs.len(),
+            "bases and vs must have the same length"
+        );
+
         // Naive implementation: v[i] = v[i] + scalar * bases[i]
         for (i, base) in bases.iter().enumerate() {
             vs[i] = vs[i].add(&base.scale(scalar));
@@ -1099,14 +1058,18 @@ impl<G: Group> MultiScalarMul<G> for DummyMsm<G> {
     }
 
     fn fixed_scalar_scale_with_add(vs: &mut [G], addends: &[G], scalar: &G::Scalar) {
-        assert_eq!(vs.len(), addends.len(), "vs and addends must have the same length");
-        
+        assert_eq!(
+            vs.len(),
+            addends.len(),
+            "vs and addends must have the same length"
+        );
+
         // Naive implementation: v[i] = scalar * v[i] + addends[i]
         for i in 0..vs.len() {
             vs[i] = vs[i].scale(scalar).add(&addends[i]);
         }
     }
-    
+
     fn fixed_scalar_variable_with_add_cached(
         _bases_count: usize,
         _g1_cache: Option<&crate::curve::G1Cache>,

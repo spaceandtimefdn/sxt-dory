@@ -73,42 +73,36 @@ pub trait Polynomial<F: Field, G1: Group<Scalar = F>> {
     where
         Self: Sync,
     {
-        use crate::profiler::profile;
         use rayon::prelude::*;
 
-        profile("vector_matrix_product", || {
-            let cols_per_row = 1 << sigma;
-            let len = self.len();
-            let num_rows = (1 << nu).min(left_vec.len());
+        let cols_per_row = 1 << sigma;
+        let len = self.len();
+        let num_rows = (1 << nu).min(left_vec.len());
 
-            if num_rows == 0 {
-                return vec![F::zero(); cols_per_row];
-            }
+        if num_rows == 0 {
+            return vec![F::zero(); cols_per_row];
+        }
 
-            // Optimization 1: Early exit for zero weights
-            let effective_rows: Vec<(usize, &F)> =
-                profile("vector_matrix_product::filter_nonzero", || {
-                    (0..num_rows)
-                        .filter_map(|row_idx| {
-                            let weight = &left_vec[row_idx];
-                            if !weight.is_zero() {
-                                Some((row_idx, weight))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect()
-                });
+        // Optimization 1: Early exit for zero weights
+        let effective_rows: Vec<(usize, &F)> = (0..num_rows)
+            .filter_map(|row_idx| {
+                let weight = &left_vec[row_idx];
+                if !weight.is_zero() {
+                    Some((row_idx, weight))
+                } else {
+                    None
+                }
+            })
+            .collect();
 
-            if effective_rows.is_empty() {
-                return vec![F::zero(); cols_per_row];
-            }
+        if effective_rows.is_empty() {
+            return vec![F::zero(); cols_per_row];
+        }
 
-            // Optimization 2: Parallel processing by columns for better cache locality
-            profile("vector_matrix_product::parallel_computation", || {
-                (0..cols_per_row)
-                    .into_par_iter()
-                    .map(|col_idx| {
+        // Optimization 2: Parallel processing by columns for better cache locality
+        (0..cols_per_row)
+            .into_par_iter()
+            .map(|col_idx| {
                         let mut col_sum = F::zero();
 
                         // Process all contributing rows for this column
@@ -124,8 +118,6 @@ pub trait Polynomial<F: Field, G1: Group<Scalar = F>> {
                         col_sum
                     })
                     .collect()
-            })
-        })
     }
 }
 

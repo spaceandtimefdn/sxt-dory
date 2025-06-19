@@ -87,7 +87,7 @@ pub trait MultiScalarMul<G: Group> {
     /// Fixed-base vectorized scalar multiplication where the same base is scaled by each scalar individually
     /// Computes: [base * scalars[0], base * scalars[1], ..., base * scalars[n-1]]
     fn fixed_base_vector_msm(
-        base: &G, 
+        base: &G,
         scalars: &[G::Scalar],
         g1_cache: Option<&crate::curve::G1Cache>,
         g2_cache: Option<&crate::curve::G2Cache>,
@@ -111,7 +111,7 @@ pub trait MultiScalarMul<G: Group> {
 
     /// Fixed-scalar variable-base vectorized multiplication with add using cached precomputed data
     /// vs[i] = vs[i] + scalar * bases[i] where bases come from cache
-    /// 
+    ///
     /// This method allows using precomputed data when available, similar to multi_pair_cached.
     /// The default implementation panics - concrete implementations must override this.
     fn fixed_scalar_variable_with_add_cached(
