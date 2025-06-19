@@ -40,7 +40,7 @@ where
     // Note: we pull `d_pair` here even though the Prover does not actually need it. This is so that the verifier
     // and prover transcripts will stay in sync (see Scalar-Product protocol in the paper).
     let (_unused_d, builder) = builder.challenge_scalar_product_scalars();
-    
+
     // Note: `compute_scalar_product_message` applies the `Fold-Scalars` transform, as described in the paper.
     let scalar_product_msg = state.compute_scalar_product_message::<M1, M2>(setup, challenge);
     builder.append_scalar_product_message(scalar_product_msg)

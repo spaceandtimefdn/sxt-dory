@@ -10,13 +10,12 @@ use dory::curve::{
 
 #[test]
 fn test_pcs_api_workflow() {
-
     let mut rng = test_rng();
     let domain = b"dory_pcs_test";
 
     // Multilinear polynomial parameters
-    let num_variables = 10;
-    let sigma = 5; // sigma must be <= max_log_n / 2 for the SRS
+    let num_variables = 24;
+    let sigma = 12; // sigma must be <= max_log_n / 2 for the SRS
     let num_coeffs = 1 << num_variables;
 
     println!(
@@ -26,68 +25,16 @@ fn test_pcs_api_workflow() {
 
     // Setup with preloaded SRS file
     let setup_start = Instant::now();
-    let srs_path = "./k_5.srs";
+    let srs_path = "./k_12.srs";
     let (mut prover_setup, verifier_setup) =
         setup_with_srs_file::<ArkBn254Pairing, _>(&mut rng, num_variables, Some(srs_path));
 
     // Initialize cache for performance optimization
-    // Try to load cache from disk first, if not found, generate and save
-    let g1_cache_path = format!("./g1_cache_k_{}.bin", sigma);
-    let g2_cache_path = format!("./g2_cache_k_{}.bin", sigma);
-    
-    println!("Checking for cached generators...");
-    
-    // Check if both cache files exist
-    if std::path::Path::new(&g1_cache_path).exists() && std::path::Path::new(&g2_cache_path).exists() {
-        // Print file sizes
-        if let Ok(g1_metadata) = std::fs::metadata(&g1_cache_path) {
-            println!("G1 cache file size: {:.2} MB", g1_metadata.len() as f64 / 1_048_576.0);
-        }
-        if let Ok(g2_metadata) = std::fs::metadata(&g2_cache_path) {
-            println!("G2 cache file size: {:.2} MB", g2_metadata.len() as f64 / 1_048_576.0);
-        }
-        
-        println!("Found cache files, loading from disk...");
-        let load_start = Instant::now();
-        if let Err(e) = prover_setup.load_cache_from_files(&g1_cache_path, &g2_cache_path) {
-            println!("Failed to load cache: {}. Regenerating...", e);
-            prover_setup.init_cache();
-            
-            // Save the newly generated cache
-            if let Err(e) = prover_setup.save_cache_to_files(&g1_cache_path, &g2_cache_path) {
-                println!("Warning: Failed to save cache: {}", e);
-            } else {
-                println!("✓ Cache saved to {} and {}", g1_cache_path, g2_cache_path);
-            }
-        } else {
-            let load_time = load_start.elapsed();
-            println!("✓ Cache loaded successfully from disk in {:?}", load_time);
-        }
-    } else {
-        println!("Cache files not found, generating new cache...");
-        let cache_gen_start = Instant::now();
-        prover_setup.init_cache();
-        let cache_gen_time = cache_gen_start.elapsed();
-        println!("✓ Cache generated in {:?}", cache_gen_time);
-        
-        // Save the cache for future runs
-        let save_start = Instant::now();
-        if let Err(e) = prover_setup.save_cache_to_files(&g1_cache_path, &g2_cache_path) {
-            println!("Warning: Failed to save cache: {}", e);
-        } else {
-            let save_time = save_start.elapsed();
-            println!("✓ Cache saved to {} and {} in {:?}", g1_cache_path, g2_cache_path, save_time);
-            
-            // Print file sizes after saving
-            if let Ok(g1_metadata) = std::fs::metadata(&g1_cache_path) {
-                println!("  G1 cache file size: {:.2} MB", g1_metadata.len() as f64 / 1_048_576.0);
-            }
-            if let Ok(g2_metadata) = std::fs::metadata(&g2_cache_path) {
-                println!("  G2 cache file size: {:.2} MB", g2_metadata.len() as f64 / 1_048_576.0);
-            }
-        }
-    }
-    
+    println!("Initializing cache...");
+    let cache_init_start = Instant::now();
+    prover_setup.init_cache();
+    let cache_init_time = cache_init_start.elapsed();
+    println!("✓ Cache initialized in {:?}", cache_init_time);
     println!(
         "Cache initialization complete. Has cache: {}",
         prover_setup.has_cache()

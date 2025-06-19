@@ -36,13 +36,13 @@ tracing-subscriber = "0.3.19"
 jolt-optimizations = { path = "/Users/mgeorghiades/a16z/arkworks-algebra/jolt-optimizations" }
 
 [patch.crates-io]
-ark-bn254 = { path = "/Users/mgeorghiades/a16z/arkworks-algebra/curves/bn254" }
+ark-bn254 = { path = "/Users/mgeorghiades/a16z/arkworks-algebra/curves/bn254", features = ["parallel"] }
 # ark-ff = { git = "https://github.com/a16z/arkworks-algebra", branch = "v0.5.0-optimize-mul-u64" }
-ark-ff = { path = "/Users/mgeorghiades/a16z/arkworks-algebra/ff" }
+ark-ff = { path = "/Users/mgeorghiades/a16z/arkworks-algebra/ff", features = ["parallel"] }
 # ark-ec = { git = "https://github.com/a16z/arkworks-algebra", branch = "v0.5.0-optimize-mul-u64" }
-ark-ec = { path = "/Users/mgeorghiades/a16z/arkworks-algebra/ec" }
+ark-ec = { path = "/Users/mgeorghiades/a16z/arkworks-algebra/ec", features = ["parallel"] }
 # ark-serialize = { git = "https://github.com/a16z/arkworks-algebra", branch = "v0.5.0-optimize-mul-u64" }
-ark-serialize = { path = "/Users/mgeorghiades/a16z/arkworks-algebra/serialize" }
+ark-serialize = { path = "/Users/mgeorghiades/a16z/arkworks-algebra/serialize", features = ["parallel"] }
 
 [lints.rust]
 missing_docs = "warn"

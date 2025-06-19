@@ -103,21 +103,21 @@ pub trait Polynomial<F: Field, G1: Group<Scalar = F>> {
         (0..cols_per_row)
             .into_par_iter()
             .map(|col_idx| {
-                        let mut col_sum = F::zero();
+                let mut col_sum = F::zero();
 
-                        // Process all contributing rows for this column
-                        for &(row_idx, l_weight) in &effective_rows {
-                            let coeff_idx = row_idx * cols_per_row + col_idx;
-                            if coeff_idx < len {
-                                let coeff = self.get(coeff_idx);
-                                let product = l_weight.mul(&coeff);
-                                col_sum = col_sum.add(&product);
-                            }
-                        }
+                // Process all contributing rows for this column
+                for &(row_idx, l_weight) in &effective_rows {
+                    let coeff_idx = row_idx * cols_per_row + col_idx;
+                    if coeff_idx < len {
+                        let coeff = self.get(coeff_idx);
+                        let product = l_weight.mul(&coeff);
+                        col_sum = col_sum.add(&product);
+                    }
+                }
 
-                        col_sum
-                    })
-                    .collect()
+                col_sum
+            })
+            .collect()
     }
 }
 

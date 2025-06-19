@@ -12,7 +12,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Serializ
 use ark_serialize::{Read, Valid, Validate, Write};
 use ark_std::rand::{rngs::StdRng, RngCore, SeedableRng};
 use rayon::prelude::*;
-// Import jolt-optimizations types for precomputed data
+
 use jolt_optimizations::{
     dory_g1::precompute_g1_generators, dory_g2::precompute_g2_generators, PrecomputedShamir2Data,
     PrecomputedShamir4Data,
@@ -294,135 +294,128 @@ impl Pairing for ArkBn254Pairing {
         g2_count: Option<usize>,
         g2_cache: Option<&G2Cache>,
     ) -> Self::GT {
-
-            match (g1_points, g1_count, g1_cache, g2_points, g2_count, g2_cache) {
-                // Case 1: Both G1 and G2 use cached prepared values (fully optimized)
-                (None, Some(g1_c), Some(g1_cache), None, Some(g2_c), Some(g2_cache)) => {
-                        assert_eq!(g1_c, g2_c, "G1 and G2 counts must be equal");
-                        if g1_c == 0 {
-                            return Fq12::one();
-                        }
-
-                        // Extract prepared values as iterators - avoids Vec allocation and cloning
-                        let g1_prepared = (0..g1_c).map(|i| {
-                            g1_cache
-                                .get_prepared(i)
-                                .expect("Index out of bounds in G1 cache")
-                        });
-
-                        let g2_prepared = (0..g2_c).map(|i| {
-                            g2_cache
-                                .get_prepared(i)
-                                .expect("Index out of bounds in G2 cache")
-                        });
-
-                        let ml_result = Bn254::multi_miller_loop_ref(g1_prepared, g2_prepared).0;
-
-                        let pairing_result =
-                                Bn254::final_exponentiation(MillerLoopOutput(ml_result))
-                                    .expect("Final exponentiation should not fail");
-
-                        pairing_result.0
+        match (g1_points, g1_count, g1_cache, g2_points, g2_count, g2_cache) {
+            // Case 1: Both G1 and G2 use cached prepared values (fully optimized)
+            (None, Some(g1_c), Some(g1_cache), None, Some(g2_c), Some(g2_cache)) => {
+                assert_eq!(g1_c, g2_c, "G1 and G2 counts must be equal");
+                if g1_c == 0 {
+                    return Fq12::one();
                 }
 
-                // Case 2: G1 cached, G2 fresh points (partial optimization)
-                (None, Some(g1_c), Some(g1_cache), Some(g2_points), _, _) => {
-                        assert_eq!(
-                            g1_c,
-                            g2_points.len(),
-                            "G1 count must equal G2 points length"
-                        );
-                        if g1_c == 0 {
-                            return Fq12::one();
-                        }
+                // Extract prepared values as iterators - avoids Vec allocation and cloning
+                let g1_prepared = (0..g1_c).map(|i| {
+                    g1_cache
+                        .get_prepared(i)
+                        .expect("Index out of bounds in G1 cache")
+                });
 
-                        // G1 from cache as iterator, G2 fresh preparation
-                        let g1_prepared = (0..g1_c).map(|i| {
-                            g1_cache
-                                .get_prepared(i)
-                                .expect("Index out of bounds in G1 cache")
-                        });
+                let g2_prepared = (0..g2_c).map(|i| {
+                    g2_cache
+                        .get_prepared(i)
+                        .expect("Index out of bounds in G2 cache")
+                });
 
-                        let g2_prepared =
-                                g2_points
-                                    .par_iter()
-                                    .map(|q| BnG2Prepared::from(q.0))
-                                    .collect::<Vec<_>>();
+                let ml_result = Bn254::multi_miller_loop_ref(g1_prepared, g2_prepared).0;
 
-                        let ml_result = Bn254::multi_miller_loop_ref(g1_prepared, &g2_prepared).0;
+                let pairing_result = Bn254::final_exponentiation(MillerLoopOutput(ml_result))
+                    .expect("Final exponentiation should not fail");
 
-                        let pairing_result =
-                                Bn254::final_exponentiation(MillerLoopOutput(ml_result))
-                                    .expect("Final exponentiation should not fail");
-
-                        pairing_result.0
-                }
-
-                // Case 3: G1 fresh points, G2 cached (partial optimization)
-                (Some(g1_points), _, _, None, Some(g2_c), Some(g2_cache)) => {
-                        assert_eq!(
-                            g1_points.len(),
-                            g2_c,
-                            "G1 points length must equal G2 count"
-                        );
-                        if g2_c == 0 {
-                            return Fq12::one();
-                        }
-
-                        // G1 fresh preparation, G2 from cache as iterator
-                        let g1_prepared =
-                                g1_points
-                                    .par_iter()
-                                    .map(|&g| BnG1Prepared::from(g))
-                                    .collect::<Vec<_>>();
-
-                        let g2_prepared = (0..g2_c).map(|i| {
-                            g2_cache
-                                .get_prepared(i)
-                                .expect("Index out of bounds in G2 cache")
-                        });
-
-                        let ml_result = Bn254::multi_miller_loop_ref(&g1_prepared, g2_prepared).0;
-
-                        let pairing_result =
-                                Bn254::final_exponentiation(MillerLoopOutput(ml_result))
-                                    .expect("Final exponentiation should not fail");
-
-                        pairing_result.0
-                }
-
-                // Case 4: Both fresh points (no caching benefit)
-                (Some(g1_points), _, _, Some(g2_points), _, _) => {
-                        assert_eq!(
-                            g1_points.len(),
-                            g2_points.len(),
-                            "G1 and G2 vectors must have equal length"
-                        );
-                        if g1_points.is_empty() {
-                            return Fq12::one();
-                        }
-
-                        let left = g1_points
-                                .par_iter()
-                                .map(|&g| BnG1Prepared::from(g))
-                                .collect::<Vec<_>>();
-
-                        let right = g2_points
-                                .par_iter()
-                                .map(|q| BnG2Prepared::from(q.0))
-                                .collect::<Vec<_>>();
-
-                        let ml_result = Bn254::multi_miller_loop_ref(&left, &right).0;
-
-                        let pairing_result =
-                                Bn254::final_exponentiation(MillerLoopOutput(ml_result))
-                                    .expect("Final exponentiation should not fail");
-
-                        pairing_result.0
-                }
-
-                _ => panic!("Invalid combination of parameters provided to multi_pair_cached"),
+                pairing_result.0
             }
+
+            // Case 2: G1 cached, G2 fresh points (partial optimization)
+            (None, Some(g1_c), Some(g1_cache), Some(g2_points), _, _) => {
+                assert_eq!(
+                    g1_c,
+                    g2_points.len(),
+                    "G1 count must equal G2 points length"
+                );
+                if g1_c == 0 {
+                    return Fq12::one();
+                }
+
+                // G1 from cache as iterator, G2 fresh preparation
+                let g1_prepared = (0..g1_c).map(|i| {
+                    g1_cache
+                        .get_prepared(i)
+                        .expect("Index out of bounds in G1 cache")
+                });
+
+                let g2_prepared = g2_points
+                    .par_iter()
+                    .map(|q| BnG2Prepared::from(q.0))
+                    .collect::<Vec<_>>();
+
+                let ml_result = Bn254::multi_miller_loop_ref(g1_prepared, &g2_prepared).0;
+
+                let pairing_result = Bn254::final_exponentiation(MillerLoopOutput(ml_result))
+                    .expect("Final exponentiation should not fail");
+
+                pairing_result.0
+            }
+
+            // Case 3: G1 fresh points, G2 cached (partial optimization)
+            (Some(g1_points), _, _, None, Some(g2_c), Some(g2_cache)) => {
+                assert_eq!(
+                    g1_points.len(),
+                    g2_c,
+                    "G1 points length must equal G2 count"
+                );
+                if g2_c == 0 {
+                    return Fq12::one();
+                }
+
+                // G1 fresh preparation, G2 from cache as iterator
+                let g1_prepared = g1_points
+                    .par_iter()
+                    .map(|&g| BnG1Prepared::from(g))
+                    .collect::<Vec<_>>();
+
+                let g2_prepared = (0..g2_c).map(|i| {
+                    g2_cache
+                        .get_prepared(i)
+                        .expect("Index out of bounds in G2 cache")
+                });
+
+                let ml_result = Bn254::multi_miller_loop_ref(&g1_prepared, g2_prepared).0;
+
+                let pairing_result = Bn254::final_exponentiation(MillerLoopOutput(ml_result))
+                    .expect("Final exponentiation should not fail");
+
+                pairing_result.0
+            }
+
+            // Case 4: Both fresh points (no caching benefit)
+            (Some(g1_points), _, _, Some(g2_points), _, _) => {
+                assert_eq!(
+                    g1_points.len(),
+                    g2_points.len(),
+                    "G1 and G2 vectors must have equal length"
+                );
+                if g1_points.is_empty() {
+                    return Fq12::one();
+                }
+
+                let left = g1_points
+                    .par_iter()
+                    .map(|&g| BnG1Prepared::from(g))
+                    .collect::<Vec<_>>();
+
+                let right = g2_points
+                    .par_iter()
+                    .map(|q| BnG2Prepared::from(q.0))
+                    .collect::<Vec<_>>();
+
+                let ml_result = Bn254::multi_miller_loop_ref(&left, &right).0;
+
+                let pairing_result = Bn254::final_exponentiation(MillerLoopOutput(ml_result))
+                    .expect("Final exponentiation should not fail");
+
+                pairing_result.0
+            }
+
+            _ => panic!("Invalid combination of parameters provided to multi_pair_cached"),
+        }
     }
 }
 
@@ -493,18 +486,73 @@ impl G1Cache {
         }
     }
 
-    /// Save cache to file
+    /// Save cache to file with parallel serialization
     pub fn save_to_file(&self, path: &str) -> Result<(), SerializationError> {
+        use std::io::Write as StdWrite;
+
+        // Serialize entries in parallel
+        let serialized_entries: Vec<Vec<u8>> = self
+            .entries
+            .par_iter()
+            .map(|entry| {
+                let mut bytes = Vec::new();
+                entry.serialize_compressed(&mut bytes)?;
+                Ok(bytes)
+            })
+            .collect::<Result<Vec<_>, SerializationError>>()?;
+
+        // Now write to file sequentially
         let mut file = std::fs::File::create(path).map_err(|e| SerializationError::IoError(e))?;
-        self.serialize_compressed(&mut file)?;
+
+        // Write number of entries
+        (self.entries.len() as u64).serialize_compressed(&mut file)?;
+
+        // Write each entry with its size
+        for entry_bytes in serialized_entries {
+            (entry_bytes.len() as u64).serialize_compressed(&mut file)?;
+            file.write_all(&entry_bytes)
+                .map_err(|e| SerializationError::IoError(e))?;
+        }
+
+        // Write precomputed_data
+        self.precomputed_data.serialize_compressed(&mut file)?;
+
         file.flush().map_err(|e| SerializationError::IoError(e))?;
         Ok(())
     }
 
-    /// Load cache from file
+    /// Load cache from file with parallel deserialization
     pub fn load_from_file(path: &str) -> Result<Self, SerializationError> {
-        let file = std::fs::File::open(path).map_err(|e| SerializationError::IoError(e))?;
-        Self::deserialize_compressed(file)
+        use std::io::Read as StdRead;
+
+        let mut file = std::fs::File::open(path).map_err(|e| SerializationError::IoError(e))?;
+
+        // Read number of entries
+        let num_entries = u64::deserialize_compressed(&mut file)? as usize;
+
+        // Read all entry data first
+        let mut entry_data = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let size = u64::deserialize_compressed(&mut file)? as usize;
+            let mut bytes = vec![0u8; size];
+            file.read_exact(&mut bytes)
+                .map_err(|e| SerializationError::IoError(e))?;
+            entry_data.push(bytes);
+        }
+
+        // Deserialize entries in parallel
+        let entries: Vec<G1CacheEntry> = entry_data
+            .into_par_iter()
+            .map(|bytes| G1CacheEntry::deserialize_compressed(&bytes[..]))
+            .collect::<Result<Vec<_>, SerializationError>>()?;
+
+        // Read precomputed_data
+        let precomputed_data = Option::<PrecomputedShamir2Data>::deserialize_compressed(&mut file)?;
+
+        Ok(Self {
+            entries,
+            precomputed_data,
+        })
     }
 
     /// Get a cache entry by index
@@ -643,18 +691,80 @@ impl G2Cache {
         Self::new(&native_generators, native_g_fin)
     }
 
-    /// Save cache to file
+    /// Save cache to file with parallel serialization
     pub fn save_to_file(&self, path: &str) -> Result<(), SerializationError> {
+        use std::io::Write as StdWrite;
+
+        // Serialize entries in parallel
+        let serialized_entries: Vec<Vec<u8>> = self
+            .entries
+            .par_iter()
+            .map(|entry| {
+                let mut bytes = Vec::new();
+                entry.serialize_compressed(&mut bytes)?;
+                Ok(bytes)
+            })
+            .collect::<Result<Vec<_>, SerializationError>>()?;
+
+        // Now write to file sequentially
         let mut file = std::fs::File::create(path).map_err(|e| SerializationError::IoError(e))?;
-        self.serialize_compressed(&mut file)?;
+
+        // Write number of entries
+        (self.entries.len() as u64).serialize_compressed(&mut file)?;
+
+        // Write each entry with its size
+        for entry_bytes in serialized_entries {
+            (entry_bytes.len() as u64).serialize_compressed(&mut file)?;
+            file.write_all(&entry_bytes)
+                .map_err(|e| SerializationError::IoError(e))?;
+        }
+
+        // Write precomputed_data
+        self.precomputed_data.serialize_compressed(&mut file)?;
+
+        // Write g_fin_glv_tables
+        self.g_fin_glv_tables.serialize_compressed(&mut file)?;
+
         file.flush().map_err(|e| SerializationError::IoError(e))?;
         Ok(())
     }
 
-    /// Load cache from file
+    /// Load cache from file with parallel deserialization
     pub fn load_from_file(path: &str) -> Result<Self, SerializationError> {
-        let file = std::fs::File::open(path).map_err(|e| SerializationError::IoError(e))?;
-        Self::deserialize_compressed(file)
+        use std::io::Read as StdRead;
+
+        let mut file = std::fs::File::open(path).map_err(|e| SerializationError::IoError(e))?;
+
+        // Read number of entries
+        let num_entries = u64::deserialize_compressed(&mut file)? as usize;
+
+        // Read all entry data first
+        let mut entry_data = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let size = u64::deserialize_compressed(&mut file)? as usize;
+            let mut bytes = vec![0u8; size];
+            file.read_exact(&mut bytes)
+                .map_err(|e| SerializationError::IoError(e))?;
+            entry_data.push(bytes);
+        }
+
+        // Deserialize entries in parallel
+        let entries: Vec<G2CacheEntry> = entry_data
+            .into_par_iter()
+            .map(|bytes| G2CacheEntry::deserialize_compressed(&bytes[..]))
+            .collect::<Result<Vec<_>, SerializationError>>()?;
+
+        // Read precomputed_data
+        let precomputed_data = Option::<PrecomputedShamir4Data>::deserialize_compressed(&mut file)?;
+
+        // Read g_fin_glv_tables
+        let g_fin_glv_tables = Option::<PrecomputedShamir4Data>::deserialize_compressed(&mut file)?;
+
+        Ok(Self {
+            entries,
+            precomputed_data,
+            g_fin_glv_tables,
+        })
     }
 
     /// Get a cache entry by index
@@ -759,7 +869,6 @@ impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
     }
 
     fn fixed_scalar_variable_with_add(bases: &[G1Affine], vs: &mut [G1Affine], scalar: &Fr) {
-
         assert_eq!(
             bases.len(),
             vs.len(),
@@ -788,7 +897,6 @@ impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
         vs: &mut [G1Affine],
         scalar: &Fr,
     ) {
-
         assert_eq!(bases_count, vs.len(), "bases_count must equal vs length");
 
         if let Some(cache) = g1_cache {
@@ -807,9 +915,9 @@ impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
 
             // Convert back to affine
             let affines = G1Projective::normalize_batch(&vs_proj);
-                for (i, affine) in affines.into_iter().enumerate() {
-                    vs[i] = affine;
-                }
+            for (i, affine) in affines.into_iter().enumerate() {
+                vs[i] = affine;
+            }
         } else {
             // Fall back to extracting bases from cache and using online version
             // This should not happen in practice as we check for cache availability
@@ -818,7 +926,6 @@ impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
     }
 
     fn fixed_scalar_scale_with_add(vs: &mut [G1Affine], addends: &[G1Affine], scalar: &Fr) {
-
         assert_eq!(
             vs.len(),
             addends.len(),
@@ -872,47 +979,46 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
         _g1_cache: Option<&crate::curve::G1Cache>,
         g2_cache: Option<&crate::curve::G2Cache>,
     ) -> Vec<G2AffineWrapper> {
-
         if scalars.is_empty() {
             return vec![];
         }
 
         // Check if we have cached GLV tables for g_fin
         if let Some(glv_tables) = g2_cache.and_then(|cache| cache.get_g_fin_glv_tables()) {
-            println!("USING PRECOMPUTED GLV TABLES FOR G_FIN!");
-                // Use precomputed GLV tables
-                let results_proj: Vec<G2Projective> = scalars
-                    .par_iter()
-                    .map(|&scalar| {
-                        // glv_four_scalar_mul returns a vector, we need the first element
-                        jolt_optimizations::glv_four_scalar_mul(glv_tables, scalar)[0]
-                    })
-                    .collect();
+            // println!("USING PRECOMPUTED GLV TABLES FOR G_FIN!");
+            // Use precomputed GLV tables
+            let results_proj: Vec<G2Projective> = scalars
+                .par_iter()
+                .map(|&scalar| {
+                    // glv_four_scalar_mul returns a vector, we need the first element
+                    jolt_optimizations::glv_four_scalar_mul(glv_tables, scalar)[0]
+                })
+                .collect();
 
-                // Batch convert to affine
-                let affines = G2Projective::normalize_batch(&results_proj);
-                affines
-                    .into_iter()
-                    .map(|affine| G2AffineWrapper(affine))
-                    .collect()
+            // Batch convert to affine
+            let affines = G2Projective::normalize_batch(&results_proj);
+            affines
+                .into_iter()
+                .map(|affine| G2AffineWrapper(affine))
+                .collect()
         } else {
-                // Fall back to online computation
-                let base_proj = base.0.into_group();
+            // Fall back to online computation
+            let base_proj = base.0.into_group();
 
-                // Compute scalar multiplication for each scalar with the fixed base
-                let results_proj: Vec<G2Projective> = scalars
-                    .par_iter()
-                    .map(|&scalar| {
-                        jolt_optimizations::glv_four_scalar_mul_online(scalar, &[base_proj])[0]
-                    })
-                    .collect();
+            // Compute scalar multiplication for each scalar with the fixed base
+            let results_proj: Vec<G2Projective> = scalars
+                .par_iter()
+                .map(|&scalar| {
+                    jolt_optimizations::glv_four_scalar_mul_online(scalar, &[base_proj])[0]
+                })
+                .collect();
 
-                // Batch convert to affine
-                let affines = G2Projective::normalize_batch(&results_proj);
-                affines
-                    .into_iter()
-                    .map(|affine| G2AffineWrapper(affine))
-                    .collect()
+            // Batch convert to affine
+            let affines = G2Projective::normalize_batch(&results_proj);
+            affines
+                .into_iter()
+                .map(|affine| G2AffineWrapper(affine))
+                .collect()
         }
     }
 
@@ -921,7 +1027,6 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
         vs: &mut [G2AffineWrapper],
         scalar: &Fr,
     ) {
-
         assert_eq!(
             bases.len(),
             vs.len(),
@@ -936,10 +1041,10 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
         jolt_optimizations::vector_add_scalar_mul_g2_online(&mut vs_proj, &bases_proj, *scalar);
 
         // Convert back to affine wrapper
-            let affines = G2Projective::normalize_batch(&vs_proj);
-            for (i, affine) in affines.into_iter().enumerate() {
-                vs[i] = G2AffineWrapper(affine);
-            }
+        let affines = G2Projective::normalize_batch(&vs_proj);
+        for (i, affine) in affines.into_iter().enumerate() {
+            vs[i] = G2AffineWrapper(affine);
+        }
     }
 
     fn fixed_scalar_variable_with_add_cached(
@@ -949,7 +1054,6 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
         vs: &mut [G2AffineWrapper],
         scalar: &Fr,
     ) {
-
         assert_eq!(bases_count, vs.len(), "bases_count must equal vs length");
 
         if let Some(cache) = g2_cache {
@@ -967,10 +1071,10 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
             );
 
             // Convert back to affine wrapper
-                let affines = G2Projective::normalize_batch(&vs_proj);
-                for (i, affine) in affines.into_iter().enumerate() {
-                    vs[i] = G2AffineWrapper(affine);
-                }
+            let affines = G2Projective::normalize_batch(&vs_proj);
+            for (i, affine) in affines.into_iter().enumerate() {
+                vs[i] = G2AffineWrapper(affine);
+            }
         } else {
             // Fall back to extracting bases from cache and using online version
             // This should not happen in practice as we check for cache availability
@@ -983,7 +1087,6 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
         addends: &[G2AffineWrapper],
         scalar: &Fr,
     ) {
-
         assert_eq!(
             vs.len(),
             addends.len(),
@@ -1002,10 +1105,10 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
         );
 
         // Convert back to affine wrapper
-            let affines = G2Projective::normalize_batch(&vs_proj);
-            for (i, affine) in affines.into_iter().enumerate() {
-                vs[i] = G2AffineWrapper(affine);
-            }
+        let affines = G2Projective::normalize_batch(&vs_proj);
+        for (i, affine) in affines.into_iter().enumerate() {
+            vs[i] = G2AffineWrapper(affine);
+        }
     }
 }
 
