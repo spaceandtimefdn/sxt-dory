@@ -254,27 +254,32 @@ impl<E: Pairing> ProverSetup<E> {
             .and_then(|cache| cache.get_windowed_data())
     }
 
-    // Convenient accessors for core fields
+    /// getter for g1_vec
     pub fn g1_vec(&self) -> &Vec<E::G1> {
         &self.core.g1_vec
     }
 
+    /// getter for g2_vec
     pub fn g2_vec(&self) -> &Vec<E::G2> {
         &self.core.g2_vec
     }
 
+    /// getter for h1
     pub fn h1(&self) -> &E::G1 {
         &self.core.h1
     }
 
+    /// getter for h2
     pub fn h2(&self) -> &E::G2 {
         &self.core.h2
     }
 
+    /// getter for ht
     pub fn ht(&self) -> &E::GT {
         &self.core.ht
     }
 
+    /// getter for g_fin
     pub fn g_fin(&self) -> &E::G2 {
         &self.core.g_fin
     }

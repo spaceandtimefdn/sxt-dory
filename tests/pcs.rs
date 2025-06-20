@@ -26,13 +26,13 @@ fn test_pcs_api_workflow() {
     // Setup with preloaded SRS file
     let setup_start = Instant::now();
     let srs_path = "./k_12.srs";
-    let (mut prover_setup, verifier_setup) =
+    let (prover_setup, verifier_setup) =
         setup_with_srs_file::<ArkBn254Pairing, _>(&mut rng, num_variables, Some(srs_path));
 
     // Initialize cache for performance optimization
     println!("Initializing cache...");
     let cache_init_start = Instant::now();
-    prover_setup.init_cache();
+    // prover_setup.init_cache();
     let cache_init_time = cache_init_start.elapsed();
     println!("✓ Cache initialized in {:?}", cache_init_time);
     println!(

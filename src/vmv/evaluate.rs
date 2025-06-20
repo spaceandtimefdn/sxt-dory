@@ -1,7 +1,5 @@
 //! Contains the utility required to turn Dory arguments into a full-fledged PCS
 //! Primarily makes use of the `eval_vmv_re` protocol
-//! `eval_vmv_re` is essentially the `eval` algorithm of the tuple of PCS algorithms
-// use ark_ff::Field;
 
 use crate::{
     arithmetic::{Field, Group, MultiScalarMul, Pairing},
@@ -24,7 +22,7 @@ use crate::{
 /// Implements the Eval-VMV-RE protocol from Dory Section 5
 /// Proves the VMV relation: polynomial(point) = L^T × M × R
 ///
-/// Note: Randomness terms (rC, rD2, rE1) are omitted since we don't need hiding
+/// Note: Randomness terms (rC, rD2, rE1) are omitted since we don't need hiding (yet)
 #[tracing::instrument(skip_all)]
 fn eval_vmv_re_prove<
     E: Pairing,

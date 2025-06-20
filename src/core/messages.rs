@@ -2,6 +2,7 @@
 use crate::arithmetic::{Field, Group};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
+
 /// The first prover message in the Dory-Reduce portion (Section 3.2) of the Dory protocol.
 ///
 /// This consists of $D_{1L}$, $D_{1R}$, $D_{2L}$, $D_{2R}$, $E_{1\beta}$, and $E_{2\beta}$.

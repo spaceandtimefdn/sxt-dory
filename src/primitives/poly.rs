@@ -83,7 +83,6 @@ pub trait Polynomial<F: Field, G1: Group<Scalar = F>> {
             return vec![F::zero(); cols_per_row];
         }
 
-        // Optimization 1: Early exit for zero weights
         let effective_rows: Vec<(usize, &F)> = (0..num_rows)
             .filter_map(|row_idx| {
                 let weight = &left_vec[row_idx];
@@ -99,7 +98,6 @@ pub trait Polynomial<F: Field, G1: Group<Scalar = F>> {
             return vec![F::zero(); cols_per_row];
         }
 
-        // Optimization 2: Parallel processing by columns for better cache locality
         (0..cols_per_row)
             .into_par_iter()
             .map(|col_idx| {

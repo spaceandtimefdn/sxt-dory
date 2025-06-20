@@ -2,7 +2,6 @@
 use std::time::Instant;
 
 use ark_bn254::{Fq12, Fr, G1Affine};
-use blake2::Blake2s256;
 use dory::{
     arithmetic::{Field, Group, MultiScalarMul, Pairing},
     builder::{DoryProofBuilder, DoryVerifyBuilder},
@@ -13,7 +12,7 @@ use dory::{
 };
 
 use dory::curve::{
-    test_rng, ArkBn254Pairing, G2AffineWrapper, OptimizedMsmG1, OptimizedMsmG2, StandardPolynomial,
+    test_rng, ArkBn254Pairing, G2AffineWrapper, OptimizedMsmG1, OptimizedMsmG2,
 };
 
 #[test]

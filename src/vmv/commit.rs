@@ -20,38 +20,11 @@ pub fn compute_polynomial_commitment<
 ) -> E::GT {
     let num_columns = 1 << sigma;
 
-    // Handle arbitrary offset within the matrix
-    let _first_row_offset = offset % num_columns; // Column start position
     let rows_offset = offset / num_columns; // Row start position
-
-    // let _first_row_len = poly.len().min(num_columns - first_row_offset);
 
     // TODO(moodlezoup): handle offset
     let row_len = num_columns;
     let row_commitments = poly.commit_rows::<M1>(&prover_setup.g1_vec()[..row_len], row_len);
-
-    // let (first_row_coeffs, remaining_coeffs) = coeffs.split_at(first_row_len);
-    // let remaining_row_count = (remaining_coeffs.len() + num_columns - 1) / num_columns;
-
-    // --- TIER 1: Compute row commitments in G1 ---
-
-    // let first_row_commit = if first_row_len > 0 {
-    //     M1::msm(
-    //         &prover_setup.g1_vec[first_row_offset..first_row_offset + first_row_len],
-    //         first_row_coeffs,
-    //     )
-    // } else {
-    //     E::G1::identity()
-    // };
-
-    // let mut g1_row_commitments = Vec::with_capacity(1 + remaining_row_count);
-    // g1_row_commitments.push(first_row_commit);
-
-    // // Remaining row commitments (full rows)
-    // for row_coeffs in remaining_coeffs.chunks(num_columns) {
-    //     let row_commit = M1::msm(&prover_setup.g1_vec[0..row_coeffs.len()], row_coeffs);
-    //     g1_row_commitments.push(row_commit);
-    // }
 
     // --- TIER 2: Multi-pairing to combine row commitments ---
 

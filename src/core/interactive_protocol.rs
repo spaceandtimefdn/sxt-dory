@@ -55,8 +55,6 @@ where
         let (d1_left, d1_right, d2_left, d2_right) =
                 // Use cached multi-pairing if available, otherwise fall back to regular multi-pairing
                 if setup.g1_cache.is_some() && setup.g2_cache.is_some() {
-                    // println!("USING CACHE!");
-                    // Using optimized cached multi-pairing
                     let g2_prime_count = 1 << (self.nu - 1);
                     let g1_prime_count = 1 << (self.nu - 1);
 
@@ -142,7 +140,6 @@ where
         // ṽ₁ ← ṽ₁ + β·Γ₁
         // Use cached version if cache is available
         if setup.g1_cache.is_some() || setup.g2_cache.is_some() {
-            // println!("USING CACHE V COMBINE!");
             M1::fixed_scalar_variable_with_add_cached(
                 g1_prime.len(),
                 setup.g1_cache.as_ref(),
@@ -157,7 +154,6 @@ where
         // ṽ₂ ← ṽ₂ + β⁻¹·Γ₂
         // Use cached version if cache is available
         if setup.g1_cache.is_some() || setup.g2_cache.is_some() {
-            // println!("USING CACHE V COMBINE!");
             M2::fixed_scalar_variable_with_add_cached(
                 g2_prime.len(),
                 setup.g1_cache.as_ref(),
@@ -399,10 +395,9 @@ where
             s2.truncate(n2);
         }
 
-        // Decrease the rounds
+        // decrement the rounds
         self.nu -= 1;
 
-        // TODO(markosg04): change to Ok ?
         true
     }
 
