@@ -40,6 +40,15 @@ fn test_pcs_api_workflow() {
         prover_setup.has_cache()
     );
 
+    // Print memory usage statistics for the caches
+    println!("\n=== CACHE MEMORY PROFILING ===");
+    if let Some(g1_cache) = &prover_setup.g1_cache {
+        g1_cache.print_memory_stats();
+    }
+    if let Some(g2_cache) = &prover_setup.g2_cache {
+        g2_cache.print_memory_stats();
+    }
+
     let setup_time = setup_start.elapsed();
     println!("Setup time (including cache): {:?}", setup_time);
 
