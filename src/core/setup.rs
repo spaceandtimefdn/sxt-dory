@@ -26,7 +26,7 @@ pub struct ProverSetupCore<E: Pairing> {
 }
 
 /// Dory transparent setup for the prover with optional caches
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ProverSetup<E: Pairing> {
     /// Core setup data
     pub core: ProverSetupCore<E>,

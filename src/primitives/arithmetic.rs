@@ -1,6 +1,7 @@
 #![allow(missing_docs)]
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Valid};
 use ark_std::rand::RngCore;
+use std::fmt::Debug;
 
 /// --------- field ----------------------------------------------------------
 pub trait Field:
@@ -37,9 +38,9 @@ pub trait Group:
 
 /// -------------------------------- pairing ----------------------------------
 pub trait Pairing: Sized + Send + Sync {
-    type G1: Group;
-    type G2: Group;
-    type GT: Group;
+    type G1: Group + Debug;
+    type G2: Group + Debug;
+    type GT: Group + Debug;
 
     /// e : G1 × G2 → GT
     fn pair(p: &Self::G1, q: &Self::G2) -> Self::GT;
