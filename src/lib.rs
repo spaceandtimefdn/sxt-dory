@@ -211,28 +211,15 @@ pub fn evaluate<
     sigma: usize,
     prover_setup: &ProverSetup<E>,
     transcript: T,
-) -> (
-    <E::G1 as Group>::Scalar,
-    DoryProofBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>,
-)
+) -> DoryProofBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>
 where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
     E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
     <E::G1 as Group>::Scalar: Field + Clone,
 {
-    // Compute the evaluation
-    let evaluation = compute_polynomial_evaluation(polynomial, point);
-
     // Create the evaluation proof
-    let proof = create_evaluation_proof::<E, T, M1, M2, P>(
-        transcript,
-        polynomial,
-        point,
-        sigma,
-        prover_setup,
-    );
-    (evaluation, proof)
+    create_evaluation_proof::<E, T, M1, M2, P>(transcript, polynomial, point, sigma, prover_setup)
 }
 
 /// Verify an evaluation proof

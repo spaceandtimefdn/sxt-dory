@@ -5,12 +5,10 @@ use ark_bn254::{Fq12, Fr};
 use dory::{
     arithmetic::{Field, Group},
     builder::DoryProofBuilder,
+    curve::commit_and_evaluate_batch,
     setup::ProverSetup,
     toy_transcript::ToyTranscript,
-    {
-        commit_and_evaluate_batch, vmv::evaluate::create_evaluation_proof,
-        vmv::evaluate::verify_evaluation_proof,
-    },
+    vmv::evaluate::{create_evaluation_proof, verify_evaluation_proof},
 };
 
 use dory::curve::{
@@ -121,7 +119,6 @@ fn test_evaluation_proof_sigma_2() {
     let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
         ArkBn254Pairing,
         OptimizedMsmG1,
-        _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
     >(
@@ -247,7 +244,6 @@ fn test_evaluation_proof_verification_should_fail() {
             commit_and_evaluate_batch::<
                 ArkBn254Pairing,
                 OptimizedMsmG1,
-                _,
                 Fr,
                 <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
             >(&polynomial, &b_points, 0, sigma, &prover_setup);
@@ -362,7 +358,6 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
         commit_and_evaluate_batch::<
             ArkBn254Pairing,
             OptimizedMsmG1,
-            _,
             Fr,
             <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
         >(&polynomial, &b_points, 0, sigma, &prover_setup);

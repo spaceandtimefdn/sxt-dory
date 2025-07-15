@@ -1,6 +1,6 @@
 #![allow(missing_docs)]
-use crate::arithmetic::*;
 use crate::poly::Polynomial;
+use crate::{arithmetic::*, compute_polynomial_commitment, multilinear_lagrange_vec, ProverSetup};
 use ark_bn254::{Bn254, Fq12, Fr, G1Affine, G1Projective, G2Affine, G2Projective};
 use ark_ec::{
     bn::{G1Prepared as BnG1Prepared, G2Prepared as BnG2Prepared},
@@ -557,7 +557,6 @@ impl G1Cache {
         self.entries.get(index).map(|e| &e.prepared)
     }
 
-
     /// Number of cached entries
     pub fn len(&self) -> usize {
         self.entries.len()
@@ -819,7 +818,6 @@ impl G2Cache {
     pub fn get_prepared(&self, index: usize) -> Option<&BnG2Prepared<ark_bn254::Config>> {
         self.entries.get(index).map(|e| &e.prepared)
     }
-
 
     /// Number of cached entries
     pub fn len(&self) -> usize {
@@ -1342,18 +1340,17 @@ impl<G: Group> MultiScalarMul<G> for DummyMsm<G> {
 
 /// Standard polynomial with field elements for testing
 #[derive(Clone, Debug, PartialEq)]
-pub struct StandardPolynomial<'a, F: Field> {
-    pub coeffs: &'a [F],
+pub struct StandardPolynomial<F: Field> {
+    pub coeffs: Vec<F>,
 }
 
-impl<'a, F: Field> StandardPolynomial<'a, F> {
-    pub fn new(coeffs: &'a [F]) -> Self {
-        Self { coeffs }
+impl<F: Field> StandardPolynomial<F> {
+    pub fn new(coeffs: &[F]) -> Self {
+        Self {
+            coeffs: coeffs.to_vec(),
+        }
     }
-}
 
-// Implement Polynomial trait for StandardPolynomial
-impl<'a, F: Field, G1: Group<Scalar = F>> Polynomial<F, G1> for StandardPolynomial<'a, F> {
     fn get(&self, index: usize) -> F {
         if index < self.coeffs.len() {
             self.coeffs[index]
@@ -1362,7 +1359,156 @@ impl<'a, F: Field, G1: Group<Scalar = F>> Polynomial<F, G1> for StandardPolynomi
         }
     }
 
+    /// Evaluates the polynomial at a given point
+    pub fn evaluate(&self, point: &[F]) -> F {
+        let len = self.coeffs.len();
+        let mut eval_vec: Vec<F> = vec![F::zero(); len];
+
+        let expected_size = 1 << point.len();
+        assert!(
+            len <= expected_size,
+            "Too many coefficients: got {}, max for {} variables is {}",
+            len,
+            point.len(),
+            expected_size
+        );
+
+        multilinear_lagrange_vec(&mut eval_vec, point);
+
+        // Compute inner product <coeffs, eval_vec>
+        let mut result = F::zero();
+        for (i, eval) in eval_vec.iter().enumerate() {
+            let coeff = self.get(i);
+            result = result.add(&coeff.mul(eval));
+        }
+        result
+    }
+}
+
+// Implement Polynomial trait for StandardPolynomial
+impl<F: Field, G1: Group<Scalar = F>> Polynomial<F, G1> for StandardPolynomial<F> {
     fn len(&self) -> usize {
         self.coeffs.len()
     }
+
+    /// Commits to rows of the polynomial when viewed as a matrix
+    fn commit_rows<M1: MultiScalarMul<G1>>(&self, g1_generators: &[G1], row_len: usize) -> Vec<G1> {
+        let mut commitments = Vec::new();
+        let len = self.coeffs.len();
+
+        let num_rows = (len + row_len - 1) / row_len;
+        for row in 0..num_rows {
+            let row_start = row * row_len;
+            let row_end = (row_start + row_len).min(len);
+            let actual_row_len = row_end - row_start;
+
+            if actual_row_len > 0 {
+                let mut row_coeffs = vec![F::zero(); actual_row_len];
+                for i in 0..actual_row_len {
+                    row_coeffs[i] = self.get(row_start + i);
+                }
+                let commitment = M1::msm(&g1_generators[..actual_row_len], &row_coeffs);
+                commitments.push(commitment);
+            }
+        }
+
+        commitments
+    }
+
+    /// Computes the vector-matrix product v = L^T * M where M is the polynomial as a matrix
+    ///
+    /// # Arguments
+    /// * `left_vec` - The L vector (row evaluation weights)
+    /// * `sigma` - log₂(columns) - matrix width
+    /// * `nu` - log₂(rows) - matrix height
+    ///
+    /// # Returns
+    /// Result vector v where v[j] = sum_i L[i] * M[i,j]
+    #[tracing::instrument(skip_all)]
+    fn vector_matrix_product(&self, left_vec: &[F], sigma: usize, nu: usize) -> Vec<F>
+    where
+        Self: Sync,
+    {
+        use rayon::prelude::*;
+
+        let cols_per_row = 1 << sigma;
+        let len = self.coeffs.len();
+        let num_rows = (1 << nu).min(left_vec.len());
+
+        if num_rows == 0 {
+            return vec![F::zero(); cols_per_row];
+        }
+
+        let effective_rows: Vec<(usize, &F)> = (0..num_rows)
+            .filter_map(|row_idx| {
+                let weight = &left_vec[row_idx];
+                if !weight.is_zero() {
+                    Some((row_idx, weight))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if effective_rows.is_empty() {
+            return vec![F::zero(); cols_per_row];
+        }
+
+        (0..cols_per_row)
+            .into_par_iter()
+            .map(|col_idx| {
+                let mut col_sum = F::zero();
+
+                // Process all contributing rows for this column
+                for &(row_idx, l_weight) in &effective_rows {
+                    let coeff_idx = row_idx * cols_per_row + col_idx;
+                    if coeff_idx < len {
+                        let coeff = self.get(coeff_idx);
+                        let product = l_weight.mul(&coeff);
+                        col_sum = col_sum.add(&product);
+                    }
+                }
+
+                col_sum
+            })
+            .collect()
+    }
+}
+
+/// Create commitment batch, batching factors, and evaluations for verification
+/// This provides the values needed for verify_evaluation_proof
+pub fn commit_and_evaluate_batch<
+    E: Pairing<G1 = G1>,
+    M1: MultiScalarMul<G1>,
+    F: Field,
+    G1: Group<Scalar = F>,
+>(
+    poly: &StandardPolynomial<F>,
+    point: &[F],
+    offset: usize,
+    sigma: usize,
+    prover_setup: &ProverSetup<E>,
+) -> (
+    Vec<E::GT>, // commitment_batch
+    Vec<F>,     // batching_factors
+    Vec<F>,     // evaluations
+)
+where
+    F: Field + Clone,
+{
+    // Compute the commitment to the polynomial
+    let commitment =
+        compute_polynomial_commitment::<E, M1, _, F, G1>(poly, offset, sigma, prover_setup);
+
+    // Compute the evaluation of the polynomial at the point
+    let evaluation = poly.evaluate(point);
+
+    // For a single polynomial, we use a single batching factor of 1
+    let commitment_batch = vec![commitment];
+
+    // @TODO(markosg04): support batching
+    let batching_factors = vec![F::one()];
+    let evaluations = vec![evaluation]; // for now just one evaluation
+
+    (commitment_batch, batching_factors, evaluations)
 }

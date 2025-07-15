@@ -1,18 +1,15 @@
 #![allow(missing_docs)]
 use ark_bn254::{Fq12, Fr, G1Affine};
-use blake2::Blake2s256;
 use dory::{
     arithmetic::{Field, Group},
     curve::{
-        test_rng, ArkBn254Pairing, DummyMsm, G2AffineWrapper, OptimizedMsmG1, OptimizedMsmG2,
-        StandardPolynomial,
+        commit_and_evaluate_batch, test_rng, ArkBn254Pairing, DummyMsm, G2AffineWrapper,
+        OptimizedMsmG1, OptimizedMsmG2, StandardPolynomial,
     },
     setup::ProverSetup,
     toy_transcript::ToyTranscript,
-    vmv::compute_nu,
     vmv::{
-        commit_and_evaluate_batch, compute_polynomial_commitment, create_evaluation_proof,
-        verify_evaluation_proof,
+        compute_nu, compute_polynomial_commitment, create_evaluation_proof, verify_evaluation_proof,
     },
 };
 
@@ -83,7 +80,6 @@ fn test_soundness_tamper_vmv_message_c() {
     let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
         ArkBn254Pairing,
         OptimizedMsmG1,
-        _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
     >(
@@ -160,7 +156,6 @@ fn test_soundness_tamper_vmv_message_d2() {
     let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
         ArkBn254Pairing,
         OptimizedMsmG1,
-        _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
     >(
@@ -237,7 +232,6 @@ fn test_soundness_tamper_vmv_message_e1() {
     let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
         ArkBn254Pairing,
         OptimizedMsmG1,
-        _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
     >(
@@ -314,7 +308,6 @@ fn test_soundness_wrong_commitment() {
     let (mut commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
         ArkBn254Pairing,
         OptimizedMsmG1,
-        _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
     >(
@@ -388,7 +381,6 @@ fn test_soundness_wrong_evaluation() {
     let (commitment_batch, batching_factors, mut evaluations) = commit_and_evaluate_batch::<
         ArkBn254Pairing,
         OptimizedMsmG1,
-        _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
     >(
@@ -459,7 +451,6 @@ fn test_soundness_wrong_evaluation_point() {
     let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
         ArkBn254Pairing,
         OptimizedMsmG1,
-        _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
     >(
@@ -550,7 +541,6 @@ fn test_soundness_commitment_evaluation_mismatch() {
     let (_, _, evaluations) = commit_and_evaluate_batch::<
         ArkBn254Pairing,
         OptimizedMsmG1,
-        _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
     >(
@@ -621,7 +611,6 @@ fn test_soundness_wrong_batching_factors() {
     let (commitment_batch, mut batching_factors, evaluations) = commit_and_evaluate_batch::<
         ArkBn254Pairing,
         OptimizedMsmG1,
-        _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
     >(
@@ -692,7 +681,6 @@ fn test_soundness_tamper_proof_structure() {
     let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
         ArkBn254Pairing,
         OptimizedMsmG1,
-        _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
     >(
@@ -741,7 +729,6 @@ fn test_soundness_tamper_proof_structure() {
 #[test]
 fn test_soundness_offset_manipulation() {
     println!("=== Testing soundness: commitment offset manipulation ===");
-    let mut rng = test_rng();
     let domain = b"vmv_soundness_test";
 
     let length: usize = 1 << 8;
@@ -786,7 +773,6 @@ fn test_soundness_offset_manipulation() {
     let (_, _, evaluations) = commit_and_evaluate_batch::<
         ArkBn254Pairing,
         OptimizedMsmG1,
-        _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
     >(
@@ -863,7 +849,6 @@ fn test_soundness_different_polynomial_degree() {
     let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
         ArkBn254Pairing,
         OptimizedMsmG1,
-        _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
     >(
@@ -931,7 +916,6 @@ fn test_soundness_all_vmv_messages_tampered() {
     let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
         ArkBn254Pairing,
         OptimizedMsmG1,
-        _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
     >(
@@ -1038,7 +1022,6 @@ fn test_soundness_relationship_attack() {
     let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
         ArkBn254Pairing,
         OptimizedMsmG1,
-        _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
     >(

@@ -4,60 +4,11 @@ use crate::arithmetic::{Field, Group, MultiScalarMul};
 /// multilinear polynomials trait for custom (optimized) primitive operations
 /// We provide generic implementations as well
 pub trait Polynomial<F: Field, G1: Group<Scalar = F>> {
-    /// Get a coefficient at the given index, returns zero if out of bounds
-    fn get(&self, index: usize) -> F;
-
     /// Returns the number of coefficients in the polynomial
     fn len(&self) -> usize;
 
-    /// Evaluates the polynomial at a given point
-    fn evaluate(&self, point: &[F]) -> F {
-        let len = self.len();
-        let mut eval_vec: Vec<F> = vec![F::zero(); len];
-
-        let expected_size = 1 << point.len();
-        assert!(
-            len <= expected_size,
-            "Too many coefficients: got {}, max for {} variables is {}",
-            len,
-            point.len(),
-            expected_size
-        );
-
-        multilinear_lagrange_vec(&mut eval_vec, point);
-
-        // Compute inner product <coeffs, eval_vec>
-        let mut result = F::zero();
-        for (i, eval) in eval_vec.iter().enumerate() {
-            let coeff = self.get(i);
-            result = result.add(&coeff.mul(eval));
-        }
-        result
-    }
-
     /// Commits to rows of the polynomial when viewed as a matrix
-    fn commit_rows<M1: MultiScalarMul<G1>>(&self, g1_generators: &[G1], row_len: usize) -> Vec<G1> {
-        let mut commitments = Vec::new();
-        let len = self.len();
-
-        let num_rows = (len + row_len - 1) / row_len;
-        for row in 0..num_rows {
-            let row_start = row * row_len;
-            let row_end = (row_start + row_len).min(len);
-            let actual_row_len = row_end - row_start;
-
-            if actual_row_len > 0 {
-                let mut row_coeffs = vec![F::zero(); actual_row_len];
-                for i in 0..actual_row_len {
-                    row_coeffs[i] = self.get(row_start + i);
-                }
-                let commitment = M1::msm(&g1_generators[..actual_row_len], &row_coeffs);
-                commitments.push(commitment);
-            }
-        }
-
-        commitments
-    }
+    fn commit_rows<M1: MultiScalarMul<G1>>(&self, g1_generators: &[G1], row_len: usize) -> Vec<G1>;
 
     /// Computes the vector-matrix product v = L^T * M where M is the polynomial as a matrix
     ///
@@ -68,67 +19,7 @@ pub trait Polynomial<F: Field, G1: Group<Scalar = F>> {
     ///
     /// # Returns
     /// Result vector v where v[j] = sum_i L[i] * M[i,j]
-    #[tracing::instrument(skip_all)]
-    fn vector_matrix_product(&self, left_vec: &[F], sigma: usize, nu: usize) -> Vec<F>
-    where
-        Self: Sync,
-    {
-        use rayon::prelude::*;
-
-        let cols_per_row = 1 << sigma;
-        let len = self.len();
-        let num_rows = (1 << nu).min(left_vec.len());
-
-        if num_rows == 0 {
-            return vec![F::zero(); cols_per_row];
-        }
-
-        let effective_rows: Vec<(usize, &F)> = (0..num_rows)
-            .filter_map(|row_idx| {
-                let weight = &left_vec[row_idx];
-                if !weight.is_zero() {
-                    Some((row_idx, weight))
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        if effective_rows.is_empty() {
-            return vec![F::zero(); cols_per_row];
-        }
-
-        (0..cols_per_row)
-            .into_par_iter()
-            .map(|col_idx| {
-                let mut col_sum = F::zero();
-
-                // Process all contributing rows for this column
-                for &(row_idx, l_weight) in &effective_rows {
-                    let coeff_idx = row_idx * cols_per_row + col_idx;
-                    if coeff_idx < len {
-                        let coeff = self.get(coeff_idx);
-                        let product = l_weight.mul(&coeff);
-                        col_sum = col_sum.add(&product);
-                    }
-                }
-
-                col_sum
-            })
-            .collect()
-    }
-}
-
-/// Compute the evaluation of a multilinear polynomial at a given point
-/// Uses the lagrange evaluation basis
-/// Ref: Section 2.5 of Dory paper.
-pub fn compute_polynomial_evaluation<F, G1, P>(poly: &P, point: &[F]) -> F
-where
-    F: Field,
-    G1: Group<Scalar = F>,
-    P: Polynomial<F, G1> + ?Sized,
-{
-    poly.evaluate(point)
+    fn vector_matrix_product(&self, left_vec: &[F], sigma: usize, nu: usize) -> Vec<F>;
 }
 
 /// Computes the evaluation vector for a multilinear polynomial at a given point.
