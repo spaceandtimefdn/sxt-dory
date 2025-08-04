@@ -11,9 +11,7 @@ use dory::{
     toy_transcript::ToyTranscript,
 };
 
-use dory::curve::{
-    test_rng, ArkBn254Pairing, G2AffineWrapper, OptimizedMsmG1, OptimizedMsmG2,
-};
+use dory::curve::{test_rng, ArkBn254Pairing, G2AffineWrapper, OptimizedMsmG1, OptimizedMsmG2};
 
 #[test]
 fn test_inner_product_prove_verify() {

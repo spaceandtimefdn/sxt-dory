@@ -665,7 +665,7 @@ pub struct G2CacheEntry {
     /// Original affine point
     pub affine: G2Affine,
     /// Projective version for faster group operations
-    pub projective: G2Projective,
+    // pub projective: G2Projective,
     /// Prepared version for pairing operations
     pub prepared: BnG2Prepared<ark_bn254::Config>,
 }
@@ -685,11 +685,11 @@ impl G2Cache {
     /// Initialize cache from a vector of G2 affine points
     pub fn new(generators: &[G2Affine], g_fin: Option<&G2Affine>) -> Self {
         // First convert all generators to projective form
-        let generators_proj: Vec<G2Projective> =
-            generators.iter().map(|g| g.into_group()).collect();
+        // let generators_proj: Vec<G2Projective> =
+        //     generators.iter().map(|g| g.into_group()).collect();
 
         // Create precomputed windowed2 signed data for all generators
-        let precomputed_data = precompute_g2_generators_windowed2_signed(&generators_proj);
+        // let precomputed_data = precompute_g2_generators_windowed2_signed(&generators_proj);
 
         let entries: Vec<G2CacheEntry> = generators
             .par_iter()
@@ -699,22 +699,22 @@ impl G2Cache {
 
                 G2CacheEntry {
                     affine: g,
-                    projective,
+                    // projective,
                     prepared,
                 }
             })
             .collect();
 
-        // Precompute GLV tables for g_fin if provided
-        let g_fin_glv_tables = g_fin.map(|g_fin_point| {
-            let g_fin_proj = g_fin_point.into_group();
-            jolt_optimizations::glv_four_precompute(&[g_fin_proj])
-        });
+        // // Precompute GLV tables for g_fin if provided
+        // let g_fin_glv_tables = g_fin.map(|g_fin_point| {
+        //     let g_fin_proj = g_fin_point.into_group();
+        //     jolt_optimizations::glv_four_precompute(&[g_fin_proj])
+        // });
 
         Self {
             entries,
-            precomputed_data: Some(precomputed_data),
-            g_fin_glv_tables,
+            precomputed_data: None,
+            g_fin_glv_tables: None,
         }
     }
 
@@ -809,10 +809,10 @@ impl G2Cache {
         self.entries.get(index)
     }
 
-    /// Get the projective version of a point by index
-    pub fn get_projective(&self, index: usize) -> Option<&G2Projective> {
-        self.entries.get(index).map(|e| &e.projective)
-    }
+    // /// Get the projective version of a point by index
+    // pub fn get_projective(&self, index: usize) -> Option<&G2Projective> {
+    //     self.entries.get(index).map(|e| &e.projective)
+    // }
 
     /// Get the prepared version of a point by index
     pub fn get_prepared(&self, index: usize) -> Option<&BnG2Prepared<ark_bn254::Config>> {

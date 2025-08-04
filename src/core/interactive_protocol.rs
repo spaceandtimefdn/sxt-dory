@@ -53,10 +53,9 @@ where
         let g1_prime = &setup.g1_vec()[..1 << (self.nu - 1)];
 
         let (d1_left, d1_right, d2_left, d2_right) =
-                // Use cached multi-pairing if available, otherwise fall back to regular multi-pairing
-                if setup.g1_cache.is_some() && setup.g2_cache.is_some() {
+                // Use cached G2 if available, always use runtime G1
+                if setup.g2_cache.is_some() {
                     let g2_prime_count = 1 << (self.nu - 1);
-                    let g1_prime_count = 1 << (self.nu - 1);
 
                     // D₁L,R = ⟨v₁L/R , Γ₂′⟩ - v1 is runtime, g2_prime uses cache
                     let d1_left = E::multi_pair_cached(
@@ -76,23 +75,9 @@ where
                         setup.g2_cache.as_ref(), // G2: use first 2^(nu-1) cached elements
                     );
 
-                    // D₂L,R = ⟨Γ₁′ , v₂L/R⟩ - g1_prime uses cache, v2 is runtime
-                    let d2_left = E::multi_pair_cached(
-                        None,
-                        Some(g1_prime_count),
-                        setup.g1_cache.as_ref(), // G1: use first 2^(nu-1) cached elements
-                        Some(v2_l),
-                        None,
-                        None, // G2: use runtime points v2_l
-                    );
-                    let d2_right = E::multi_pair_cached(
-                        None,
-                        Some(g1_prime_count),
-                        setup.g1_cache.as_ref(), // G1: use first 2^(nu-1) cached elements
-                        Some(v2_r),
-                        None,
-                        None, // G2: use runtime points v2_r
-                    );
+                    // D₂L,R = ⟨Γ₁′ , v₂L/R⟩ - g1_prime is runtime, v2 is runtime
+                    let d2_left = E::multi_pair(g1_prime, v2_l);
+                    let d2_right = E::multi_pair(g1_prime, v2_r);
                     (d1_left, d1_right, d2_left, d2_right)
                 } else {
                     // Fallback to regular multi-pairing when cache is not available
@@ -139,7 +124,7 @@ where
         // Prover work P(*):
         // ṽ₁ ← ṽ₁ + β·Γ₁
         // Use cached version if cache is available
-        if setup.g1_cache.is_some() || setup.g2_cache.is_some() {
+        if setup.g1_cache.is_some() && setup.g2_cache.is_some() {
             M1::fixed_scalar_variable_with_add_cached(
                 g1_prime.len(),
                 setup.g1_cache.as_ref(),
@@ -153,7 +138,7 @@ where
 
         // ṽ₂ ← ṽ₂ + β⁻¹·Γ₂
         // Use cached version if cache is available
-        if setup.g1_cache.is_some() || setup.g2_cache.is_some() {
+        if setup.g1_cache.is_some() && setup.g2_cache.is_some() {
             M2::fixed_scalar_variable_with_add_cached(
                 g2_prime.len(),
                 setup.g1_cache.as_ref(),

@@ -28,8 +28,23 @@ pub fn compute_polynomial_commitment<
 
     // --- TIER 2: Multi-pairing to combine row commitments ---
 
-    let g2_elements = &prover_setup.g2_vec()[rows_offset..rows_offset + row_commitments.len()];
-    let commitment = E::multi_pair(&row_commitments, g2_elements); // Final commitment in GT
-                                                                   // Return `row_commitments` because they will come in handy for the opening proof
+    // Use cached multi-pairing if G2 cache is available, otherwise fall back to regular multi-pairing
+    let commitment = if prover_setup.g2_cache.is_some() {
+        // Use cached G2 values from prover setup
+        E::multi_pair_cached(
+            Some(&row_commitments),
+            None,
+            None, // G1: use runtime points row_commitments
+            None,
+            Some(row_commitments.len()),
+            prover_setup.g2_cache.as_ref(), // G2: use cached elements from rows_offset
+        )
+    } else {
+        // Fall back to regular multi-pairing
+        let g2_elements = &prover_setup.g2_vec()[rows_offset..rows_offset + row_commitments.len()];
+        E::multi_pair(&row_commitments, g2_elements)
+    };
+
+    // Return `row_commitments` because they will come in handy for the opening proof
     (commitment, row_commitments)
 }

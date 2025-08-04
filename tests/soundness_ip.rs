@@ -9,9 +9,7 @@ use dory::{
     toy_transcript::ToyTranscript,
 };
 
-use dory::curve::{
-    test_rng, ArkBn254Pairing, G2AffineWrapper, OptimizedMsmG1, OptimizedMsmG2,
-};
+use dory::curve::{test_rng, ArkBn254Pairing, G2AffineWrapper, OptimizedMsmG1, OptimizedMsmG2};
 
 // Helper function to generate test vectors and states
 fn setup_test_environment(
