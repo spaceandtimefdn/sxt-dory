@@ -14,8 +14,7 @@ use ark_std::rand::{rngs::StdRng, RngCore, SeedableRng};
 use rayon::prelude::*;
 
 use jolt_optimizations::{
-    dory_g1::precompute_g1_generators_windowed2_signed,
-    dory_g2::precompute_g2_generators_windowed2_signed, vector_add_scalar_mul_g1_windowed2_signed,
+    dory_g1::precompute_g1_generators_windowed2_signed, vector_add_scalar_mul_g1_windowed2_signed,
     vector_add_scalar_mul_g2_windowed2_signed, PrecomputedShamir4Data, Windowed2Signed2Data,
     Windowed2Signed4Data,
 };
@@ -664,9 +663,7 @@ impl G1Cache {
 pub struct G2CacheEntry {
     /// Original affine point
     pub affine: G2Affine,
-    /// Projective version for faster group operations
-    // pub projective: G2Projective,
-    /// Prepared version for pairing operations
+    /// line evaluations for multi pairing
     pub prepared: BnG2Prepared<ark_bn254::Config>,
 }
 
@@ -683,33 +680,20 @@ pub struct G2Cache {
 
 impl G2Cache {
     /// Initialize cache from a vector of G2 affine points
-    pub fn new(generators: &[G2Affine], g_fin: Option<&G2Affine>) -> Self {
-        // First convert all generators to projective form
-        // let generators_proj: Vec<G2Projective> =
-        //     generators.iter().map(|g| g.into_group()).collect();
-
-        // Create precomputed windowed2 signed data for all generators
-        // let precomputed_data = precompute_g2_generators_windowed2_signed(&generators_proj);
-
+    /// At the moment the cache is more or less just the prepared values for the multi pairing
+    /// @TODO(markosg04) simplify the cache
+    pub fn new(generators: &[G2Affine], _g_fin: Option<&G2Affine>) -> Self {
         let entries: Vec<G2CacheEntry> = generators
             .par_iter()
             .map(|&g| {
-                let projective = g.into_group();
                 let prepared = BnG2Prepared::from(g);
 
                 G2CacheEntry {
                     affine: g,
-                    // projective,
                     prepared,
                 }
             })
             .collect();
-
-        // // Precompute GLV tables for g_fin if provided
-        // let g_fin_glv_tables = g_fin.map(|g_fin_point| {
-        //     let g_fin_proj = g_fin_point.into_group();
-        //     jolt_optimizations::glv_four_precompute(&[g_fin_proj])
-        // });
 
         Self {
             entries,
@@ -808,11 +792,6 @@ impl G2Cache {
     pub fn get_entry(&self, index: usize) -> Option<&G2CacheEntry> {
         self.entries.get(index)
     }
-
-    // /// Get the projective version of a point by index
-    // pub fn get_projective(&self, index: usize) -> Option<&G2Projective> {
-    //     self.entries.get(index).map(|e| &e.projective)
-    // }
 
     /// Get the prepared version of a point by index
     pub fn get_prepared(&self, index: usize) -> Option<&BnG2Prepared<ark_bn254::Config>> {
