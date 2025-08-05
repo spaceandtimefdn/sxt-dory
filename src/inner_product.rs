@@ -204,4 +204,190 @@ mod tests {
 
         inner_product_prove(builder, state, &mock_setup, 1);
     }
+
+    #[test]
+    #[expect(clippy::too_many_lines)]
+    fn we_can_prove_inner_product_with_2_rounds() {
+        let rng = &mut rand::rng();
+
+        let mock_setup: u32 = rng.random();
+
+        // Round 0 messages and challenges
+        let mock_first_reduce_message_0: FirstReduceMessage<u32, u32, u32> = rng.random();
+        let mock_first_reduce_challenge_0: FirstReduceChallenge<u32> = rng.random();
+        let mock_second_reduce_message_0: SecondReduceMessage<u32, u32, u32> = rng.random();
+        let mock_second_reduce_challenge_0: SecondReduceChallenge<u32> = rng.random();
+
+        // Round 1 messages and challenges
+        let mock_first_reduce_message_1: FirstReduceMessage<u32, u32, u32> = rng.random();
+        let mock_first_reduce_challenge_1: FirstReduceChallenge<u32> = rng.random();
+        let mock_second_reduce_message_1: SecondReduceMessage<u32, u32, u32> = rng.random();
+        let mock_second_reduce_challenge_1: SecondReduceChallenge<u32> = rng.random();
+
+        // Final fold and scalar product
+        let mock_fold_scalars_challenge: FoldScalarsChallenge<u32> = rng.random();
+        let mock_scalar_product_message: ScalarProductMessage<u32, u32> = rng.random();
+
+        let mut builder = MockProofBuilder::new();
+
+        // Round 0 - First reduce message
+        builder
+            .expect_append_first_reduce_message()
+            .times(1)
+            .returning(move |message| {
+                assert_eq!(message, mock_first_reduce_message_0);
+                let mut builder = MockProofBuilder::new();
+
+                // Round 0 - Second reduce message
+                builder
+                    .expect_append_second_reduce_message()
+                    .times(1)
+                    .returning(move |message| {
+                        assert_eq!(message, mock_second_reduce_message_0);
+                        let mut builder = MockProofBuilder::new();
+
+                        // Round 1 - First reduce message
+                        builder
+                            .expect_append_first_reduce_message()
+                            .times(1)
+                            .returning(move |message| {
+                                assert_eq!(message, mock_first_reduce_message_1);
+                                let mut builder = MockProofBuilder::new();
+
+                                // Round 1 - Second reduce message
+                                builder
+                                    .expect_append_second_reduce_message()
+                                    .times(1)
+                                    .returning(move |message| {
+                                        assert_eq!(message, mock_second_reduce_message_1);
+                                        let mut builder = MockProofBuilder::new();
+
+                                        // Final fold challenge
+                                        builder.expect_challenge_fold_scalars().times(1).returning(
+                                            move || {
+                                                let mut builder = MockProofBuilder::new();
+
+                                                // Final scalar product message
+                                                builder
+                                                    .expect_append_scalar_product_message()
+                                                    .times(1)
+                                                    .returning(move |message| {
+                                                        assert_eq!(
+                                                            message,
+                                                            mock_scalar_product_message
+                                                        );
+                                                        MockProofBuilder::new()
+                                                    });
+                                                (mock_fold_scalars_challenge, builder)
+                                            },
+                                        );
+                                        (mock_second_reduce_challenge_1, builder)
+                                    });
+                                (mock_first_reduce_challenge_1, builder)
+                            });
+                        (mock_second_reduce_challenge_0, builder)
+                    });
+                (mock_first_reduce_challenge_0, builder)
+            });
+
+        let mut seq = Sequence::new();
+        let mut state = MockProverState::new();
+
+        // Round 0 - First reduce
+        state
+            .expect_compute_first_reduce_message()
+            .times(1)
+            .returning(move |setup| {
+                assert_eq!(setup, &mock_setup);
+                mock_first_reduce_message_0
+            })
+            .in_sequence(&mut seq);
+        state
+            .expect_reduce_combine()
+            .times(1)
+            .returning(move |setup, challenge| {
+                assert_eq!(setup, &mock_setup);
+                assert_eq!(challenge, mock_first_reduce_challenge_0);
+                let mut seq = Sequence::new();
+                let mut state = MockProverState::new();
+
+                // Round 0 - Second reduce
+                state
+                    .expect_compute_second_reduce_message()
+                    .times(1)
+                    .returning(move |setup| {
+                        assert_eq!(setup, &mock_setup);
+                        mock_second_reduce_message_0
+                    })
+                    .in_sequence(&mut seq);
+                state
+                    .expect_reduce_fold()
+                    .times(1)
+                    .returning(move |setup, challenge| {
+                        assert_eq!(setup, &mock_setup);
+                        assert_eq!(challenge, mock_second_reduce_challenge_0);
+                        let mut seq = Sequence::new();
+                        let mut state = MockProverState::new();
+
+                        // Round 1 - First reduce
+                        state
+                            .expect_compute_first_reduce_message()
+                            .times(1)
+                            .returning(move |setup| {
+                                assert_eq!(setup, &mock_setup);
+                                mock_first_reduce_message_1
+                            })
+                            .in_sequence(&mut seq);
+                        state
+                            .expect_reduce_combine()
+                            .times(1)
+                            .returning(move |setup, challenge| {
+                                assert_eq!(setup, &mock_setup);
+                                assert_eq!(challenge, mock_first_reduce_challenge_1);
+                                let mut seq = Sequence::new();
+                                let mut state = MockProverState::new();
+
+                                // Round 1 - Second reduce
+                                state
+                                    .expect_compute_second_reduce_message()
+                                    .times(1)
+                                    .returning(move |setup| {
+                                        assert_eq!(setup, &mock_setup);
+                                        mock_second_reduce_message_1
+                                    })
+                                    .in_sequence(&mut seq);
+                                state
+                                    .expect_reduce_fold()
+                                    .times(1)
+                                    .returning(move |setup, challenge| {
+                                        assert_eq!(setup, &mock_setup);
+                                        assert_eq!(challenge, mock_second_reduce_challenge_1);
+                                        let mut seq = Sequence::new();
+                                        let mut state = MockProverState::new();
+
+                                        // Final scalar product
+                                        state
+                                            .expect_compute_scalar_product_message()
+                                            .times(1)
+                                            .returning(move |setup, challenge| {
+                                                assert_eq!(setup, &mock_setup);
+                                                assert_eq!(challenge, mock_fold_scalars_challenge);
+                                                mock_scalar_product_message
+                                            })
+                                            .in_sequence(&mut seq);
+                                        state
+                                    })
+                                    .in_sequence(&mut seq);
+                                state
+                            })
+                            .in_sequence(&mut seq);
+                        state
+                    })
+                    .in_sequence(&mut seq);
+                state
+            })
+            .in_sequence(&mut seq);
+
+        inner_product_prove(builder, state, &mock_setup, 2);
+    }
 }
