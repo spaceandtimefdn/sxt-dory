@@ -91,6 +91,53 @@ mod tests {
     }
 
     #[test]
+    fn we_can_prove_inner_product_with_0_rounds() {
+        let rng = &mut rand::rng();
+
+        let mock_setup: u32 = rng.random();
+
+        // Final fold and scalar product (no reduce rounds)
+        let mock_fold_scalars_challenge: FoldScalarsChallenge<u32> = rng.random();
+        let mock_scalar_product_message: ScalarProductMessage<u32, u32> = rng.random();
+
+        let mut builder = MockProofBuilder::new();
+
+        // Final fold challenge (no reduce messages)
+        builder
+            .expect_challenge_fold_scalars()
+            .times(1)
+            .returning(move || {
+                let mut builder = MockProofBuilder::new();
+
+                // Final scalar product message
+                builder
+                    .expect_append_scalar_product_message()
+                    .times(1)
+                    .returning(move |message| {
+                        assert_eq!(message, mock_scalar_product_message);
+                        MockProofBuilder::new()
+                    });
+                (mock_fold_scalars_challenge, builder)
+            });
+
+        let mut seq = Sequence::new();
+        let mut state = MockProverState::new();
+
+        // Final scalar product (no reduce steps)
+        state
+            .expect_compute_scalar_product_message()
+            .times(1)
+            .returning(move |setup, challenge| {
+                assert_eq!(setup, &mock_setup);
+                assert_eq!(challenge, mock_fold_scalars_challenge);
+                mock_scalar_product_message
+            })
+            .in_sequence(&mut seq);
+
+        inner_product_prove(builder, state, &mock_setup, 0);
+    }
+
+    #[test]
     fn we_can_prove_inner_product_with_1_round() {
         let rng = &mut rand::rng();
 
