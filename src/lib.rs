@@ -74,8 +74,8 @@ where
 {
     match srs_filename {
         Some(filename) => {
-            println!("trying to get srs...");
-            println!("About to call load_from_file...");
+            // println!("trying to get srs...");
+            // println!("About to call load_from_file...");
 
             // Try to load both prover and verifier setups from combined file
             match (
@@ -88,10 +88,10 @@ where
                 }
                 (Ok(prover_setup), Err(_)) => {
                     // File exists but no verifier setup (legacy format), generate verifier
-                    println!(
-                        "✓ Loaded prover setup from {}, generating verifier setup...",
-                        filename
-                    );
+                    // println!(
+                    //     "✓ Loaded prover setup from {}, generating verifier setup...",
+                    //     filename
+                    // );
                     let verifier_setup = prover_setup.to_verifier_setup();
                     (prover_setup, verifier_setup)
                 }

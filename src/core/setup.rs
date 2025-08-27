@@ -368,12 +368,12 @@ impl<E: Pairing> ProverSetup<E> {
             }
             let prover_data = &buffer[offset..offset + prover_len];
             let setup = Self::deserialize_compressed(prover_data)?;
-            println!("Loaded prover setup from combined format file {}", filename);
+            // println!("Loaded prover setup from combined format file {}", filename);
             Ok(setup)
         } else {
             // Legacy format - entire file is prover setup
             let setup = Self::deserialize_compressed(&buffer[..])?;
-            println!("Loaded prover setup from legacy format file {}", filename);
+            // println!("Loaded prover setup from legacy format file {}", filename);
             Ok(setup)
         }
     }
@@ -494,10 +494,10 @@ impl<E: Pairing> VerifierSetup<E> {
             }
             let verifier_data = &buffer[offset..offset + verifier_len];
             let setup = Self::deserialize_compressed(verifier_data)?;
-            println!(
-                "Loaded verifier setup from combined format file {}",
-                filename
-            );
+            // println!(
+            //     "Loaded verifier setup from combined format file {}",
+            //     filename
+            // );
             Ok(setup)
         } else {
             return Err("File is not in combined format - verifier setup not available".into());
