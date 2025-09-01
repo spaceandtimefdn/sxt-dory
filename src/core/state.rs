@@ -81,7 +81,7 @@ pub trait ProverState {
     fn compute_second_reduce_message<M1, M2>(
         &self,
         setup: &Self::Setup,
-    ) -> SecondReduceMessage<Self::G1, Self::G2, Self::GT>
+    ) -> SecondReduceMessage<Self::G1, Self::G2>
     where
         Self::G1: Group,
         Self::G2: Group,
@@ -150,7 +150,7 @@ pub trait VerifierState {
         &mut self,
         setup: &Self::Setup,
         first_msg: &FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
-        second_msg: &SecondReduceMessage<Self::G1, Self::G2, Self::GT>,
+        second_msg: &SecondReduceMessage<Self::G1, Self::G2>,
         alpha_pair: (Self::Scalar, Self::Scalar),
         beta_pair: (Self::Scalar, Self::Scalar),
     ) -> bool;

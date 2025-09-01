@@ -333,7 +333,7 @@ fn test_soundness_tamper_e2_beta() {
 
 #[test]
 fn test_soundness_tamper_c_plus() {
-    println!("=== Testing soundness: tampering with c_plus ===");
+    println!("=== Testing soundness: tampering with second message by swapping e1_plus/e1_minus ===");
     let mut rng = test_rng();
     let domain = b"test_domain";
     let log_n = 8;
@@ -357,9 +357,12 @@ fn test_soundness_tamper_c_plus() {
             log_n,
         );
 
-    // Tamper with c_plus
+    // Tamper by swapping e1_plus and e1_minus
     if !proof_builder.second_messages.is_empty() {
-        proof_builder.second_messages[0].c_plus = Fq12::random(&mut rng);
+        let temp = proof_builder.second_messages[0].e1_plus.clone();
+        proof_builder.second_messages[0].e1_plus =
+            proof_builder.second_messages[0].e1_minus.clone();
+        proof_builder.second_messages[0].e1_minus = temp;
 
         let verify_builder =
             DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
@@ -368,10 +371,7 @@ fn test_soundness_tamper_c_plus() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted c_plus"
-        );
+        assert!(result.is_err(), "Verification should fail with swapped e1 values");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -380,7 +380,7 @@ fn test_soundness_tamper_c_plus() {
 
 #[test]
 fn test_soundness_tamper_c_minus() {
-    println!("=== Testing soundness: tampering with c_minus ===");
+    println!("=== Testing soundness: tampering with second message by swapping e2_plus/e2_minus ===");
     let mut rng = test_rng();
     let domain = b"test_domain";
     let log_n = 8;
@@ -404,9 +404,12 @@ fn test_soundness_tamper_c_minus() {
             log_n,
         );
 
-    // Tamper with c_minus
+    // Tamper by swapping e2_plus and e2_minus
     if !proof_builder.second_messages.is_empty() {
-        proof_builder.second_messages[0].c_minus = Fq12::random(&mut rng);
+        let temp = proof_builder.second_messages[0].e2_plus.clone();
+        proof_builder.second_messages[0].e2_plus =
+            proof_builder.second_messages[0].e2_minus.clone();
+        proof_builder.second_messages[0].e2_minus = temp;
 
         let verify_builder =
             DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
@@ -415,10 +418,7 @@ fn test_soundness_tamper_c_minus() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted c_minus"
-        );
+        assert!(result.is_err(), "Verification should fail with swapped e2 values");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -757,7 +757,7 @@ fn test_soundness_swap_d1_values() {
 
 #[test]
 fn test_soundness_swap_c_values() {
-    println!("=== Testing soundness: swapping c_plus and c_minus ===");
+    println!("=== Testing soundness: swapping e1_plus and e1_minus ===");
     let domain = b"test_domain";
     let log_n = 8;
 
@@ -780,11 +780,12 @@ fn test_soundness_swap_c_values() {
             log_n,
         );
 
-    // Swap c_plus and c_minus
+    // Swap e1_plus and e1_minus
     if !proof_builder.second_messages.is_empty() {
-        let temp = proof_builder.second_messages[0].c_plus.clone();
-        proof_builder.second_messages[0].c_plus = proof_builder.second_messages[0].c_minus.clone();
-        proof_builder.second_messages[0].c_minus = temp;
+        let temp = proof_builder.second_messages[0].e1_plus.clone();
+        proof_builder.second_messages[0].e1_plus =
+            proof_builder.second_messages[0].e1_minus.clone();
+        proof_builder.second_messages[0].e1_minus = temp;
 
         let verify_builder =
             DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
@@ -793,10 +794,7 @@ fn test_soundness_swap_c_values() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with swapped c values"
-        );
+        assert!(result.is_err(), "Verification should fail with swapped e1 values");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }

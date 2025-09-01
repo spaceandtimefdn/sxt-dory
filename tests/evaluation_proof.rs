@@ -401,8 +401,11 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
 
     // Also tamper with a second message if available
     if !corrupted_proof.second_messages.is_empty() {
-        println!("Tampering with second message c_plus...");
-        corrupted_proof.second_messages[0].c_plus = Fq12::random(&mut rng);
+        println!("Tampering with second message by swapping e1_plus/e1_minus...");
+        let tmp = corrupted_proof.second_messages[0].e1_plus.clone();
+        corrupted_proof.second_messages[0].e1_plus =
+            corrupted_proof.second_messages[0].e1_minus.clone();
+        corrupted_proof.second_messages[0].e1_minus = tmp;
     }
 
     let verifier_setup = prover_setup.to_verifier_setup();

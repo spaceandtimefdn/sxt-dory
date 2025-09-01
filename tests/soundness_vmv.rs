@@ -707,7 +707,9 @@ fn test_soundness_tamper_proof_structure() {
     }
 
     if !proof.second_messages.is_empty() {
-        proof.second_messages[0].c_plus = Fq12::random(&mut rng);
+        let tmp = proof.second_messages[0].e1_plus.clone();
+        proof.second_messages[0].e1_plus = proof.second_messages[0].e1_minus.clone();
+        proof.second_messages[0].e1_minus = tmp;
         proof.second_messages[0].e2_plus = G2AffineWrapper::random(&mut rng);
     }
 

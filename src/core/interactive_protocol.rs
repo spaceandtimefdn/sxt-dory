@@ -158,7 +158,7 @@ where
     fn compute_second_reduce_message<M1, M2>(
         &self,
         _setup: &Self::Setup, // not used in this step
-    ) -> SecondReduceMessage<Self::G1, Self::G2, Self::GT>
+    ) -> SecondReduceMessage<Self::G1, Self::G2>
     where
         M1: MultiScalarMul<Self::G1>,
         M2: MultiScalarMul<Self::G2>,
@@ -170,10 +170,7 @@ where
         let (s1_l, s1_r) = self.s1.split_at(n2);
         let (s2_l, s2_r) = self.s2.split_at(n2);
 
-        // ---- C terms ----------------------------------------------------------
-        let c_plus = E::multi_pair(v1_l, v2_r); // ⟨v₁L, v₂R⟩
-        let c_minus = E::multi_pair(v1_r, v2_l); // ⟨v₁R, v₂L⟩
-
+        // PCS variant: omit C terms (c_plus, c_minus)
         // ---- E terms (extended protocol) ---------------------------------------
         let e1_plus = M1::msm(v1_l, s2_r); // ⟨v₁L, s₂R⟩
         let e1_minus = M1::msm(v1_r, s2_l); // ⟨v₁R, s₂L⟩
@@ -181,8 +178,6 @@ where
         let e2_minus = M2::msm(v2_l, s1_r); // ⟨v₂L, s₁R⟩
 
         SecondReduceMessage {
-            c_plus,
-            c_minus,
             e1_plus,
             e1_minus,
             e2_plus,
@@ -308,7 +303,7 @@ where
         &mut self,
         setup: &Self::Setup,
         first_msg: &FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
-        second_msg: &SecondReduceMessage<Self::G1, Self::G2, Self::GT>,
+        second_msg: &SecondReduceMessage<Self::G1, Self::G2>,
         alpha_pair: (Self::Scalar, Self::Scalar),
         beta_pair: (Self::Scalar, Self::Scalar),
     ) -> bool {
@@ -316,11 +311,11 @@ where
         let (beta, beta_inv) = beta_pair;
 
         // Update C according to the protocol
-        // C' <- C + χᵢ + β * D₂ + β⁻¹ * D₁ + α * C_plus + α⁻¹ * C_minus
+        // PCS variant: C± omitted from message; pass identity elements so C update ignores C terms
         Self::dory_reduce_verify_update_c(
             self,
             setup,
-            (second_msg.c_plus.clone(), second_msg.c_minus.clone()),
+            (Self::GT::identity(), Self::GT::identity()),
             (alpha.clone(), alpha_inv.clone()),
             (beta.clone(), beta_inv.clone()),
         );

@@ -26,7 +26,7 @@ where
     /// First prover messages for each round
     pub first_messages: Vec<FirstReduceMessage<G1, G2, GT>>,
     /// Second prover messages for each round
-    pub second_messages: Vec<SecondReduceMessage<G1, G2, GT>>,
+    pub second_messages: Vec<SecondReduceMessage<G1, G2>>,
     /// Final scalar product message
     pub final_message: Option<ScalarProductMessage<G1, G2>>,
     /// Vector-matrix-vector message (for PCS)
@@ -60,7 +60,7 @@ pub trait ProofBuilder {
     #[must_use]
     fn append_second_reduce_message(
         self,
-        message: SecondReduceMessage<Self::G1, Self::G2, Self::GT>,
+        message: SecondReduceMessage<Self::G1, Self::G2>,
     ) -> (SecondReduceChallenge<Self::Scalar>, Self);
     /// Draw a [`FoldScalarsChallenge`] from the transcript.
     #[must_use]
@@ -93,7 +93,7 @@ where
     /// First prover message for round i
     pub first_messages: Vec<FirstReduceMessage<G1, G2, GT>>,
     /// Second prover message for round i
-    pub second_messages: Vec<SecondReduceMessage<G1, G2, GT>>,
+    pub second_messages: Vec<SecondReduceMessage<G1, G2>>,
     /// Last Scalar product message at end of protocol
     pub final_message: Option<ScalarProductMessage<G1, G2>>,
 
@@ -217,10 +217,9 @@ where
 
     fn append_second_reduce_message(
         mut self,
-        message: SecondReduceMessage<Self::G1, Self::G2, Self::GT>,
+        message: SecondReduceMessage<Self::G1, Self::G2>,
     ) -> (SecondReduceChallenge<Self::Scalar>, Self) {
-        self.transcript.append_group(b"c_plus", &message.c_plus);
-        self.transcript.append_group(b"c_minus", &message.c_minus);
+        // PCS variant: omit C_+ and C_- from transcript
         self.transcript.append_group(b"e1_plus", &message.e1_plus);
         self.transcript.append_group(b"e1_minus", &message.e1_minus);
         self.transcript.append_group(b"e2_plus", &message.e2_plus);
@@ -296,14 +295,14 @@ pub trait VerificationBuilder {
         idx: usize,
     ) -> (
         FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
-        SecondReduceMessage<Self::G1, Self::G2, Self::GT>,
+        SecondReduceMessage<Self::G1, Self::G2>,
     );
 
     /// Getter for first msg
     fn first_message(&mut self, idx: usize) -> &FirstReduceMessage<Self::G1, Self::G2, Self::GT>;
 
     /// Getter for second msg
-    fn second_message(&mut self, idx: usize) -> &SecondReduceMessage<Self::G1, Self::G2, Self::GT>;
+    fn second_message(&mut self, idx: usize) -> &SecondReduceMessage<Self::G1, Self::G2>;
 
     /// Consume a FirstReduceMessage, append it to the transcript,
     /// and return β, β⁻¹.
@@ -315,7 +314,7 @@ pub trait VerificationBuilder {
     /// Consume a SecondReduceMessage, append, and return α, α⁻¹.
     fn process_second_reduce_message(
         &mut self,
-        msg: &SecondReduceMessage<Self::G1, Self::G2, Self::GT>,
+        msg: &SecondReduceMessage<Self::G1, Self::G2>,
     ) -> SecondReduceChallenge<Self::Scalar>;
 
     /// Derive γ, γ⁻¹ after all rounds are ingested.
@@ -342,7 +341,7 @@ where
 {
     transcript: T,
     first_messages: Vec<FirstReduceMessage<G1, G2, GT>>,
-    second_messages: Vec<SecondReduceMessage<G1, G2, GT>>,
+    second_messages: Vec<SecondReduceMessage<G1, G2>>,
     scalar_msg: ScalarProductMessage<G1, G2>,
     vmv_msg: Option<VMVMessage<G1, GT>>,
 
@@ -425,7 +424,7 @@ where
         idx: usize,
     ) -> (
         FirstReduceMessage<G1, G2, GT>,
-        SecondReduceMessage<G1, G2, GT>,
+        SecondReduceMessage<G1, G2>,
     ) {
         let m1 = self.first_messages[idx].clone();
         let m2 = self.second_messages[idx].clone();
@@ -435,7 +434,7 @@ where
     fn first_message(&mut self, idx: usize) -> &FirstReduceMessage<G1, G2, GT> {
         &self.first_messages[idx]
     }
-    fn second_message(&mut self, idx: usize) -> &SecondReduceMessage<G1, G2, GT> {
+    fn second_message(&mut self, idx: usize) -> &SecondReduceMessage<G1, G2> {
         &self.second_messages[idx]
     }
 
@@ -460,10 +459,9 @@ where
 
     fn process_second_reduce_message(
         &mut self,
-        m: &SecondReduceMessage<G1, G2, GT>,
+        m: &SecondReduceMessage<G1, G2>,
     ) -> SecondReduceChallenge<Scalar> {
-        self.transcript.append_group(b"c_plus", &m.c_plus);
-        self.transcript.append_group(b"c_minus", &m.c_minus);
+        // PCS variant: omit C_+ and C_- from transcript
         self.transcript.append_group(b"e1_plus", &m.e1_plus);
         self.transcript.append_group(b"e1_minus", &m.e1_minus);
         self.transcript.append_group(b"e2_plus", &m.e2_plus);
@@ -540,7 +538,7 @@ where
                                if self.final_message.is_some() { 1 } else { 0 }; // final e2
 
         let total_gt_elements = self.first_messages.iter().map(|_m| 4).sum::<usize>() + // d1_left/right + d2_left/right per round
-                               self.second_messages.iter().map(|_m| 2).sum::<usize>() + // c_plus + c_minus per round
+                               self.second_messages.iter().map(|_m| 0).sum::<usize>() + // PCS: no C terms per round
                                if self.vmv_message.is_some() { 2 } else { 0 }; // vmv c + d2
 
         println!("Total G1 elements in proof: {}", total_g1_elements);

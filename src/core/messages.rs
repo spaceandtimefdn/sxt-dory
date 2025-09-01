@@ -66,7 +66,8 @@ where
 
 /// The second prover message in the Dory-Reduce portion (Section 3.2) of the Dory protocol.
 ///
-/// This consists of $C_+$, $C_-$, $E_{1+}$, $E_{1-}$, $E_{2+}$, and $E_{2-}$.
+/// PCS variant: we omit the $C_+$ and $C_-$ terms and only keep the extended E-terms.
+/// This reduces proof size and transcript data for polynomial commitments since C is not needed in the PCS.
 #[derive(
     Clone,
     Debug,
@@ -79,16 +80,11 @@ where
     CanonicalSerialize,
     CanonicalDeserialize,
 )]
-pub struct SecondReduceMessage<G1, G2, GT>
+pub struct SecondReduceMessage<G1, G2>
 where
     G1: Group,
     G2: Group,
-    GT: Group,
 {
-    /// $C_+$
-    pub c_plus: GT,
-    /// $C_-$
-    pub c_minus: GT,
     /// $E_{1+}$ (extension - Section 4.2 of paper)
     pub e1_plus: G1,
     /// $E_{1-}$ (extension - Section 4.2 of paper)
