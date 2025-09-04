@@ -41,9 +41,9 @@ where
     /// The commitment to the entire matrix. That is, `T = <T_vec_prime, Gamma_2[nu]>`.
     pub(super) t: <E as Pairing>::GT,
     /// The left tensor, l.
-    pub(super) l_tensor: Vec<<E::G1 as Group>::Scalar>,
+    pub(super) eval_point_left: Vec<<E::G1 as Group>::Scalar>,
     /// The right tensor, r.
-    pub(super) r_tensor: Vec<<E::G1 as Group>::Scalar>,
+    pub(super) eval_point_right: Vec<<E::G1 as Group>::Scalar>,
     /// number of rows is 2^nu
     pub(super) nu: usize,
 }

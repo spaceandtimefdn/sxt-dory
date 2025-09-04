@@ -60,8 +60,6 @@ where
 {
     /// $\beta$
     pub beta: Scalar,
-    /// $\beta^{-1}$
-    pub beta_inverse: Scalar,
 }
 
 /// The second prover message in the Dory-Reduce portion (Section 3.2) of the Dory protocol.
@@ -117,11 +115,9 @@ where
 {
     /// $\alpha$
     pub alpha: Scalar,
-    /// $\alpha^{-1}$
-    pub alpha_inverse: Scalar,
 }
 
-/// This is the random chalenge (d, d^-1) for the Scalar-Product protocol
+/// This is the random chalenges (gamma_1, gamma_2) for the Final-Verify protocol
 #[derive(
     Clone,
     Debug,
@@ -134,40 +130,14 @@ where
     CanonicalSerialize,
     CanonicalDeserialize,
 )]
-pub struct ScalarProductChallenge<Scalar>
+pub struct FinalVerifyChallenge<Scalar>
 where
     Scalar: Field,
 {
-    /// d challenge for Scalar-Product procedure
-    pub d: Scalar,
-    /// d^-1 challenge for Scalar-Product procedure
-    pub d_inverse: Scalar,
-}
-
-/// The verifier challenge in the Fold-Scalars portion (Section 4.1) of the Dory protocol.
-///
-/// The challenge, $\gamma$, is a random scalar. Additionally, $\gamma$ must be non-zero because
-/// the protocol uses $\gamma^{-1}$, which we also include here.
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Eq,
-    Hash,
-    PartialEq,
-    Serialize,
-    CanonicalSerialize,
-    CanonicalDeserialize,
-)]
-pub struct FoldScalarsChallenge<Scalar>
-where
-    Scalar: Field,
-{
-    /// $\gamma$
-    pub gamma: Scalar,
-    /// $\gamma^{-1}$
-    pub gamma_inverse: Scalar,
+    /// gamma_1 challenge for Final-Verify procedure
+    pub gamma_1: Scalar,
+    /// gamma_2 challenge for Final-Verify procedure
+    pub gamma_2: Scalar,
 }
 
 /// The prover message in the Scalar-Product portion (Section 3.1) of the Dory protocol.
@@ -218,8 +188,6 @@ where
     G1: Group,
     GT: Group,
 {
-    /// $C$ = e(MSM(T_vec_prime, v_vec), Gamma_2_fin)
-    pub c: GT,
     /// $D_2$ = e(MSM(Gamma_1[nu], v_vec), Gamma_2_fin)
     pub d2: GT,
     /// $E_1$ = MSM(T_vec_prime, L_vec)

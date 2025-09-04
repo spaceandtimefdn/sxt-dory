@@ -5,14 +5,14 @@ use rayon::prelude::*;
 use crate::{
     arithmetic::{Field, Group, MultiScalarMul, Pairing},
     messages::{
-        FirstReduceChallenge, FirstReduceMessage, FoldScalarsChallenge, ScalarProductMessage,
+        FirstReduceChallenge, FirstReduceMessage, ScalarProductMessage,
         SecondReduceChallenge, SecondReduceMessage,
     },
     setup::VerifierSetup,
     state::{DoryProverState, DoryVerifierState, VerifierState},
 };
 
-use super::{ProverSetup, ScalarProductChallenge};
+use super::{ProverSetup, FinalVerifyChallenge};
 
 /// Below is the **prover** side of the interactive protocol for Dory
 /// We define the relevant message implementations in the order of communication
@@ -116,7 +116,6 @@ where
         M2: MultiScalarMul<Self::G2>,
     {
         let beta = chall.beta;
-        let beta_inv = chall.beta_inverse;
 
         let g1_prime = &setup.g1_vec()[..1 << self.nu];
         let g2_prime = &setup.g2_vec()[..1 << self.nu];
@@ -136,7 +135,7 @@ where
             M1::fixed_scalar_variable_with_add(g1_prime, &mut self.v1, &beta);
         }
 
-        // ṽ₂ ← ṽ₂ + β⁻¹·Γ₂
+        // ṽ₂ ← ṽ₂ + β·Γ₂
         // Use cached version if cache is available
         if setup.g1_cache.is_some() && setup.g2_cache.is_some() {
             M2::fixed_scalar_variable_with_add_cached(
@@ -144,10 +143,10 @@ where
                 setup.g1_cache.as_ref(),
                 setup.g2_cache.as_ref(),
                 &mut self.v2,
-                &beta_inv,
+                &beta,
             );
         } else {
-            M2::fixed_scalar_variable_with_add(g2_prime, &mut self.v2, &beta_inv);
+            M2::fixed_scalar_variable_with_add(g2_prime, &mut self.v2, &beta);
         }
 
         self
@@ -185,13 +184,12 @@ where
         }
     }
 
-    /// On every round, cut the vector length in half and fold with the
-    /// α-challenge:
+    /// On every round, cut vector length in half and fold with α (Light semantics):
     ///
-    ///   v₁ ← α · v₁L + v₁R
-    ///   v₂ ← α⁻¹· v₂L + v₂R
+    ///   v₁ ← v₁L + α · v₁R
+    ///   v₂ ← v₂L + α · v₂R
     ///   s₁ ← α · s₁L + s₁R
-    ///   s₂ ← α⁻¹· s₂L + s₂R
+    ///   s₂ ← α · s₂L + s₂R
     ///
     /// After folding, all four vectors are truncated to `n/2`.
     #[tracing::instrument(skip_all)]
@@ -204,7 +202,7 @@ where
         M1: MultiScalarMul<Self::G1>,
         M2: MultiScalarMul<Self::G2>,
     {
-        let (alpha, alpha_inv) = (chall.alpha, chall.alpha_inverse);
+        let alpha = chall.alpha;
         let n2 = 1usize << (self.nu - 1);
 
         /* ─── fold v-vectors ────────────────────────────────────────────── */
@@ -216,7 +214,7 @@ where
 
         M1::fixed_scalar_scale_with_add(v1_l, v1_r, &alpha);
 
-        M2::fixed_scalar_scale_with_add(v2_l, v2_r, &alpha_inv);
+        M2::fixed_scalar_scale_with_add(v2_l, v2_r, &alpha);
 
         self.v1.truncate(n2);
         self.v2.truncate(n2);
@@ -234,7 +232,7 @@ where
 
         s2_l.par_iter_mut()
             .zip(s2_r.par_iter())
-            .for_each(|(s_l, s_r_val)| *s_l = s_l.mul(&alpha_inv).add(s_r_val));
+            .for_each(|(s_l, s_r_val)| *s_l = s_l.mul(&alpha).add(s_r_val));
 
         self.s1.truncate(n2);
         self.s2.truncate(n2);
@@ -242,44 +240,6 @@ where
         self.nu -= 1;
 
         self
-    }
-
-    /* ---------- Final Scalar‑Product input -------------------------- */
-    // Note: we apply `fold-scalars` transform onto e1 and e1 before sending to verifier.
-    // We apply it here as this is the last step of the IP protocol and the transformation mutates
-    // the contents of `ScalarProductMessage`, anyways.
-    #[tracing::instrument(skip_all)]
-    fn compute_scalar_product_message<M1, M2>(
-        self,
-        setup: &Self::Setup,
-        chall: FoldScalarsChallenge<Self::Scalar>,
-    ) -> ScalarProductMessage<Self::G1, Self::G2>
-    where
-        M1: MultiScalarMul<Self::G1>,
-        M2: MultiScalarMul<Self::G2>,
-    {
-        debug_assert_eq!(self.nu, 0);
-        debug_assert_eq!(self.v1.len(), 1);
-        debug_assert_eq!(self.v2.len(), 1);
-        debug_assert_eq!(self.s1.len(), 1);
-        debug_assert_eq!(self.s2.len(), 1);
-
-        let (gamma, gamma_inv) = (chall.gamma, chall.gamma_inverse);
-
-        // Apply `fold-scalars`` transformation to the vectors:
-        // v1' = v1 + γ * s1 * H1
-        // v2' = v2 + γ^(-1) * s2 * H2
-
-        let gamma_s1_product = gamma.mul(&self.s1[0]);
-        let e1 = self.v1[0].add(&setup.h1().scale(&gamma_s1_product));
-
-        let gamma_inv_s2_product = gamma_inv.mul(&self.s2[0]);
-        let e2 = self.v2[0].add(&setup.h2().scale(&gamma_inv_s2_product));
-
-        ScalarProductMessage {
-            e1: e1.clone(),
-            e2: e2.clone(),
-        }
     }
 }
 
@@ -304,25 +264,13 @@ where
         setup: &Self::Setup,
         first_msg: &FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
         second_msg: &SecondReduceMessage<Self::G1, Self::G2>,
-        alpha_pair: (Self::Scalar, Self::Scalar),
-        beta_pair: (Self::Scalar, Self::Scalar),
+        alpha: Self::Scalar,
+        beta: Self::Scalar,
     ) -> bool {
-        let (alpha, alpha_inv) = alpha_pair;
-        let (beta, beta_inv) = beta_pair;
 
-        // Update C according to the protocol
-        // PCS variant: C± omitted from message; pass identity elements so C update ignores C terms
-        Self::dory_reduce_verify_update_c(
-            self,
-            setup,
-            (Self::GT::identity(), Self::GT::identity()),
-            (alpha.clone(), alpha_inv.clone()),
-            (beta.clone(), beta_inv.clone()),
-        );
-
-        // Update D₁ and D₂ according to the protocol
-        // D₁' <- α * D₁L + D₁R + α * β * Δ₁L + β * Δ₁R
-        // D₂' <- α⁻¹ * D₂L + D₂R + α⁻¹ * β⁻¹ * Δ₂L + β⁻¹ * Δ₂R
+        // Update D₁ and D₂ (Light semantics, no inverses)
+        // D₁' <- D₁L + α * D₁R + β * (Δ₁L + α * Δ₁R)
+        // D₂' <- D₂L + α * D₂R + β * (Δ₂L + α * Δ₂R)
         Self::dory_reduce_verify_update_ds(
             self,
             setup,
@@ -332,13 +280,13 @@ where
                 first_msg.d2_left.clone(),
                 first_msg.d2_right.clone(),
             ),
-            (alpha.clone(), alpha_inv.clone()),
-            (beta.clone(), beta_inv.clone()),
+            alpha.clone(),
+            beta.clone(),
         );
 
-        // Update E₁ and E₂ for the **extended** protocol
-        // E₁' <- E₁ + β * E₁β + α * E₁+ + α⁻¹ * E₁-
-        // E₂' <- E₂ + β⁻¹ * E₂β + α * E₂+ + α⁻¹ * E₂-
+        // Update E₁ and E₂ for the **extended** protocol (Light semantics)
+        // E₁' <- E₁- + α * (E₁ + β * E₁β + α * E₁+)
+        // E₂' <- E₂- + α * (E₂ + β * E₂β + α * E₂+)
         Self::dory_reduce_verify_update_es(
             self,
             (first_msg.e1_beta.clone(), first_msg.e2_beta.clone()),
@@ -348,32 +296,9 @@ where
                 second_msg.e2_plus.clone(),
                 second_msg.e2_minus.clone(),
             ),
-            (alpha.clone(), alpha_inv.clone()),
-            (beta.clone(), beta_inv.clone()),
+            alpha.clone(),
+            beta.clone(),
         );
-
-        // We update s1_tensor and s2_tensor if they exist, mirroring `fold s-vectors` in `reduce_fold`:
-        if let (Some(s1), Some(s2)) = (self.s1_tensor.as_mut(), self.s2_tensor.as_mut()) {
-            let n2 = 1usize << (self.nu - 1);
-
-            // Split s1 and s2 into left and right halves
-            let (s1_l, s1_r) = s1.split_at_mut(n2);
-            let (s2_l, s2_r) = s2.split_at_mut(n2);
-
-            // Fold s1: s1' = α * s1_l + s1_r
-            for i in 0..n2 {
-                s1_l[i] = s1_l[i].mul(&alpha).add(&s1_r[i]);
-            }
-
-            // Fold s2: s2' = α⁻¹ * s2_l + s2_r
-            for i in 0..n2 {
-                s2_l[i] = s2_l[i].mul(&alpha_inv).add(&s2_r[i]);
-            }
-
-            // Truncate to keep only the folded half
-            s1.truncate(n2);
-            s2.truncate(n2);
-        }
 
         // decrement the rounds
         self.nu -= 1;
@@ -381,60 +306,18 @@ where
         true
     }
 
-    /// From the Dory-Reduce algorithm in section 3.2 of the paper.
-    /// Updates C in the verifier state.
-    /// C' <- C + χᵢ + β * D₂ + β⁻¹ * D₁ + α * C_plus + α⁻¹ * C_minus
-    fn dory_reduce_verify_update_c(
-        &mut self,
-        setup: &Self::Setup,
-        c_pair: (Self::GT, Self::GT),
-        alpha_pair: (Self::Scalar, Self::Scalar),
-        beta_pair: (Self::Scalar, Self::Scalar),
-    ) {
-        let (c_plus, c_minus) = c_pair;
-        let (alpha, alpha_inv) = alpha_pair;
-        let (beta, beta_inv) = beta_pair;
-
-        let chi = &setup.chi[self.nu];
-
-        // Update c with each component
-        // C' <- C + χᵢ + β * D₂ + β⁻¹ * D₁ + α * C_plus + α⁻¹ * C_minus
-
-        // Start with the original C
-        let mut new_c = self.c.clone();
-
-        // Add χᵢ
-        new_c = new_c.add(chi);
-
-        // Add β * D₂
-        new_c = new_c.add(&self.d_2.scale(&beta));
-
-        // Add β⁻¹ * D₁
-        new_c = new_c.add(&self.d_1.scale(&beta_inv));
-
-        // Add α * C_plus
-        new_c = new_c.add(&c_plus.scale(&alpha));
-
-        // Add α⁻¹ * C_minus
-        new_c = new_c.add(&c_minus.scale(&alpha_inv));
-
-        self.c = new_c;
-    }
-
-    /// From the Dory-Reduce algorithm in section 3.2 of the paper.
-    /// Updates `D_1` and `D_2`
-    /// * `D_1' <- alpha * D_1L + D_1R + alpha * beta * Delta_1L + beta * Delta_1R`
-    /// * `D_2' <- alpha_inv * D_2L + D_2R + alpha_inv * beta_inv * Delta_2L + beta_inv * Delta_2R`
+    /// From the Dory-Reduce-Light semantics (no inverses).
+    /// Updates `D₁` and `D₂` in verifier state:
+    /// * D₁' ← D₁L + α · D₁R + β · (Δ₁L + α · Δ₁R)
+    /// * D₂' ← D₂L + α · D₂R + β · (Δ₂L + α · Δ₂R)
     fn dory_reduce_verify_update_ds(
         &mut self,
         setup: &Self::Setup,
         d_values: (Self::GT, Self::GT, Self::GT, Self::GT),
-        alpha_pair: (Self::Scalar, Self::Scalar),
-        beta_pair: (Self::Scalar, Self::Scalar),
+        alpha: Self::Scalar,
+        beta: Self::Scalar,
     ) {
         let (d_1l, d_1r, d_2l, d_2r) = d_values;
-        let (alpha, alpha_inv) = alpha_pair;
-        let (beta, beta_inv) = beta_pair;
 
         // Get the precomputed values for the current round
         let delta_1l = &setup.delta_1l[self.nu];
@@ -442,129 +325,49 @@ where
         let delta_2l = &setup.delta_2l[self.nu];
         let delta_2r = &setup.delta_2r[self.nu];
 
-        // D_1' <- alpha * D_1L + D_1R + alpha * beta * Delta_1L + beta * Delta_1R
-        let mut new_d_1 = d_1l.scale(&alpha);
-        new_d_1 = new_d_1.add(&d_1r);
+        // D₁' ← D₁L + α·D₁R + β·(Δ₁L + α·Δ₁R)
+        let mut new_d_1 = d_1l.add(&d_1r.scale(&alpha));
+        let delta_1_tail = delta_1l.add(&delta_1r.scale(&alpha));
+        new_d_1 = new_d_1.add(&delta_1_tail.scale(&beta));
 
-        // alpha * beta * Delta_1L
-        let alpha_beta = alpha.mul(&beta);
-        new_d_1 = new_d_1.add(&delta_1l.scale(&alpha_beta));
-
-        // beta * Delta_1R
-        new_d_1 = new_d_1.add(&delta_1r.scale(&beta));
-
-        // D_2' <- alpha_inv * D_2L + D_2R + alpha_inv * beta_inv * Delta_2L + beta_inv * Delta_2R
-        let mut new_d_2 = d_2l.scale(&alpha_inv);
-        new_d_2 = new_d_2.add(&d_2r);
-
-        // alpha_inv * beta_inv * Delta_2L
-        let alpha_inv_beta_inv = alpha_inv.mul(&beta_inv);
-        new_d_2 = new_d_2.add(&delta_2l.scale(&alpha_inv_beta_inv));
-
-        // beta_inv * Delta_2R
-        new_d_2 = new_d_2.add(&delta_2r.scale(&beta_inv));
+        // D₂' ← D₂L + α·D₂R + β·(Δ₂L + α·Δ₂R)
+        let mut new_d_2 = d_2l.add(&d_2r.scale(&alpha));
+        let delta_2_tail = delta_2l.add(&delta_2r.scale(&alpha));
+        new_d_2 = new_d_2.add(&delta_2_tail.scale(&beta));
 
         self.d_1 = new_d_1;
         self.d_2 = new_d_2;
     }
 
-    /// From the extended Dory-Reduce algorithm in section 4.2 of the paper.
-    /// Updates `E_1` and `E_2`
-    /// * `E_1' <- E_1 + beta * E_1beta + alpha * E_1plus + alpha_inv * E_1minus`
-    /// * `E_2' <- E_2 + beta_inv * E_2beta + alpha * E_2plus + alpha_inv * E_2minus`
+    /// Extended Dory-Reduce-Light semantics for E updates (no inverses):
+    /// * E₁' ← E₁- + α · (E₁ + β · E₁β + α · E₁+)
+    /// * E₂' ← E₂- + α · (E₂ + β · E₂β + α · E₂+)
     fn dory_reduce_verify_update_es(
         &mut self,
         e_beta_pair: (Self::G1, Self::G2),
         e_values: (Self::G1, Self::G1, Self::G2, Self::G2),
-        alpha_pair: (Self::Scalar, Self::Scalar),
-        beta_pair: (Self::Scalar, Self::Scalar),
+        alpha: Self::Scalar,
+        beta: Self::Scalar,
     ) {
         let (e_1beta, e_2beta) = e_beta_pair;
         let (e_1plus, e_1minus, e_2plus, e_2minus) = e_values;
-        let (alpha, alpha_inv) = alpha_pair;
-        let (beta, beta_inv) = beta_pair;
 
-        // E_1' <- E_1 + beta * E_1beta + alpha * E_1plus + alpha_inv * E_1minus
-        let mut new_e_1: Self::G1 = self.e_1.clone();
-        new_e_1 = new_e_1.add(&e_1beta.scale(&beta));
-        new_e_1 = new_e_1.add(&e_1plus.scale(&alpha));
-        new_e_1 = new_e_1.add(&e_1minus.scale(&alpha_inv));
+        // E₁' ← E₁- + α · (E₁ + β · E₁β + α · E₁+)
+        let inner_e1 = self
+            .e_1
+            .add(&e_1beta.scale(&beta))
+            .add(&e_1plus.scale(&alpha));
+        let new_e_1: Self::G1 = e_1minus.add(&inner_e1.scale(&alpha));
 
-        // E_2' <- E_2 + beta_inv * E_2beta + alpha * E_2plus + alpha_inv * E_2minus
-        let mut new_e_2 = self.e_2.clone();
-        new_e_2 = new_e_2.add(&e_2beta.scale(&beta_inv));
-        new_e_2 = new_e_2.add(&e_2plus.scale(&alpha));
-        new_e_2 = new_e_2.add(&e_2minus.scale(&alpha_inv));
+        // E₂' ← E₂- + α · (E₂ + β · E₂β + α · E₂+)
+        let inner_e2 = self
+            .e_2
+            .add(&e_2beta.scale(&beta))
+            .add(&e_2plus.scale(&alpha));
+        let new_e_2: Self::G2 = e_2minus.add(&inner_e2.scale(&alpha));
 
         self.e_1 = new_e_1;
         self.e_2 = new_e_2;
-    }
-
-    /// Verifier side of the Fold-Scalars protocol from the paper
-    fn apply_fold_scalars(
-        &mut self,
-        setup: &VerifierSetup<E>,
-        gamma_pair: FoldScalarsChallenge<Self::Scalar>,
-    ) {
-        let gamma = gamma_pair.gamma;
-        let gamma_inv = gamma_pair.gamma_inverse;
-
-        debug_assert_eq!(self.nu, 0, "nu should be 0 at the Fold-Scalars step.");
-
-        let s1_final = self
-            .s1_tensor
-            .as_ref()
-            .and_then(|v| v.get(0))
-            .cloned()
-            .unwrap();
-
-        let s2_final = self
-            .s2_tensor
-            .as_ref()
-            .and_then(|v| v.get(0))
-            .cloned()
-            .unwrap();
-
-        // --- C' Update ---
-        // C' ← C + ⟨s̃₁, s̃₂⟩HT + γ · e(H₁, E₂) + γ⁻¹ · e(E₁, H₂)
-        // At nu=0, ⟨s̃₁, s̃₂⟩ becomes s1_final * s2_final
-
-        let mut new_c = self.c.clone();
-
-        // Term 1: s1_final * s2_final * setup.ht
-        new_c = new_c.add(&setup.ht.scale(&s1_final.mul(&s2_final)));
-
-        // Term 2: γ * e(setup.h1, self.e_2)
-        let pairing_h1_e2 = E::pair(&setup.h1, &self.e_2);
-        new_c = new_c.add(&pairing_h1_e2.scale(&gamma));
-
-        // Term 3: γ⁻¹ * e(self.e_1, setup.h2)
-        let pairing_e1_h2 = E::pair(&self.e_1, &setup.h2);
-        new_c = new_c.add(&pairing_e1_h2.scale(&gamma_inv));
-
-        self.c = new_c;
-
-        // --- D₁' Update
-        // D₁' ← D₁ + e(H₁, ⟨s̃₁, γΓ₂⟩)
-        // At nu=0, ⟨s̃₁, γΓ₂⟩ becomes Γ₂₀·s̃₁γ which is setup.g2_0 * s1_final * gamma
-
-        let scalar_for_g2_in_d1 = s1_final.mul(&gamma);
-        // Scale setup.g2_0 (which is Γ₂₀) by scalar_for_g2_in_d1
-        let g2_0_scaled = setup.g2_0.scale(&scalar_for_g2_in_d1);
-        let pairing_h1_g2 = E::pair(&setup.h1, &g2_0_scaled);
-
-        self.d_1 = self.d_1.add(&pairing_h1_g2);
-
-        // --- D₂' Update
-        // D₂' ← D₂ + e(γ⁻¹⟨Γ₁, s̃₂⟩, H₂)
-        // At nu=0, γ⁻¹⟨Γ₁, s̃₂⟩ becomes Γ₁₀·s̃₂γ⁻¹ which is setup.g1_0 * s2_final * gamma_inv
-
-        let scalar_for_g1_in_d2 = s2_final.mul(&gamma_inv);
-        // Scale setup.g1_0 (which is Γ₁₀) by scalar_for_g1_in_d2
-        let g1_0_scaled = setup.g1_0.scale(&scalar_for_g1_in_d2);
-        let pairing_g1_h2 = E::pair(&g1_0_scaled, &setup.h2);
-
-        self.d_2 = self.d_2.add(&pairing_g1_h2);
     }
 
     /// Final verification step for Extended Dory-Reduce
@@ -574,17 +377,31 @@ where
     /// For nu = 0, we check:
     /// pairing(E_1 + Gamma_1_0 * d, E_2 + Gamma_2_0 * d_inv) ==
     /// (C + chi[0] + D_2 * d + D_1 * d_inv)
-    fn verify_final_pairing(
+    fn final_verify(
         &self,
         setup: &Self::Setup,
         message: &ScalarProductMessage<Self::G1, Self::G2>,
-        d_pair: ScalarProductChallenge<Self::Scalar>, // This should be a fresh challenge 'd', not gamma
+        gamma_pair: FinalVerifyChallenge<Self::Scalar>,
     ) -> bool {
         // challenge
-        let (d, d_inverse) = (d_pair.d, d_pair.d_inverse);
+        let (gamma_1, gamma_2) = (gamma_pair.gamma_1, gamma_pair.gamma_2);
 
         // Assert that we're at the appropriate round (nu = 0)
         assert_eq!(self.nu, 0);
+
+        // let s1_final = self
+        //     .eval_point_left
+        //     // .as_ref()
+        //     .and_then(|v| v.get(0))
+        //     .cloned()
+        //     .unwrap();
+
+        //     let s2_final = self
+        //         .s2_tensor
+        //         .as_ref()
+        //         .and_then(|v| v.get(0))
+        //         .cloned()
+        //         .unwrap();
 
         // Left side of the equation: pairing(E_1 + Gamma_1_0 * gamma, E_2 + Gamma_2_0 * gamma_inv)
         let e1_modified = message.e1.add(&setup.g1_0.scale(&d));
@@ -592,11 +409,8 @@ where
 
         let left_side = E::pair(&e1_modified, &e2_modified);
 
-        // Right side of the equation: (C + chi[0] + D_2 * gamma + D_1 * gamma_inv)
-        let mut right_side = self.c.clone();
-
         // Add chi[0]
-        right_side = right_side.add(&setup.chi[0]);
+        let right_side = setup.chi[0];
 
         // Add D_2 * gamma
         right_side = right_side.add(&self.d_2.scale(&d));

@@ -54,9 +54,7 @@ where
 
     // --- Protocol computations (Dory Section 5) ---
 
-    // C = e(⟨T~₀, ~v⟩, Γ₂,fin)
-    let t_vec_v_inner_product = M1::msm(&prover_state.v1, &v_vec);
-    let c = E::pair(&t_vec_v_inner_product, prover_setup.g_fin());
+    // PCS variant: omit C
 
     // D₂ = e(⟨Γ₁[nu], ~v⟩, Γ₂,fin)
     // Protocol: D₂ = e(⟨Γ₁,~v⟩, Γ₂,fin) + rD₂·HT (randomness omitted)
@@ -83,7 +81,6 @@ where
 
     // Create VMV message for transcript
     let vmv_message = VMVMessage {
-        c,
         d2,
         e1, // note that e2 is calculated by the verifier here
     };
@@ -170,14 +167,14 @@ where
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
     <E::G1 as Group>::Scalar: Copy,
 {
-    // @TODO(markosg04) was tensor before
-    let (l_tensor, r_tensor) = compute_left_right_vec(b_point, sigma, nu);
+    debug_assert_eq!(b_point.len(), nu + sigma);
+    let (b_left, b_right) = b_point.split_at(nu);
 
     VMVVerifierState {
         y,
         t,
-        l_tensor,
-        r_tensor,
+        eval_point_left: b_left.to_vec(),
+        eval_point_right: b_right.to_vec(),
         nu,
     }
 }
@@ -193,15 +190,13 @@ where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
-    // Extract received messages
-    let c = vmv_message.c.clone();
+    // Extract received messages (no C)
     let d_2 = vmv_message.d2.clone();
     let e_1 = vmv_message.e1.clone();
 
     // Extract values from VMV verifier state
     let d_1 = vmv_state.t;
-    let s1_tensor = vmv_state.r_tensor;
-    let s2_tensor = vmv_state.l_tensor;
+
     let nu = vmv_state.nu;
 
     // We don't compute e2 on prover side as an optimization (values to produce e2 are known)
@@ -209,9 +204,9 @@ where
     // that is we are equivalently checking, e2 = s1 * Gamma_{2,fin}
     let e_2 = verifier_setup.g_fin.scale(&vmv_state.y);
 
-    let mut verifier_state = DoryVerifierState::new(c, d_1, d_2, e_1, e_2, nu);
-    verifier_state.s1_tensor = Some(s1_tensor);
-    verifier_state.s2_tensor = Some(s2_tensor);
+    let mut verifier_state = DoryVerifierState::new(d_1, d_2, e_1, e_2, nu);
+    verifier_state.eval_point_left = vmv_state.eval_point_left;
+    verifier_state.eval_point_right = vmv_state.eval_point_right;
 
     verifier_state
 }

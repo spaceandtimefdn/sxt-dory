@@ -35,15 +35,14 @@ where
         let folded_state = state.reduce_fold::<M1, M2>(setup, challenge);
         (builder, folded_state)
     });
-    let (challenge, builder) = builder.challenge_fold_scalars();
 
     // Note: we pull `d_pair` here even though the Prover does not actually need it. This is so that the verifier
     // and prover transcripts will stay in sync (see Scalar-Product protocol in the paper).
-    let (_unused_d, builder) = builder.challenge_scalar_product_scalars();
+    let (final_verify_challenge, builder) = builder.challenge_final_verify();
 
     // Note: `compute_scalar_product_message` applies the `Fold-Scalars` transform, as described in the paper.
-    let scalar_product_msg = state.compute_scalar_product_message::<M1, M2>(setup, challenge);
-    builder.append_scalar_product_message(scalar_product_msg)
+    let final_verify_message = state.compute_final_verify_message::<M1, M2>(setup, final_verify_challenge);
+    builder.append_final_verify_message(final_verify_message)
 }
 
 /// Verifier analogue for the extended Dory-innerproduct
@@ -68,10 +67,7 @@ where
         let first = builder.process_first_reduce_message(&m1);
         let second = builder.process_second_reduce_message(&m2);
 
-        let beta_pair = (first.beta, first.beta_inverse);
-        let alpha_pair = (second.alpha, second.alpha_inverse);
-
-        if !state.dory_reduce_verify_round(setup, &m1, &m2, alpha_pair, beta_pair) {
+        if !state.dory_reduce_verify_round(setup, &m1, &m2, first.beta, second.alpha) {
             return Err(idx);
         }
     }
@@ -79,11 +75,10 @@ where
     // On the prover side, `fold-scalars` is handled immediately before sending the scalar product message.
     let fold_gamma = builder.challenge_fold_scalars();
     let d_pair = builder.challenge_scalar_product_scalars();
-    let _fold_scalars = state.apply_fold_scalars(setup, fold_gamma); // mutates verifier state, no return val.
 
-    if !state.verify_final_pairing(setup, builder.process_scalar_product_message(), d_pair) {
-        return Err(builder.rounds());
-    }
+    // if !state.final_verify(setup, builder.process_scalar_product_message()) {
+    //     return Err(builder.rounds());
+    // }
 
     Ok(())
 }

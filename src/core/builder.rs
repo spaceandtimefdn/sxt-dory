@@ -9,7 +9,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use crate::{
     arithmetic::{Field, Group},
     messages::{
-        FirstReduceChallenge, FirstReduceMessage, FoldScalarsChallenge, ScalarProductChallenge,
+        FirstReduceChallenge, FirstReduceMessage, FinalVerifyChallenge,
         ScalarProductMessage, SecondReduceChallenge, SecondReduceMessage, VMVMessage,
     },
     toy_transcript::ToyTranscript,
@@ -62,9 +62,7 @@ pub trait ProofBuilder {
         self,
         message: SecondReduceMessage<Self::G1, Self::G2>,
     ) -> (SecondReduceChallenge<Self::Scalar>, Self);
-    /// Draw a [`FoldScalarsChallenge`] from the transcript.
-    #[must_use]
-    fn challenge_fold_scalars(self) -> (FoldScalarsChallenge<Self::Scalar>, Self);
+
     /// Append a [`ScalarProductMessage`] to the proof and transcript.
     #[must_use]
     fn append_scalar_product_message(
@@ -75,9 +73,9 @@ pub trait ProofBuilder {
     /// Append a [`VMVMessage`] to the proof and transcript.
     fn append_vmv_message(self, message: VMVMessage<Self::G1, Self::GT>) -> Self;
 
-    /// Draw a [`ScalarProductChallenge`] from the transcript.
+    /// Draw a [`FinalVerifyChallenge`] from the transcript.
     #[must_use]
-    fn challenge_scalar_product_scalars(self) -> (ScalarProductChallenge<Self::Scalar>, Self);
+    fn challenge_final_verify(self) -> (FinalVerifyChallenge<Self::Scalar>, Self);
 }
 
 /// Concrete ProofBuilder to collect messages and perform transcript tasks
@@ -208,8 +206,7 @@ where
         self.transcript.append_group(b"e2_beta", &message.e2_beta);
 
         let beta = self.transcript.challenge_scalar(b"first_reduce_beta");
-        let beta_inverse = beta.inv().expect("Inverse for beta must exist");
-        let challenge = FirstReduceChallenge { beta, beta_inverse };
+        let challenge = FirstReduceChallenge { beta };
 
         self.first_messages.push(message);
         (challenge, self)
@@ -226,11 +223,7 @@ where
         self.transcript.append_group(b"e2_minus", &message.e2_minus);
 
         let alpha = self.transcript.challenge_scalar(b"second_reduce_alpha");
-        let alpha_inverse = alpha.inv().expect("Inverse for alpha must exist");
-        let challenge = SecondReduceChallenge {
-            alpha,
-            alpha_inverse,
-        };
+        let challenge = SecondReduceChallenge { alpha };
 
         self.second_messages.push(message);
         (challenge, self)
@@ -247,29 +240,20 @@ where
     }
 
     fn append_vmv_message(mut self, message: VMVMessage<Self::G1, Self::GT>) -> Self {
-        self.transcript.append_group(b"c_eval_vmv", &message.c);
+        // PCS variant: remove c from the protocol
+        // self.transcript.append_group(b"c_eval_vmv", &message.c);
         self.transcript.append_group(b"d2_eval_vmv", &message.d2);
         self.transcript.append_group(b"e1_eval_vmv", &message.e1);
         self.vmv_message = Some(message);
         self
     }
 
-    fn challenge_fold_scalars(mut self) -> (FoldScalarsChallenge<Self::Scalar>, Self) {
-        let gamma = self.transcript.challenge_scalar(b"fold_scalars_gamma");
-        let gamma_inverse = gamma.inv().expect("Inverse for gamma must exist");
-        let challenge: FoldScalarsChallenge<ScalarArg> = FoldScalarsChallenge {
-            gamma,
-            gamma_inverse,
-        };
-        (challenge, self)
-    }
-
-    fn challenge_scalar_product_scalars(mut self) -> (ScalarProductChallenge<Self::Scalar>, Self) {
-        let d = self.transcript.challenge_scalar(b"scalar_product_d");
-        let d_inv = d.inv().unwrap();
-        let challenge = ScalarProductChallenge {
-            d,
-            d_inverse: d_inv,
+    fn challenge_final_verify(mut self) -> (FinalVerifyChallenge<Self::Scalar>, Self) {
+        let gamma_1 = self.transcript.challenge_scalar(b"final_verify_gamma_1");
+        let gamma_2 = self.transcript.challenge_scalar(b"final_verify_gamma_2");
+        let challenge = FinalVerifyChallenge {
+            gamma_1,
+            gamma_2,
         };
         (challenge, self)
     }
@@ -317,11 +301,8 @@ pub trait VerificationBuilder {
         msg: &SecondReduceMessage<Self::G1, Self::G2>,
     ) -> SecondReduceChallenge<Self::Scalar>;
 
-    /// Derive γ, γ⁻¹ after all rounds are ingested.
-    fn challenge_fold_scalars(&mut self) -> FoldScalarsChallenge<Self::Scalar>;
-
-    /// Derive d, d^-1 after all rounds are ingested.
-    fn challenge_scalar_product_scalars(&mut self) -> ScalarProductChallenge<Self::Scalar>;
+    /// Derive gamma_1, gamma_2 after all rounds are ingested.
+    fn challenge_final_verify(&mut self) -> FinalVerifyChallenge<Self::Scalar>;
 
     /// Provide the final scalar-product message that the prover sent.
     fn process_scalar_product_message(&self) -> &ScalarProductMessage<Self::G1, Self::G2>;
@@ -450,11 +431,7 @@ where
         self.transcript.append_group(b"e2_beta", &m.e2_beta);
 
         let beta = self.transcript.challenge_scalar(b"first_reduce_beta");
-        let beta_inv = beta.inv().unwrap();
-        FirstReduceChallenge {
-            beta,
-            beta_inverse: beta_inv,
-        }
+        FirstReduceChallenge { beta }
     }
 
     fn process_second_reduce_message(
@@ -468,29 +445,13 @@ where
         self.transcript.append_group(b"e2_minus", &m.e2_minus);
 
         let alpha = self.transcript.challenge_scalar(b"second_reduce_alpha");
-        let alpha_inv = alpha.inv().unwrap();
-        SecondReduceChallenge {
-            alpha,
-            alpha_inverse: alpha_inv,
-        }
+        SecondReduceChallenge { alpha }
     }
 
-    fn challenge_fold_scalars(&mut self) -> FoldScalarsChallenge<Scalar> {
-        let gamma = self.transcript.challenge_scalar(b"fold_scalars_gamma");
-        let gamma_inv = gamma.inv().unwrap();
-        FoldScalarsChallenge {
-            gamma,
-            gamma_inverse: gamma_inv,
-        }
-    }
-
-    fn challenge_scalar_product_scalars(&mut self) -> ScalarProductChallenge<Self::Scalar> {
-        let d = self.transcript.challenge_scalar(b"scalar_product_d");
-        let d_inv = d.inv().unwrap();
-        ScalarProductChallenge {
-            d,
-            d_inverse: d_inv,
-        }
+    fn challenge_final_verify(&mut self) -> FinalVerifyChallenge<Self::Scalar> {
+        let gamma_1 = self.transcript.challenge_scalar(b"final_verify_gamma_1");
+        let gamma_2 = self.transcript.challenge_scalar(b"final_verify_gamma_2");
+        FinalVerifyChallenge { gamma_1, gamma_2 }
     }
 
     fn process_scalar_product_message(&self) -> &ScalarProductMessage<G1, G2> {
@@ -502,7 +463,8 @@ where
             .vmv_msg
             .as_ref()
             .expect("VMV message must be present in verify builder");
-        self.transcript.append_group(b"c_eval_vmv", &message.c);
+        // PCS variant: remove c from the protocol
+        // self.transcript.append_group(b"c_eval_vmv", &message.c);
         self.transcript.append_group(b"d2_eval_vmv", &message.d2);
         self.transcript.append_group(b"e1_eval_vmv", &message.e1);
         message.clone()

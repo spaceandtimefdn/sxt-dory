@@ -2,12 +2,11 @@
 use crate::{
     arithmetic::{Field, Group, MultiScalarMul, Pairing},
     messages::{
-        FirstReduceChallenge, FirstReduceMessage, FoldScalarsChallenge, ScalarProductMessage,
+        FirstReduceChallenge, FirstReduceMessage,
         SecondReduceChallenge, SecondReduceMessage,
+        FinalVerifyChallenge
     },
 };
-
-use super::ScalarProductChallenge;
 
 /// Trait for the state and computation and state of the Dory protocol.
 ///
@@ -27,17 +26,14 @@ pub trait ProverState {
     /// The setup type. This should contain the public parameters needed for the protocol.
     type Setup;
 
-    /// Computes the [`FirstReduceMessage`] from the state.
-    /// That is,
-    /// $$\begin{aligned}
-    /// D_{1L} &= \langle\vec{v_{1L}},\Gamma_2^{\prime}\rangle & D_{1R} &= \langle\vec{v_{1R}},\Gamma_2^{\prime}\rangle \\\\
-    /// D_{2L} &= \langle\Gamma_1^{\prime},\vec{v_{2L}}\rangle & D_{2R} &= \langle\Gamma_1^{\prime},\vec{v_{2R}}\rangle \\\\
-    /// E_{1\beta} &= \langle\Gamma_1,\vec{s_2}\rangle & E_{2\beta} &= \langle\vec{s_1},\Gamma_2\rangle
-    /// \end{aligned}$$
+    /// Computes the [`FirstReduceMessage`] from the state. Specifically:
+    /// D₁L = ⟨v₁L, Γ₂′⟩,  D₁R = ⟨v₁R, Γ₂′⟩;
+    /// D₂L = ⟨Γ₁′, v₂L⟩,  D₂R = ⟨Γ₁′, v₂R⟩;
+    /// E₁β = ⟨Γ₁, s₂⟩,   E₂β = ⟨s₁, Γ₂⟩.
     ///
     /// # Panics
     /// Panics if the state is not in an appropriate round. That is, if the last Reduce round has not been completed. This method
-    /// assumes that the $v_i$ and $s_i$ vectors are of length at least 2.
+    /// assumes that the vᵢ and sᵢ vectors are of length at least 2.
     #[must_use]
     fn compute_first_reduce_message<M1, M2>(
         &self,
@@ -48,11 +44,11 @@ pub trait ProverState {
         Self::G2: Group,
         M1: MultiScalarMul<Self::G1>,
         M2: MultiScalarMul<Self::G2>;
-    /// Combines $\vec{v_i}$ and $\Gamma_i$ using the [`FirstReduceChallenge`].
-    /// That is,
-    /// $$\begin{aligned}
-    /// \vec{v_1} &\leftarrow \vec{v_1} + \beta\Gamma_1 & \vec{v_2} &\leftarrow \vec{v_2} + \beta^{-1}\Gamma_2
-    /// \end{aligned}$$
+    /// Combines vᵢ with Γᵢ using the [`FirstReduceChallenge`] (step (*) in
+    /// Dory-Reduce-Light). Updates:
+    /// v₁(new) ← v₁ + β·Γ₁;  v₂(new) ← v₂ + β·Γ₂.
+    /// 
+    /// Note: can speed up this computation due to same scalar (β) applied to fixed base (Γ₁, Γ₂)
     ///
     /// # Panics
     /// Panics if the state is not in an appropriate round. That is, if the last Reduce round has not been completed. This method
@@ -67,12 +63,9 @@ pub trait ProverState {
         M1: MultiScalarMul<Self::G1>,
         M2: MultiScalarMul<Self::G2>;
     /// Computes the [`SecondReduceMessage`] from the state.
-    /// That is,
-    /// $$\begin{aligned}
-    /// C_+ &= \langle\vec{v_{1L}}, \vec{v_{2R}}\rangle & C_- &= \langle\vec{v_{1R}}, \vec{v_{2L}}\rangle \\\\
-    /// E_{1+} &= \langle\vec{v_{1L}}, \vec{s_{2R}}\rangle & E_{1-} &= \langle\vec{v_{1R}}, \vec{s_{2L}}\rangle \\\\
-    /// E_{2+} &= \langle\vec{s_{1L}}, \vec{v_{2R}}\rangle & E_{2-} &= \langle\vec{s_{1R}}, \vec{v_{2L}}\rangle
-    /// \end{aligned}$$
+    /// In the Light variant, C₊ and C₋ are omitted. After (*), define:
+    /// E₁₊ = ⟨v₁R(new), s₂L⟩;  E₁₋ = ⟨v₁L(new), s₂R⟩;
+    /// E₂₊ = ⟨s₁L, v₂R(new)⟩;  E₂₋ = ⟨s₁R, v₂L(new)⟩.
     ///
     /// # Panics
     /// Panics if the state is not in an appropriate round. That is, if the last Reduce round has not been completed. This method
@@ -87,12 +80,10 @@ pub trait ProverState {
         Self::G2: Group,
         M1: MultiScalarMul<Self::G1>,
         M2: MultiScalarMul<Self::G2>;
-    /// Folds the $v_i$ and $s_i$ vectors using the [`SecondReduceChallenge`].
-    /// That is,
-    /// $$\begin{aligned}
-    /// \vec{v_1}^\prime &\leftarrow \alpha \vec{v_{1L}} + \vec{v_{1R}} & \vec{v_2}^\prime &\leftarrow \alpha^{-1} \vec{v_{2L}} + \vec{v_{2R}} \\\\
-    /// \vec{s_1}^\prime &\leftarrow \alpha \vec{s_{1L}} + \vec{s_{1R}} & \vec{s_2}^\prime &\leftarrow \alpha^{-1} \vec{s_{2L}} + \vec{s_{2R}}
-    /// \end{aligned}$$
+    /// Folds the vᵢ and sᵢ vectors using the [`SecondReduceChallenge`] (step (**) in
+    /// Dory-Reduce-Light). Updates:
+    /// v₁′ ← v₁L(new) + α·v₁R(new);  v₂′ ← v₂L(new) + α·v₂R(new);
+    /// s₁′ ← α·s₁L + s₁R;           s₂′ ← α·s₂L + s₂R.
     ///
     /// # Panics
     /// Panics if the state is not in an appropriate round. That is, if the last Reduce round has not been completed. This method
@@ -106,25 +97,18 @@ pub trait ProverState {
     where
         M1: MultiScalarMul<Self::G1>,
         M2: MultiScalarMul<Self::G2>;
-    /// Computes the [`ScalarProductMessage`] using [`FoldScalarsChallenge`]. That is,
-    /// $$\begin{aligned}
-    /// E_1 &= v_1 + \gamma s_1 H_2 & E_2 &= v_2 + \gamma^{-1} s_2 H_1
-    /// \end{aligned}$$
-    ///
-    /// # Panics
-    /// Panics if the state is not in the appropriate round. That is, if the last Reduce round has been completed. This method
-    /// assumes that the $v_i$ and $s_i$ vectors are of length 1.
-    #[must_use]
-    fn compute_scalar_product_message<M1, M2>(
-        self,
-        setup: &Self::Setup,
-        fold_scalars_challenge: FoldScalarsChallenge<Self::Scalar>,
-    ) -> ScalarProductMessage<Self::G1, Self::G2>
-    where
-        Self::G1: Group,
-        Self::G2: Group,
-        M1: MultiScalarMul<Self::G1>,
-        M2: MultiScalarMul<Self::G2>;
+
+    // #[must_use]
+    // fn final_prove<M1, M2>(
+    //     self,
+    //     setup: &Self::Setup,
+    //     fold_scalars_challenge: FinalVerifyChallenge<Self::Scalar>,
+    // ) -> FinalMessage<Self::G1, Self::G2>
+    // where
+    //     Self::G1: Group,
+    //     Self::G2: Group,
+    //     M1: MultiScalarMul<Self::G1>,
+    //     M2: MultiScalarMul<Self::G2>;
 }
 
 // Verifier
@@ -151,59 +135,38 @@ pub trait VerifierState {
         setup: &Self::Setup,
         first_msg: &FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
         second_msg: &SecondReduceMessage<Self::G1, Self::G2>,
-        alpha_pair: (Self::Scalar, Self::Scalar),
-        beta_pair: (Self::Scalar, Self::Scalar),
+        beta: Self::Scalar,
+        alpha: Self::Scalar,
     ) -> bool;
 
-    /// From the Dory-Reduce algorithm in section 3.2 of the paper.
-    /// Updates C in the verifier state.
-    /// C' <- C + χᵢ + β * D₂ + β⁻¹ * D₁ + α * C_plus + α⁻¹ * C_minus
-    fn dory_reduce_verify_update_c(
-        &mut self,
-        setup: &Self::Setup,
-        c_pair: (Self::GT, Self::GT),
-        alpha_pair: (Self::Scalar, Self::Scalar),
-        beta_pair: (Self::Scalar, Self::Scalar),
-    );
-
-    /// From the Dory-Reduce algorithm in section 3.2 of the paper.
-    /// Updates D₁ and D₂ in the verifier state.
-    /// D₁' <- α * D₁L + D₁R + α * β * Δ₁L + β * Δ₁R
-    /// D₂' <- α⁻¹ * D₂L + D₂R + α⁻¹ * β⁻¹ * Δ₂L + β⁻¹ * Δ₂R
+    /// Updates D₁ and D₂ in the verifier state (new writeup)
+    /// D₁' <- D₁L + α * D₁R + β * (Δ₁L + α * Δ₁R)
+    /// D₂' <- D₂L + α * D₂R + β * (Δ₂L + α * Δ₂R)
     fn dory_reduce_verify_update_ds(
         &mut self,
         setup: &Self::Setup,
         d_values: (Self::GT, Self::GT, Self::GT, Self::GT),
-        alpha_pair: (Self::Scalar, Self::Scalar),
-        beta_pair: (Self::Scalar, Self::Scalar),
+        alpha: Self::Scalar,
+        beta: Self::Scalar,
     );
 
-    /// From the extended Dory-Reduce algorithm in section 4.2 of the paper.
-    /// Updates E₁ and E₂ in the extended verifier state.
-    /// E₁' <- E₁ + β * E₁β + α * E₁+ + α⁻¹ * E₁-
-    /// E₂' <- E₂ + β⁻¹ * E₂β + α * E₂+ + α⁻¹ * E₂-
+    /// Updates E₁ and E₂ in the extended verifier state (new writeup)
+    /// E₁' <- E₁- + α * (E₁ + β * E₁β + α * E₁+)
+    /// E₂' <- E₂- + α * (E₂ + β * E₂β + α * E₂+)
     fn dory_reduce_verify_update_es(
         &mut self,
         e_beta_pair: (Self::G1, Self::G2),
         e_values: (Self::G1, Self::G1, Self::G2, Self::G2),
-        alpha_pair: (Self::Scalar, Self::Scalar),
-        beta_pair: (Self::Scalar, Self::Scalar),
+        alpha: Self::Scalar,
+        beta: Self::Scalar,
     );
 
-    /// Apply `Fold-Scalars` algorithm (verifier side) from extended Dory IP
-    fn apply_fold_scalars(
-        &mut self,
-        setup: &Self::Setup,
-        gamma_pair: FoldScalarsChallenge<Self::Scalar>,
-    );
-
-    /// Final verification step for Extended Dory-Reduce
-    /// Verifies: e(E₁, H₂) * e(H₁, E₂) = C * e(H₁, H₂)^γ
-    fn verify_final_pairing(
+    /// Final verification step for Dory-InnerProduct-Light
+    /// Verifies: TBD
+    fn final_verify(
         &self,
         setup: &Self::Setup,
-        message: &ScalarProductMessage<Self::G1, Self::G2>,
-        d_pair: ScalarProductChallenge<Self::Scalar>,
+        gamma_pair: FinalVerifyChallenge<Self::Scalar>,
     ) -> bool;
 }
 
@@ -252,7 +215,8 @@ where
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
     /// The inner pairing product <v1,v2>.
-    pub c: E::GT,
+    /// PCS variant: remove c from the protocol
+    // pub c: E::GT,
     /// The commitment to v1: <v1,Γ_2>.
     pub d_1: E::GT,
     /// The commitment to v2: <Γ_1,v2>.
@@ -264,10 +228,12 @@ where
     /// The commitment to s2: <s1,v2>.
     pub e_2: E::G2,
 
-    /// Tensors used for VMV (only for PCS protocol)
-    pub s1_tensor: Option<Vec<<E::G1 as Group>::Scalar>>,
-    /// Tensors used for VMV (only for PCS protocol)
-    pub s2_tensor: Option<Vec<<E::G1 as Group>::Scalar>>,
+    /// Tensors used for VMV
+    /// We only store the underlying evaluation point, not the tensored vector
+    pub eval_point_left: Vec<<E::G1 as Group>::Scalar>,
+    /// Tensors used for VMV
+    /// We only store the underlying evaluation point, not the tensored vector
+    pub eval_point_right: Vec<<E::G1 as Group>::Scalar>,
 
     /// Current round number. Length of v1 and v2 should be 2^nu.
     pub nu: usize,
@@ -278,38 +244,35 @@ where
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
     /// Constructor
-    pub fn new(c: E::GT, d_1: E::GT, d_2: E::GT, e_1: E::G1, e_2: E::G2, nu: usize) -> Self {
+    pub fn new(d_1: E::GT, d_2: E::GT, e_1: E::G1, e_2: E::G2, nu: usize) -> Self {
         Self {
-            c,
             d_1,
             d_2,
             e_1,
             e_2,
-            s1_tensor: None, // not used in non-pcs context
-            s2_tensor: None, // not used in non-pcs context
+            eval_point_left: vec![],
+            eval_point_right: vec![],
             nu,
         }
     }
 
     /// Constructor
-    pub fn new_with_s(
-        c: E::GT,
+    pub fn new_with_eval_point(
         d_1: E::GT,
         d_2: E::GT,
         e_1: E::G1,
         e_2: E::G2,
-        s1: Vec<<E::G1 as Group>::Scalar>,
-        s2: Vec<<E::G1 as Group>::Scalar>,
+        eval_point_left: Vec<<E::G1 as Group>::Scalar>,
+        eval_point_right: Vec<<E::G1 as Group>::Scalar>,
         nu: usize,
     ) -> Self {
         Self {
-            c,
             d_1,
             d_2,
             e_1,
             e_2,
-            s1_tensor: Some(s1),
-            s2_tensor: Some(s2),
+            eval_point_left,
+            eval_point_right,
             nu,
         }
     }
