@@ -57,7 +57,7 @@ pub trait ProverState {
     fn reduce_combine<M1, M2>(
         self,
         setup: &Self::Setup,
-        first_challenge: FirstReduceChallenge<Self::Scalar>,
+        first_challenge: FirstReduceChallenge,
     ) -> Self
     where
         M1: MultiScalarMul<Self::G1>,
@@ -92,7 +92,7 @@ pub trait ProverState {
     fn reduce_fold<M1, M2>(
         self,
         setup: &Self::Setup,
-        second_challenge: SecondReduceChallenge<Self::Scalar>,
+        second_challenge: SecondReduceChallenge,
     ) -> Self
     where
         M1: MultiScalarMul<Self::G1>,
@@ -105,22 +105,6 @@ pub trait ProverState {
     /// Borrow base-case group elements after all rounds (nu == 0)
     #[must_use]
     fn final_bases_ref(&self) -> (&Self::G1, &Self::G2);
-
-    /// Borrow base-case folded scalar values (s1_final, s2_final)
-    #[must_use]
-    fn final_scalars_ref(&self) -> (&Self::Scalar, &Self::Scalar);
-
-    // #[must_use]
-    // fn final_prove<M1, M2>(
-    //     self,
-    //     setup: &Self::Setup,
-    //     fold_scalars_challenge: FinalizeChallenge<Self::Scalar>,
-    // ) -> FinalMessage<Self::G1, Self::G2>
-    // where
-    //     Self::G1: Group,
-    //     Self::G2: Group,
-    //     M1: MultiScalarMul<Self::G1>,
-    //     M2: MultiScalarMul<Self::G2>;
 }
 
 // Verifier
@@ -147,8 +131,8 @@ pub trait VerifierState {
         setup: &Self::Setup,
         first_msg: &FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
         second_msg: &SecondReduceMessage<Self::G1, Self::G2>,
-        beta: Self::Scalar,
-        alpha: Self::Scalar,
+        beta: [u64; 2],
+        alpha: [u64; 2],
     ) -> bool;
 
     /// Updates D₁ and D₂ in the verifier state (new writeup)
@@ -158,8 +142,8 @@ pub trait VerifierState {
         &mut self,
         setup: &Self::Setup,
         d_values: (&Self::GT, &Self::GT, &Self::GT, &Self::GT),
-        alpha: Self::Scalar,
-        beta: Self::Scalar,
+        alpha: [u64; 2],
+        beta: [u64; 2],
     );
 
     /// Updates E₁ and E₂ in the extended verifier state (new writeup)
@@ -169,8 +153,8 @@ pub trait VerifierState {
         &mut self,
         e_beta_pair: (&Self::G1, &Self::G2),
         e_values: (&Self::G1, &Self::G1, &Self::G2, &Self::G2),
-        alpha: Self::Scalar,
-        beta: Self::Scalar,
+        alpha: [u64; 2],
+        beta: [u64; 2],
     );
 
     /// Final verification step for Dory-InnerProduct-Light
@@ -178,7 +162,7 @@ pub trait VerifierState {
     fn finalize(
         &self,
         setup: &Self::Setup,
-        gamma_pair: FinalizeChallenge<Self::Scalar>,
+        gamma_pair: FinalizeChallenge,
     ) -> bool;
 
     /// Store final base-case group elements sent by the prover
@@ -265,8 +249,8 @@ where
     /// We only store the underlying evaluation point, not the tensored vector
     pub eval_point_right: std::sync::Arc<[<E::G1 as Group>::Scalar]>,
 
-    /// Sequence of α challenges sampled across the IP reduction rounds
-    pub alpha_challenges: Vec<<E::G1 as Group>::Scalar>,
+    /// Sequence of α challenges sampled across the IP reduction rounds (small scalar limbs)
+    pub alpha_challenges: Vec<[u64; 2]>,
 
     /// Base-case group elements provided by prover at the end of IP rounds
     pub v1_final: Option<E::G1>,

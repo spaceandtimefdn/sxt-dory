@@ -55,13 +55,13 @@ pub trait ProofBuilder {
     fn append_first_reduce_message(
         self,
         message: FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
-    ) -> (FirstReduceChallenge<Self::Scalar>, Self);
+    ) -> (FirstReduceChallenge, Self);
     /// Append a [`SecondReduceMessage`] to the proof and transcript and return a [`SecondReduceChallenge`] drawn from the transcript.
     #[must_use]
     fn append_second_reduce_message(
         self,
         message: SecondReduceMessage<Self::G1, Self::G2>,
-    ) -> (SecondReduceChallenge<Self::Scalar>, Self);
+    ) -> (SecondReduceChallenge, Self);
 
     #[must_use]
     /// Append a [`VMVMessage`] to the proof and transcript.
@@ -69,7 +69,7 @@ pub trait ProofBuilder {
 
     /// Draw a [`FinalizeChallenge`] from the transcript.
     #[must_use]
-    fn challenge_finalize(self) -> (FinalizeChallenge<Self::Scalar>, Self);
+    fn challenge_finalize(self) -> (FinalizeChallenge, Self);
 
     /// Append the final base-case group elements.
     #[must_use]
@@ -195,7 +195,7 @@ where
     fn append_first_reduce_message(
         mut self,
         message: FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
-    ) -> (FirstReduceChallenge<Self::Scalar>, Self) {
+    ) -> (FirstReduceChallenge, Self) {
         self.transcript.append_group(b"d1_left", &message.d1_left);
         self.transcript.append_group(b"d1_right", &message.d1_right);
         self.transcript.append_group(b"d2_left", &message.d2_left);
@@ -203,7 +203,7 @@ where
         self.transcript.append_group(b"e1_beta", &message.e1_beta);
         self.transcript.append_group(b"e2_beta", &message.e2_beta);
 
-        let beta = self.transcript.challenge_scalar(b"first_reduce_beta");
+        let beta = self.transcript.challenge_u128(b"first_reduce_beta");
         let challenge = FirstReduceChallenge { beta };
 
         self.first_messages.push(message);
@@ -213,14 +213,14 @@ where
     fn append_second_reduce_message(
         mut self,
         message: SecondReduceMessage<Self::G1, Self::G2>,
-    ) -> (SecondReduceChallenge<Self::Scalar>, Self) {
+    ) -> (SecondReduceChallenge, Self) {
         // PCS variant: omit C_+ and C_- from transcript
         self.transcript.append_group(b"e1_plus", &message.e1_plus);
         self.transcript.append_group(b"e1_minus", &message.e1_minus);
         self.transcript.append_group(b"e2_plus", &message.e2_plus);
         self.transcript.append_group(b"e2_minus", &message.e2_minus);
 
-        let alpha = self.transcript.challenge_scalar(b"second_reduce_alpha");
+        let alpha = self.transcript.challenge_u128(b"second_reduce_alpha");
         let challenge = SecondReduceChallenge { alpha };
 
         self.second_messages.push(message);
@@ -236,9 +236,9 @@ where
         self
     }
 
-    fn challenge_finalize(mut self) -> (FinalizeChallenge<Self::Scalar>, Self) {
-        let gamma_1 = self.transcript.challenge_scalar(b"finalize_gamma_1");
-        let gamma_2 = self.transcript.challenge_scalar(b"finalize_gamma_2");
+    fn challenge_finalize(mut self) -> (FinalizeChallenge, Self) {
+        let gamma_1 = self.transcript.challenge_u128(b"finalize_gamma_1");
+        let gamma_2 = self.transcript.challenge_u128(b"finalize_gamma_2");
         let challenge = FinalizeChallenge {
             gamma_1,
             gamma_2,
@@ -287,28 +287,28 @@ pub trait VerificationBuilder {
     fn process_first_reduce_message(
         &mut self,
         msg: &FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
-    ) -> FirstReduceChallenge<Self::Scalar>;
+    ) -> FirstReduceChallenge;
 
     /// Append first-reduce message at index to transcript and return β.
     fn process_first_reduce_message_at(
         &mut self,
         idx: usize,
-    ) -> FirstReduceChallenge<Self::Scalar>;
+    ) -> FirstReduceChallenge;
 
     /// Consume a SecondReduceMessage, append, and return α, α⁻¹.
     fn process_second_reduce_message(
         &mut self,
         msg: &SecondReduceMessage<Self::G1, Self::G2>,
-    ) -> SecondReduceChallenge<Self::Scalar>;
+    ) -> SecondReduceChallenge;
 
     /// Append second-reduce message at index to transcript and return α.
     fn process_second_reduce_message_at(
         &mut self,
         idx: usize,
-    ) -> SecondReduceChallenge<Self::Scalar>;
+    ) -> SecondReduceChallenge;
 
     /// Derive gamma_1, gamma_2 after all rounds are ingested.
-    fn challenge_finalize(&mut self) -> FinalizeChallenge<Self::Scalar>;
+    fn challenge_finalize(&mut self) -> FinalizeChallenge;
 
     /// Process a [`VMVMessage`].
     fn process_vmv_message(&mut self) -> VMVMessage<Self::G1, Self::GT>;
@@ -430,7 +430,7 @@ where
     fn process_first_reduce_message(
         &mut self,
         m: &FirstReduceMessage<G1, G2, GT>,
-    ) -> FirstReduceChallenge<Scalar> {
+    ) -> FirstReduceChallenge {
         self.transcript.append_group(b"d1_left", &m.d1_left);
         self.transcript.append_group(b"d1_right", &m.d1_right);
         self.transcript.append_group(b"d2_left", &m.d2_left);
@@ -438,14 +438,14 @@ where
         self.transcript.append_group(b"e1_beta", &m.e1_beta);
         self.transcript.append_group(b"e2_beta", &m.e2_beta);
 
-        let beta = self.transcript.challenge_scalar(b"first_reduce_beta");
+        let beta = self.transcript.challenge_u128(b"first_reduce_beta");
         FirstReduceChallenge { beta }
     }
 
     fn process_first_reduce_message_at(
         &mut self,
         idx: usize,
-    ) -> FirstReduceChallenge<Scalar> {
+    ) -> FirstReduceChallenge {
         let m = &self.first_messages[idx];
         let transcript = &mut self.transcript;
         transcript.append_group(b"d1_left", &m.d1_left);
@@ -455,28 +455,28 @@ where
         transcript.append_group(b"e1_beta", &m.e1_beta);
         transcript.append_group(b"e2_beta", &m.e2_beta);
 
-        let beta = transcript.challenge_scalar(b"first_reduce_beta");
+        let beta = transcript.challenge_u128(b"first_reduce_beta");
         FirstReduceChallenge { beta }
     }
 
     fn process_second_reduce_message(
         &mut self,
         m: &SecondReduceMessage<G1, G2>,
-    ) -> SecondReduceChallenge<Scalar> {
+    ) -> SecondReduceChallenge {
         // PCS variant: omit C_+ and C_- from transcript
         self.transcript.append_group(b"e1_plus", &m.e1_plus);
         self.transcript.append_group(b"e1_minus", &m.e1_minus);
         self.transcript.append_group(b"e2_plus", &m.e2_plus);
         self.transcript.append_group(b"e2_minus", &m.e2_minus);
 
-        let alpha = self.transcript.challenge_scalar(b"second_reduce_alpha");
+        let alpha = self.transcript.challenge_u128(b"second_reduce_alpha");
         SecondReduceChallenge { alpha }
     }
 
     fn process_second_reduce_message_at(
         &mut self,
         idx: usize,
-    ) -> SecondReduceChallenge<Scalar> {
+    ) -> SecondReduceChallenge {
         let m = &self.second_messages[idx];
         let transcript = &mut self.transcript;
         // PCS variant: omit C_+ and C_- from transcript
@@ -485,13 +485,13 @@ where
         transcript.append_group(b"e2_plus", &m.e2_plus);
         transcript.append_group(b"e2_minus", &m.e2_minus);
 
-        let alpha = transcript.challenge_scalar(b"second_reduce_alpha");
+        let alpha = transcript.challenge_u128(b"second_reduce_alpha");
         SecondReduceChallenge { alpha }
     }
 
-    fn challenge_finalize(&mut self) -> FinalizeChallenge<Self::Scalar> {
-        let gamma_1 = self.transcript.challenge_scalar(b"finalize_gamma_1");
-        let gamma_2 = self.transcript.challenge_scalar(b"finalize_gamma_2");
+    fn challenge_finalize(&mut self) -> FinalizeChallenge {
+        let gamma_1 = self.transcript.challenge_u128(b"finalize_gamma_1");
+        let gamma_2 = self.transcript.challenge_u128(b"finalize_gamma_2");
         FinalizeChallenge { gamma_1, gamma_2 }
     }
 

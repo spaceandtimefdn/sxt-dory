@@ -5,7 +5,6 @@ use dory::{
     arithmetic::{Field, Group, MultiScalarMul, Pairing},
     builder::{DoryProofBuilder, DoryVerifyBuilder},
     inner_product::{inner_product_prove, inner_product_verify},
-    messages::ScalarProductMessage,
     setup::ProverSetup,
     state::{DoryProverState, DoryVerifierState},
     toy_transcript::ToyTranscript,
@@ -52,8 +51,8 @@ fn setup_scalar_product_test_environment(
 }
 
 #[test]
-fn test_soundness_scalar_product_wrong_e1() {
-    println!("=== Testing soundness: scalar product with wrong E1 ===");
+fn test_wrong_v1_final() {
+    println!("=== Testing soundness: wrong v1' (final G1) ===");
     let mut rng = test_rng();
     let domain = b"scalar_product_test";
     let log_n = 8;
@@ -77,28 +76,21 @@ fn test_soundness_scalar_product_wrong_e1() {
             log_n,
         );
 
-    // Tamper with final scalar product message E1
-    if let Some(final_msg) = &mut proof_builder.final_message {
-        println!("Tampering with scalar product E1...");
-        final_msg.e1 = G1Affine::random(&mut rng);
-
+    if let Some(final_bases) = &mut proof_builder.final_bases {
+        final_bases.v1_final = G1Affine::random(&mut rng);
         let verify_builder =
             DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
                 proof_builder,
                 ToyTranscript::new(domain),
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
-
-        assert!(result.is_err(), "Verification should fail with wrong E1");
-        if let Err(round) = result {
-            println!("✓ Verification correctly failed at round: {}", round);
-        }
+        assert!(result.is_err(), "Verification should fail with wrong v1'");
     }
 }
 
 #[test]
-fn test_soundness_scalar_product_wrong_e2() {
-    println!("=== Testing soundness: scalar product with wrong E2 ===");
+fn test_wrong_v2_final() {
+    println!("=== Testing soundness: wrong v2' (final G2) ===");
     let mut rng = test_rng();
     let domain = b"scalar_product_test";
     let log_n = 8;
@@ -122,28 +114,21 @@ fn test_soundness_scalar_product_wrong_e2() {
             log_n,
         );
 
-    // Tamper with final scalar product message E2
-    if let Some(final_msg) = &mut proof_builder.final_message {
-        println!("Tampering with scalar product E2...");
-        final_msg.e2 = G2AffineWrapper::random(&mut rng);
-
+    if let Some(final_bases) = &mut proof_builder.final_bases {
+        final_bases.v2_final = G2AffineWrapper::random(&mut rng);
         let verify_builder =
             DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
                 proof_builder,
                 ToyTranscript::new(domain),
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
-
-        assert!(result.is_err(), "Verification should fail with wrong E2");
-        if let Err(round) = result {
-            println!("✓ Verification correctly failed at round: {}", round);
-        }
+        assert!(result.is_err(), "Verification should fail with wrong v2'");
     }
 }
 
 #[test]
-fn test_soundness_scalar_product_both_wrong() {
-    println!("=== Testing soundness: scalar product with both E1 and E2 wrong ===");
+fn test_both_final_bases_wrong() {
+    println!("=== Testing soundness: both final bases corrupted ===");
     let mut rng = test_rng();
     let domain = b"scalar_product_test";
     let log_n = 8;
@@ -167,11 +152,11 @@ fn test_soundness_scalar_product_both_wrong() {
             log_n,
         );
 
-    // Tamper with both E1 and E2
-    if let Some(final_msg) = &mut proof_builder.final_message {
-        println!("Tampering with both scalar product E1 and E2...");
-        final_msg.e1 = G1Affine::random(&mut rng);
-        final_msg.e2 = G2AffineWrapper::random(&mut rng);
+    // Tamper with both v1' and v2'
+    if let Some(final_bases) = &mut proof_builder.final_bases {
+        println!("Tampering with both final bases v1' and v2'...");
+        final_bases.v1_final = G1Affine::random(&mut rng);
+        final_bases.v2_final = G2AffineWrapper::random(&mut rng);
 
         let verify_builder =
             DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
@@ -182,17 +167,14 @@ fn test_soundness_scalar_product_both_wrong() {
 
         assert!(
             result.is_err(),
-            "Verification should fail with both E1 and E2 wrong"
+            "Verification should fail with both final bases corrupted"
         );
-        if let Err(round) = result {
-            println!("✓ Verification correctly failed at round: {}", round);
-        }
     }
 }
 
 #[test]
-fn test_soundness_scalar_product_scaled_values() {
-    println!("=== Testing soundness: scalar product with scaled E1 and E2 ===");
+fn test_scaled_final_bases() {
+    println!("=== Testing soundness: scaled final bases v1', v2' ===");
     let mut rng = test_rng();
     let domain = b"scalar_product_test";
     let log_n = 8;
@@ -216,15 +198,14 @@ fn test_soundness_scalar_product_scaled_values() {
             log_n,
         );
 
-    // Scale both E1 and E2 by some factor
-    if let Some(final_msg) = &mut proof_builder.final_message {
-        println!("Scaling scalar product E1 and E2...");
+    // Scale both v1' and v2' by some factor
+    if let Some(final_bases) = &mut proof_builder.final_bases {
+        println!("Scaling v1' and v2'...");
         let scale = Fr::random(&mut rng);
         let scale_inv = scale.inv().unwrap();
 
-        // Scale E1 by scale and E2 by scale_inv to try to maintain the pairing
-        final_msg.e1 = final_msg.e1.scale(&scale);
-        final_msg.e2 = final_msg.e2.scale(&scale_inv);
+        final_bases.v1_final = final_bases.v1_final.scale(&scale);
+        final_bases.v2_final = final_bases.v2_final.scale(&scale_inv);
 
         let verify_builder =
             DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
@@ -235,17 +216,14 @@ fn test_soundness_scalar_product_scaled_values() {
 
         assert!(
             result.is_err(),
-            "Verification should fail with scaled E1 and E2"
+            "Verification should fail with scaled final bases"
         );
-        if let Err(round) = result {
-            println!("✓ Verification correctly failed at round: {}", round);
-        }
     }
 }
 
 #[test]
-fn test_soundness_scalar_product_relationship_attack() {
-    println!("=== Testing soundness: scalar product relationship attack ===");
+fn test_relationship_attack_final_bases() {
+    println!("=== Testing soundness: relationship attack with final bases ===");
     let domain = b"scalar_product_test";
     let log_n = 8;
 
@@ -284,33 +262,23 @@ fn test_soundness_scalar_product_relationship_attack() {
         log_n,
     );
 
-    // Mix scalar product messages from different proofs
-    if let (Some(final_msg1), Some(final_msg2)) = (&proof1.final_message, &mut proof2.final_message)
-    {
-        println!("Mixing scalar product messages from different proofs...");
-        // Take E1 from proof1 but keep E2 from proof2
-        final_msg2.e1 = final_msg1.e1.clone();
-
+    // Mix final bases from different proof into proof2 and expect failure
+    if let (Some(fb1), Some(fb2)) = (&proof1.final_bases, &mut proof2.final_bases) {
+        println!("Mixing final bases from different proofs...");
+        fb2.v1_final = fb1.v1_final.clone();
         let verify_builder =
             DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
                 proof2,
                 ToyTranscript::new(domain),
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
-
-        assert!(
-            result.is_err(),
-            "Verification should fail with mixed scalar product messages"
-        );
-        if let Err(round) = result {
-            println!("✓ Verification correctly failed at round: {}", round);
-        }
+        assert!(result.is_err());
     }
 }
 
 #[test]
-fn test_soundness_scalar_product_missing_message() {
-    println!("=== Testing soundness: missing scalar product message ===");
+fn test_missing_final_bases() {
+    println!("=== Testing soundness: missing final bases message ===");
     let domain = b"scalar_product_test";
     let log_n = 8;
 
@@ -333,29 +301,20 @@ fn test_soundness_scalar_product_missing_message() {
             log_n,
         );
 
-    // Remove the final scalar product message
-    println!("Removing scalar product message...");
-    proof_builder.final_message = None;
-
+    // Remove final bases; verification should fail
+    proof_builder.final_bases = None;
     let verify_builder =
         DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
             proof_builder,
             ToyTranscript::new(domain),
         );
     let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
-
-    assert!(
-        result.is_err(),
-        "Verification should fail with missing scalar product message"
-    );
-    if let Err(round) = result {
-        println!("✓ Verification correctly failed at round: {}", round);
-    }
+    assert!(result.is_err());
 }
 
 #[test]
-fn test_soundness_scalar_product_pairing_check() {
-    println!("=== Testing soundness: scalar product pairing equation check ===");
+fn test_pairing_check_via_final_bases_tamper() {
+    println!("=== Testing soundness: pairing equation check via final bases tamper ===");
     let mut rng = test_rng();
     let domain = b"scalar_product_test";
     let log_n = 8;
@@ -379,37 +338,22 @@ fn test_soundness_scalar_product_pairing_check() {
             log_n,
         );
 
-    // Create E1 and E2 that don't satisfy the pairing equation
-    if let Some(final_msg) = &mut proof_builder.final_message {
-        println!("Creating E1 and E2 that violate pairing equation...");
-
-        // Use random elements that are unlikely to satisfy the verification equation
-        let random_e1 = G1Affine::random(&mut rng);
-        let random_e2 = G2AffineWrapper::random(&mut rng);
-
-        final_msg.e1 = random_e1;
-        final_msg.e2 = random_e2;
-
+    if let Some(final_bases) = &mut proof_builder.final_bases {
+        // Tamper v1' to break both linear and pairing batch
+        final_bases.v1_final = G1Affine::random(&mut rng);
         let verify_builder =
             DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
                 proof_builder,
                 ToyTranscript::new(domain),
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
-
-        assert!(
-            result.is_err(),
-            "Verification should fail when pairing equation is not satisfied"
-        );
-        if let Err(round) = result {
-            println!("✓ Verification correctly failed at round: {}", round);
-        }
+        assert!(result.is_err());
     }
 }
 
 #[test]
-fn test_soundness_scalar_product_after_valid_rounds() {
-    println!("=== Testing soundness: tampering scalar product after valid rounds ===");
+fn test_tamper_after_valid_rounds() {
+    println!("=== Testing soundness: tampering final bases after valid rounds ===");
     let mut rng = test_rng();
     let domain = b"scalar_product_test";
     let log_n = 8;
@@ -433,141 +377,14 @@ fn test_soundness_scalar_product_after_valid_rounds() {
             log_n,
         );
 
-    // Ensure all rounds are valid but tamper only with final scalar product
-    if let Some(final_msg) = &mut proof_builder.final_message {
-        println!("Tampering only the final scalar product message...");
-
-        // Make a small change to E1
-        let tampered_e1 = final_msg.e1.add(&G1Affine::rand(&mut rng));
-        final_msg.e1 = tampered_e1;
-
+    if let Some(final_bases) = &mut proof_builder.final_bases {
+        final_bases.v1_final = final_bases.v1_final.add(&G1Affine::random(&mut rng));
         let verify_builder =
             DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
                 proof_builder,
                 ToyTranscript::new(domain),
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
-
-        assert!(
-            result.is_err(),
-            "Verification should fail even with small tampering in scalar product"
-        );
-        if let Err(round) = result {
-            println!(
-                "✓ Verification correctly failed at round: {} (should be final round)",
-                round
-            );
-            assert_eq!(
-                round, log_n,
-                "Should fail at the final scalar product verification"
-            );
-        }
-    }
-}
-
-#[test]
-fn test_soundness_scalar_product_identity_elements() {
-    println!("=== Testing soundness: scalar product with identity elements ===");
-    let domain = b"scalar_product_test";
-    let log_n = 8;
-
-    let (prover_setup, verifier_setup, prover_state, verifier_state) =
-        setup_scalar_product_test_environment(log_n);
-
-    // Generate proof
-    let builder = DoryProofBuilder::<
-        G1Affine,
-        G2AffineWrapper,
-        Fq12,
-        Fr,
-        ToyTranscript,
-    >::new_with_toy_transcript(domain);
-    let mut proof_builder =
-        inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
-            builder,
-            prover_state,
-            &prover_setup,
-            log_n,
-        );
-
-    // Set E1 and E2 to identity elements
-    if let Some(final_msg) = &mut proof_builder.final_message {
-        println!("Setting scalar product E1 and E2 to identity elements...");
-        final_msg.e1 = G1Affine::identity();
-        final_msg.e2 = G2AffineWrapper::identity();
-
-        let verify_builder =
-            DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
-                proof_builder,
-                ToyTranscript::new(domain),
-            );
-        let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
-
-        assert!(
-            result.is_err(),
-            "Verification should fail with identity elements"
-        );
-        if let Err(round) = result {
-            println!("✓ Verification correctly failed at round: {}", round);
-        }
-    }
-}
-
-#[test]
-fn test_soundness_scalar_product_consistency_check() {
-    println!("=== Testing soundness: scalar product consistency with inner product state ===");
-    let mut rng = test_rng();
-    let domain = b"scalar_product_test";
-    let log_n = 8;
-
-    let (prover_setup, verifier_setup, prover_state, verifier_state) =
-        setup_scalar_product_test_environment(log_n);
-
-    // Generate proof
-    let builder = DoryProofBuilder::<
-        G1Affine,
-        G2AffineWrapper,
-        Fq12,
-        Fr,
-        ToyTranscript,
-    >::new_with_toy_transcript(domain);
-    let mut proof_builder =
-        inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
-            builder,
-            prover_state,
-            &prover_setup,
-            log_n,
-        );
-
-    // Create a new scalar product message that's inconsistent with the folded state
-    if let Some(final_msg) = &mut proof_builder.final_message {
-        println!("Creating inconsistent scalar product message...");
-
-        // Generate completely new v1 and v2
-        let new_v1 = G1Affine::random(&mut rng);
-        let new_v2 = G2AffineWrapper::random(&mut rng);
-
-        // Create scalar product message from different vectors
-        let new_msg = ScalarProductMessage {
-            e1: new_v1,
-            e2: new_v2,
-        };
-
-        *final_msg = new_msg;
-
-        let verify_builder =
-            DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
-                proof_builder,
-                ToyTranscript::new(domain),
-            );
-        let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
-
-        assert!(
-            result.is_err(),
-            "Verification should fail with inconsistent scalar product message"
-        );
-        if let Err(round) = result {
-            println!("✓ Verification correctly failed at round: {}", round);
-        }
+        assert!(result.is_err());
     }
 }

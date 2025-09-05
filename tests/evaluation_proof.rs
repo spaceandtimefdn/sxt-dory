@@ -104,8 +104,9 @@ fn test_evaluation_proof_sigma_2() {
     println!("  - First messages: {}", proof.first_messages.len());
     println!("  - Second messages: {}", proof.second_messages.len());
     println!(
-        "  - Scalar Final message: {:?}",
-        proof.final_message.clone().unwrap()
+        "  - Final bases message: {:?}",
+        // No final scalar-product message; use final bases presence as completion signal
+        proof.final_bases.clone().unwrap()
     );
 
     // Verify that proof contains messages
@@ -387,7 +388,7 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
     let mut corrupted_proof = DoryProofBuilder {
         first_messages: proof.first_messages.clone(),
         second_messages: proof.second_messages.clone(),
-        final_message: proof.final_message.clone(),
+        // no scalar product message
         transcript: proof.transcript.clone(),
         _phantom: std::marker::PhantomData,
         vmv_message: proof.vmv_message.clone(),

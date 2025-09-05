@@ -73,6 +73,10 @@ impl Field for Fr {
             -Fr::from((-val) as u64)
         }
     }
+
+    fn mul_u128(self, rhs: [u64; 2]) -> Self {
+        self.mul_u128::<5, 6>((rhs[0] as u128) + ((rhs[1] as u128) << 64))
+    }
 }
 
 /* --------- Group trait for G1Affine -------------------------------- */
@@ -266,6 +270,31 @@ impl Group for Fq12 {
         // We use our own fixed RNG for testing
         let mut rng = test_rng();
         Self::rand(&mut rng)
+    }
+}
+
+/* --------- Small-scalar (u128) scaling extension -------------------- */
+
+pub trait SmallScalarMul: Sized {
+    /// Scale by a small scalar provided as 2 little-endian u64 limbs
+    fn scale_u128(&self, limbs_le2: [u64; 2]) -> Self;
+}
+
+impl SmallScalarMul for G1Affine {
+    fn scale_u128(&self, limbs_le2: [u64; 2]) -> Self {
+        self.mul_bigint(limbs_le2).into_affine()
+    }
+}
+
+impl SmallScalarMul for G2AffineWrapper {
+    fn scale_u128(&self, limbs_le2: [u64; 2]) -> Self {
+        G2AffineWrapper(self.0.mul_bigint(limbs_le2).into_affine())
+    }
+}
+
+impl SmallScalarMul for Fq12 {
+    fn scale_u128(&self, limbs_le2: [u64; 2]) -> Self {
+        self.pow(limbs_le2)
     }
 }
 
@@ -1048,6 +1077,51 @@ impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
         }
     }
 
+    fn fixed_scalar_variable_with_add_small(
+        bases: &[G1Affine],
+        vs: &mut [G1Affine],
+        scalar_le2: [u64; 2],
+    ) {
+        assert_eq!(bases.len(), vs.len(), "bases and vs must have same length");
+        // Convert limbs to Fr
+        let mut bytes = [0u8; 16];
+        bytes[0..8].copy_from_slice(&scalar_le2[0].to_le_bytes());
+        bytes[8..16].copy_from_slice(&scalar_le2[1].to_le_bytes());
+        let scalar = Fr::from_le_bytes_mod_order(&bytes);
+        Self::fixed_scalar_variable_with_add(bases, vs, &scalar);
+    }
+
+    fn fixed_scalar_variable_with_add_cached_small(
+        bases_count: usize,
+        g1_cache: Option<&crate::curve::G1Cache>,
+        _g2_cache: Option<&crate::curve::G2Cache>,
+        vs: &mut [G1Affine],
+        scalar_le2: [u64; 2],
+    ) {
+        assert_eq!(bases_count, vs.len(), "bases_count must equal vs length");
+        if let Some(cache) = g1_cache {
+            if let Some(windowed_data) = cache.get_windowed_data() {
+                // Convert limbs to Fr
+                let mut bytes = [0u8; 16];
+                bytes[0..8].copy_from_slice(&scalar_le2[0].to_le_bytes());
+                bytes[8..16].copy_from_slice(&scalar_le2[1].to_le_bytes());
+                let scalar = Fr::from_le_bytes_mod_order(&bytes);
+                // Reuse cached path with Fr
+                Self::fixed_scalar_variable_with_add_cached(
+                    bases_count,
+                    Some(cache),
+                    None,
+                    vs,
+                    &scalar,
+                );
+            } else {
+                panic!("Windowed data not available in G1 cache");
+            }
+        } else {
+            panic!("G1 cache not available for cached operation");
+        }
+    }
+
     fn fixed_scalar_scale_with_add(vs: &mut [G1Affine], addends: &[G1Affine], scalar: &Fr) {
         assert_eq!(
             vs.len(),
@@ -1211,6 +1285,49 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
         } else {
             // Fall back to extracting bases from cache and using online version
             // This should not happen in practice as we check for cache availability
+            panic!("G2 cache not available for cached operation");
+        }
+    }
+
+    fn fixed_scalar_variable_with_add_small(
+        bases: &[G2AffineWrapper],
+        vs: &mut [G2AffineWrapper],
+        scalar_le2: [u64; 2],
+    ) {
+        assert_eq!(bases.len(), vs.len(), "bases and vs must have the same length");
+        // Convert limbs to Fr and reuse normal path
+        let mut bytes = [0u8; 16];
+        bytes[0..8].copy_from_slice(&scalar_le2[0].to_le_bytes());
+        bytes[8..16].copy_from_slice(&scalar_le2[1].to_le_bytes());
+        let scalar = Fr::from_le_bytes_mod_order(&bytes);
+        Self::fixed_scalar_variable_with_add(bases, vs, &scalar);
+    }
+
+    fn fixed_scalar_variable_with_add_cached_small(
+        bases_count: usize,
+        _g1_cache: Option<&crate::curve::G1Cache>,
+        g2_cache: Option<&crate::curve::G2Cache>,
+        vs: &mut [G2AffineWrapper],
+        scalar_le2: [u64; 2],
+    ) {
+        assert_eq!(bases_count, vs.len(), "bases_count must equal vs length");
+        if let Some(cache) = g2_cache {
+            if let Some(windowed_data) = cache.get_windowed_data() {
+                let mut bytes = [0u8; 16];
+                bytes[0..8].copy_from_slice(&scalar_le2[0].to_le_bytes());
+                bytes[8..16].copy_from_slice(&scalar_le2[1].to_le_bytes());
+                let scalar = Fr::from_le_bytes_mod_order(&bytes);
+                Self::fixed_scalar_variable_with_add_cached(
+                    bases_count,
+                    None,
+                    Some(cache),
+                    vs,
+                    &scalar,
+                );
+            } else {
+                panic!("Windowed data not available in G2 cache");
+            }
+        } else {
             panic!("G2 cache not available for cached operation");
         }
     }

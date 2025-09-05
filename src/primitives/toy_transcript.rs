@@ -93,6 +93,22 @@ impl crate::transcript::Transcript for ToyTranscript {
         ToyTranscript::challenge_scalar(self, label)
     }
 
+    fn challenge_u128(&mut self, label: &[u8]) -> [u64; 2] {
+        // Derive 16 bytes and split into two little-endian u64 limbs
+        let mut h = self.hasher.clone();
+        h.update(label);
+        let digest: Output<Blake2s256> = h.finalize();
+        let bytes = digest.as_slice();
+        let mut limb0 = [0u8; 8];
+        let mut limb1 = [0u8; 8];
+        limb0.copy_from_slice(&bytes[0..8]);
+        limb1.copy_from_slice(&bytes[8..16]);
+        let a = u64::from_le_bytes(limb0);
+        let b = u64::from_le_bytes(limb1);
+        if a == 0 && b == 0 { panic!("Challenge limbs cannot be both zero"); }
+        [a, b]
+    }
+
     fn reset(&mut self, domain_label: &[u8]) {
         let mut hasher = Blake2s256::default();
         hasher.update(domain_label);

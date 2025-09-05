@@ -205,7 +205,6 @@ fn test_inner_product_verify_should_fail() {
         let mut corrupt_proof = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, _> {
             first_messages: proof_builder.first_messages.clone(),
             second_messages: proof_builder.second_messages.clone(),
-            final_message: proof_builder.final_message.clone(),
             transcript: proof_builder.transcript.clone(),
             _phantom: std::marker::PhantomData,
             vmv_message: None,

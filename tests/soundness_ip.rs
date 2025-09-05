@@ -640,8 +640,8 @@ fn test_soundness_tamper_final_e1() {
         );
 
     // Tamper with final e1
-    if let Some(final_msg) = &mut proof_builder.final_message {
-        final_msg.e1 = G1Affine::random(&mut rng);
+    if let Some(final_bases) = &mut proof_builder.final_bases {
+        final_bases.v1_final = G1Affine::random(&mut rng);
 
         let verify_builder =
             DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
@@ -687,8 +687,8 @@ fn test_soundness_tamper_final_e2() {
         );
 
     // Tamper with final e2
-    if let Some(final_msg) = &mut proof_builder.final_message {
-        final_msg.e2 = G2AffineWrapper::random(&mut rng);
+    if let Some(final_bases) = &mut proof_builder.final_bases {
+        final_bases.v2_final = G2AffineWrapper::random(&mut rng);
 
         let verify_builder =
             DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(

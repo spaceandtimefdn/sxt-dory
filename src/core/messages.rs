@@ -1,5 +1,5 @@
 //! Defines the standards for messages between the prover and verifier
-use crate::arithmetic::{Field, Group};
+use crate::arithmetic::Group;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -54,12 +54,9 @@ where
     CanonicalSerialize,
     CanonicalDeserialize,
 )]
-pub struct FirstReduceChallenge<Scalar>
-where
-    Scalar: Field,
-{
-    /// $\beta$
-    pub beta: Scalar,
+pub struct FirstReduceChallenge {
+    /// $\beta$ as two u64 limbs (little-endian)
+    pub beta: [u64; 2],
 }
 
 /// The second prover message in the Dory-Reduce portion (Section 3.2) of the Dory protocol.
@@ -109,12 +106,9 @@ where
     CanonicalSerialize,
     CanonicalDeserialize,
 )]
-pub struct SecondReduceChallenge<Scalar>
-where
-    Scalar: Field,
-{
-    /// $\alpha$
-    pub alpha: Scalar,
+pub struct SecondReduceChallenge {
+    /// $\alpha$ as two u64 limbs (little-endian)
+    pub alpha: [u64; 2],
 }
 
 /// This is the random chalenges (gamma_1, gamma_2) for the Final-Verify protocol
@@ -130,14 +124,11 @@ where
     CanonicalSerialize,
     CanonicalDeserialize,
 )]
-pub struct FinalizeChallenge<Scalar>
-where
-    Scalar: Field,
-{
-    /// gamma_1 challenge for Final-Verify procedure
-    pub gamma_1: Scalar,
-    /// gamma_2 challenge for Final-Verify procedure
-    pub gamma_2: Scalar,
+pub struct FinalizeChallenge {
+    /// gamma_1 as two u64 limbs (little-endian)
+    pub gamma_1: [u64; 2],
+    /// gamma_2 as two u64 limbs (little-endian)
+    pub gamma_2: [u64; 2],
 }
 
 /// The prover message carrying base-case group elements after all reductions.

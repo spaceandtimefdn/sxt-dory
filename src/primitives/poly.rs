@@ -136,19 +136,20 @@ pub fn compute_left_right_vec<F: Field>(
 }
 
 /// Fold a multilinear tensor evaluation vector driven by per-round α challenges.
-/// Given point coordinates `coords` and fold scalars `alphas`, computes
-///   ∏_i (coords[i] + alphas[i] · (1 - coords[i]))
-/// For i >= coords.len(), treats coords[i] = 0 (factor reduces to alphas[i]).
+/// Given point coordinates `coords` and small fold scalars `alphas` (two-limb LE), computes
+///   ∏_i (coords[i] + alpha_i · (1 - coords[i]))
+/// For i >= coords.len(), treats coords[i] = 0 (factor reduces to alpha_i).
 #[inline]
-pub fn fold_eval_from_coords_and_alphas<F: Field>(coords: &[F], alphas: &[F]) -> F {
+pub fn fold_eval_from_coords_and_alphas<F: Field>(coords: &[F], alphas: &[[u64; 2]]) -> F {
     let mut acc = F::one();
     let k = coords.len();
-    for (i, a) in alphas.iter().enumerate() {
+    for (i, a_limbs) in alphas.iter().enumerate() {
+        let a = F::one().mul_u128(*a_limbs);
         let factor = if i < k {
             let x = coords[i];
             x.add(&a.mul(&F::one().sub(&x)))
         } else {
-            *a
+            a
         };
         acc = acc.mul(&factor);
     }

@@ -2,6 +2,7 @@
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Valid};
 use ark_std::rand::RngCore;
 use std::fmt::Debug;
+use crate::curve::SmallScalarMul;
 
 /// --------- field ----------------------------------------------------------
 pub trait Field:
@@ -20,6 +21,7 @@ pub trait Field:
 
     fn from_u64(val: u64) -> Self;
     fn from_i64(val: i64) -> Self;
+    fn mul_u128(self, rhs: [u64; 2]) -> Self;
 }
 
 /// --------- group ----------------------------------------------------------
@@ -122,6 +124,19 @@ pub trait MultiScalarMul<G: Group> {
         }
     }
 
+    /// Same as fixed_scalar_variable_with_add but with a small scalar provided as [u64; 2] limbs
+    /// This allows using window/cached paths specialized for small scalars.
+    fn fixed_scalar_variable_with_add_small(
+        bases: &[G],
+        vs: &mut [G],
+        scalar_le2: [u64; 2],
+    ) where G: SmallScalarMul {
+        assert_eq!(bases.len(), vs.len(), "bases and vs must have same length");
+        for (base, v) in bases.iter().zip(vs.iter_mut()) {
+            *v = v.add(&base.scale_u128(scalar_le2));
+        }
+    }
+
     /// Fixed-scalar variable-base vectorized multiplication with add using cached precomputed data
     /// vs[i] = vs[i] + scalar * bases[i] where bases come from cache
     ///
@@ -140,6 +155,18 @@ pub trait MultiScalarMul<G: Group> {
         panic!("fixed_scalar_variable_with_add_cached must be implemented by concrete MSM types");
     }
 
+    /// Cached version specialized for small scalars in [u64; 2] limbs.
+    fn fixed_scalar_variable_with_add_cached_small(
+        bases_count: usize,
+        g1_cache: Option<&crate::curve::G1Cache>,
+        g2_cache: Option<&crate::curve::G2Cache>,
+        vs: &mut [G],
+        scalar_le2: [u64; 2],
+    ) where G: SmallScalarMul {
+        let _ = (bases_count, g1_cache, g2_cache, vs, scalar_le2);
+        panic!("fixed_scalar_variable_with_add_cached_small must be implemented by concrete MSM types");
+    }
+
     /// Fixed-scalar vectorized multiplication with add: vs[i] = scalar * vs[i] + addends[i]
     /// Modifies vs in place by scaling each element and adding the corresponding addend
     /// This is optimized for cases like reduce_fold where we compute v_l = alpha * v_l + v_r
@@ -152,6 +179,19 @@ pub trait MultiScalarMul<G: Group> {
         // Default implementation: scale each vs element and add the corresponding addend
         for (v, addend) in vs.iter_mut().zip(addends.iter()) {
             *v = v.scale(scalar).add(addend);
+        }
+    }
+
+    /// Fixed-scalar vectorized multiplication with add using small scalar [u64; 2]
+    fn fixed_scalar_scale_with_add_small(vs: &mut [G], addends: &[G], scalar_le2: [u64; 2])
+    where G: SmallScalarMul {
+        assert_eq!(
+            vs.len(),
+            addends.len(),
+            "vs and addends must have same length"
+        );
+        for (v, addend) in vs.iter_mut().zip(addends.iter()) {
+            *v = v.scale_u128(scalar_le2).add(addend);
         }
     }
 }

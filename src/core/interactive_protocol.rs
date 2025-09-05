@@ -9,6 +9,7 @@ use crate::{
     state::{DoryProverState, DoryVerifierState, VerifierState},
     poly::fold_eval_from_coords_and_alphas,
 };
+use crate::curve::SmallScalarMul;
 
 use super::{ProverSetup, FinalizeChallenge};
 
@@ -16,8 +17,8 @@ use super::{ProverSetup, FinalizeChallenge};
 /// We define the relevant message implementations in the order of communication
 impl<E: Pairing> crate::ProverState for DoryProverState<E>
 where
-    E::G1: Group,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::G1: Group + SmallScalarMul,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
 {
     type G1 = E::G1;
     type G2 = E::G2;
@@ -105,7 +106,7 @@ where
     fn reduce_combine<M1, M2>(
         mut self,
         setup: &Self::Setup,
-        chall: FirstReduceChallenge<Self::Scalar>,
+        chall: FirstReduceChallenge,
     ) -> Self
     where
         M1: MultiScalarMul<Self::G1>,
@@ -125,29 +126,29 @@ where
         // ṽ₁ ← ṽ₁ + β·Γ₁
         // Use cached version if cache is available
         if setup.g1_cache.is_some() && setup.g2_cache.is_some() {
-            M1::fixed_scalar_variable_with_add_cached(
+            M1::fixed_scalar_variable_with_add_cached_small(
                 g1_prime.len(),
                 setup.g1_cache.as_ref(),
                 setup.g2_cache.as_ref(),
                 &mut self.v1,
-                &beta,
+                beta,
             );
         } else {
-            M1::fixed_scalar_variable_with_add(g1_prime, &mut self.v1, &beta);
+            M1::fixed_scalar_variable_with_add_small(g1_prime, &mut self.v1, beta);
         }
 
         // ṽ₂ ← ṽ₂ + β·Γ₂
         // Use cached version if cache is available
         if setup.g1_cache.is_some() && setup.g2_cache.is_some() {
-            M2::fixed_scalar_variable_with_add_cached(
+            M2::fixed_scalar_variable_with_add_cached_small(
                 g2_prime.len(),
                 setup.g1_cache.as_ref(),
                 setup.g2_cache.as_ref(),
                 &mut self.v2,
-                &beta,
+                beta,
             );
         } else {
-            M2::fixed_scalar_variable_with_add(g2_prime, &mut self.v2, &beta);
+            M2::fixed_scalar_variable_with_add_small(g2_prime, &mut self.v2, beta);
         }
 
         self
@@ -197,7 +198,7 @@ where
     fn reduce_fold<M1, M2>(
         mut self,
         _setup: &Self::Setup,
-        chall: SecondReduceChallenge<Self::Scalar>,
+        chall: SecondReduceChallenge,
     ) -> Self
     where
         M1: MultiScalarMul<Self::G1>,
@@ -213,9 +214,9 @@ where
         let (v2_l, v2_r_slice) = self.v2.split_at_mut(n2);
         let v2_r = &*v2_r_slice;
 
-        M1::fixed_scalar_scale_with_add(v1_l, v1_r, &alpha);
+        M1::fixed_scalar_scale_with_add_small(v1_l, v1_r, alpha);
 
-        M2::fixed_scalar_scale_with_add(v2_l, v2_r, &alpha);
+        M2::fixed_scalar_scale_with_add_small(v2_l, v2_r, alpha);
 
         self.v1.truncate(n2);
         self.v2.truncate(n2);
@@ -229,11 +230,11 @@ where
 
         s1_l.par_iter_mut()
             .zip(s1_r.par_iter())
-            .for_each(|(s_l, s_r_val)| *s_l = s_l.mul(&alpha).add(s_r_val));
+            .for_each(|(s_l, s_r_val)| *s_l = s_l.mul_u128(alpha).add(s_r_val));
 
         s2_l.par_iter_mut()
             .zip(s2_r.par_iter())
-            .for_each(|(s_l, s_r_val)| *s_l = s_l.mul(&alpha).add(s_r_val));
+            .for_each(|(s_l, s_r_val)| *s_l = s_l.mul_u128(alpha).add(s_r_val));
 
         self.s1.truncate(n2);
         self.s2.truncate(n2);
@@ -272,29 +273,15 @@ where
             .expect("v2 empty at base case");
         (v1_ref, v2_ref)
     }
-
-    /// Borrow base-case folded scalar values (length-1 vectors)
-    fn final_scalars_ref(&self) -> (&Self::Scalar, &Self::Scalar) {
-        assert_eq!(self.nu, 0, "final_scalars_ref called before base case");
-        let s1_ref = self
-            .s1
-            .get(0)
-            .expect("s1 empty at base case");
-        let s2_ref = self
-            .s2
-            .get(0)
-            .expect("s2 empty at base case");
-        (s1_ref, s2_ref)
-    }
 }
 
 /// Below is the **verifier** side of the interactive protocol for Dory
 /// We define the relevant message implementations in the order of communication
 impl<E: Pairing> VerifierState for DoryVerifierState<E>
 where
-    E::G1: Group,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
-    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::G1: Group + SmallScalarMul,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
 {
     type G1 = E::G1;
     type G2 = E::G2;
@@ -309,8 +296,8 @@ where
         setup: &Self::Setup,
         first_msg: &FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
         second_msg: &SecondReduceMessage<Self::G1, Self::G2>,
-        beta: Self::Scalar,
-        alpha: Self::Scalar,
+        beta: [u64; 2],
+        alpha: [u64; 2],
     ) -> bool {
 
         // Record the α used for this round for later base-case evaluation of s₁,s₂
@@ -362,8 +349,8 @@ where
         &mut self,
         setup: &Self::Setup,
         d_values: (&Self::GT, &Self::GT, &Self::GT, &Self::GT),
-        alpha: Self::Scalar,
-        beta: Self::Scalar,
+        alpha: [u64; 2],
+        beta: [u64; 2],
     ) {
         let (d_1l, d_1r, d_2l, d_2r) = d_values;
 
@@ -374,14 +361,14 @@ where
         let delta_2r = &setup.delta_2r[self.nu];
 
         // D₁' ← D₁L + α·D₁R + β·(Δ₁L + α·Δ₁R)
-        let mut new_d_1 = d_1l.add(&d_1r.scale(&alpha));
-        let delta_1_tail = delta_1l.add(&delta_1r.scale(&alpha));
-        new_d_1 = new_d_1.add(&delta_1_tail.scale(&beta));
+        let mut new_d_1 = d_1l.add(&d_1r.scale_u128(alpha));
+        let delta_1_tail = delta_1l.add(&delta_1r.scale_u128(alpha));
+        new_d_1 = new_d_1.add(&delta_1_tail.scale_u128(beta));
 
         // D₂' ← D₂L + α·D₂R + β·(Δ₂L + α·Δ₂R)
-        let mut new_d_2 = d_2l.add(&d_2r.scale(&alpha));
-        let delta_2_tail = delta_2l.add(&delta_2r.scale(&alpha));
-        new_d_2 = new_d_2.add(&delta_2_tail.scale(&beta));
+        let mut new_d_2 = d_2l.add(&d_2r.scale_u128(alpha));
+        let delta_2_tail = delta_2l.add(&delta_2r.scale_u128(alpha));
+        new_d_2 = new_d_2.add(&delta_2_tail.scale_u128(beta));
 
         self.d_1 = new_d_1;
         self.d_2 = new_d_2;
@@ -394,8 +381,8 @@ where
         &mut self,
         e_beta_pair: (&Self::G1, &Self::G2),
         e_values: (&Self::G1, &Self::G1, &Self::G2, &Self::G2),
-        alpha: Self::Scalar,
-        beta: Self::Scalar,
+        alpha: [u64; 2],
+        beta: [u64; 2],
     ) {
         let (e_1beta, e_2beta) = e_beta_pair;
         let (e_1plus, e_1minus, e_2plus, e_2minus) = e_values;
@@ -403,16 +390,16 @@ where
         // E₁' ← E₁- + α · (E₁ + β · E₁β + α · E₁+)
         let inner_e1 = self
             .e_1
-            .add(&e_1beta.scale(&beta))
-            .add(&e_1plus.scale(&alpha));
-        let new_e_1: Self::G1 = e_1minus.add(&inner_e1.scale(&alpha));
+            .add(&e_1beta.scale_u128(beta))
+            .add(&e_1plus.scale_u128(alpha));
+        let new_e_1: Self::G1 = e_1minus.add(&inner_e1.scale_u128(alpha));
 
         // E₂' ← E₂- + α · (E₂ + β · E₂β + α · E₂+)
         let inner_e2 = self
             .e_2
-            .add(&e_2beta.scale(&beta))
-            .add(&e_2plus.scale(&alpha));
-        let new_e_2: Self::G2 = e_2minus.add(&inner_e2.scale(&alpha));
+            .add(&e_2beta.scale_u128(beta))
+            .add(&e_2plus.scale_u128(alpha));
+        let new_e_2: Self::G2 = e_2minus.add(&inner_e2.scale_u128(alpha));
 
         self.e_1 = new_e_1;
         self.e_2 = new_e_2;
@@ -429,7 +416,7 @@ where
     fn finalize(
         &self,
         setup: &Self::Setup,
-        gamma_pair: FinalizeChallenge<Self::Scalar>,
+        gamma_pair: FinalizeChallenge,
     ) -> bool {
         // Base case
         assert_eq!(self.nu, 0);
@@ -460,8 +447,8 @@ where
         // GT batched pairing check:
         // e(E1_orig, Γ2_fin) + e(γ1 · E1, Γ2_0) + e(γ2 · Γ1_0, E2)
         //  == D2_orig + γ1 · D1 + γ2 · D2
-        let e1_scaled = self.e_1.scale(&gamma_1);
-        let g1_scaled = setup.g1_0.scale(&gamma_2);
+        let e1_scaled = self.e_1.scale_u128(gamma_1);
+        let g1_scaled = setup.g1_0.scale_u128(gamma_2);
         let lhs = E::multi_pair_refs(
             &[&self.e_1_orig, &e1_scaled, &g1_scaled],
             &[&setup.g_fin, &setup.g2_0, &self.e_2],
@@ -469,8 +456,8 @@ where
 
         let rhs = self
             .d_2_orig
-            .add(&self.d_1.scale(&gamma_1))
-            .add(&self.d_2.scale(&gamma_2));
+            .add(&self.d_1.scale_u128(gamma_1))
+            .add(&self.d_2.scale_u128(gamma_2));
 
         if lhs != rhs {
             return false;

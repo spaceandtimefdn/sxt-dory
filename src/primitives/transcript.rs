@@ -53,6 +53,10 @@ pub trait Transcript {
     /// A scalar derived from the transcript's current state.
     fn challenge_scalar(&mut self, label: &[u8]) -> Self::Scalar;
 
+    /// Produces a small challenge as two u64 limbs (little-endian) derived from the transcript
+    /// The returned value must be non-zero.
+    fn challenge_u128(&mut self, label: &[u8]) -> [u64; 2];
+
     /// Resets the transcript to its initial state with the given domain.
     ///
     /// # Arguments
