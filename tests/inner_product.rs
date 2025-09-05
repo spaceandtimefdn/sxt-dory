@@ -58,10 +58,10 @@ fn test_inner_product_prove_verify() {
     // Create initial state
     let prover_state = DoryProverState::new(v1.clone(), v2.clone(), s1.clone(), s2.clone(), log_n);
 
-    // Create initial value for C (inner product of v1 and v2)
+    // Compute inner product (no longer used directly; kept for profiling output)
     println!("Computing C (inner product)...");
     let c_start = Instant::now();
-    let c = ArkBn254Pairing::multi_pair(&v1, &v2);
+    let _c = ArkBn254Pairing::multi_pair(&v1, &v2);
     println!("C computed in: {:?}", c_start.elapsed());
 
     // Create the initial values for D1 and D2
@@ -78,8 +78,8 @@ fn test_inner_product_prove_verify() {
     let e_2 = OptimizedMsmG2::msm(&prover_setup.g2_vec()[..1 << log_n], &s1);
     println!("E1 and E2 computed in: {:?}", e_start.elapsed());
 
-    // Create verifier state
-    let verifier_state = DoryVerifierState::new_with_s(c, d_1, d_2, e_1, e_2, s1, s2, log_n);
+    // Create verifier state (API updated: no longer passes c, s1, s2)
+    let verifier_state = DoryVerifierState::new(d_1, d_2, e_1, e_2, log_n);
     println!(
         "Initial states created in: {:?}",
         init_state_start.elapsed()
@@ -165,9 +165,6 @@ fn test_inner_product_verify_should_fail() {
     // Create initial state
     let prover_state = DoryProverState::new(v1.clone(), v2.clone(), s1.clone(), s2.clone(), log_n);
 
-    // Create initial value for C (inner product of v1 and v2)
-    let c = ArkBn254Pairing::multi_pair(&v1, &v2);
-
     // Create the initial values for D1 and D2
     let d_1 = ArkBn254Pairing::multi_pair(&v1, &prover_setup.g2_vec()[..1 << log_n]);
     let d_2 = ArkBn254Pairing::multi_pair(&prover_setup.g1_vec()[..1 << log_n], &v2);
@@ -176,8 +173,8 @@ fn test_inner_product_verify_should_fail() {
     let e_1 = OptimizedMsmG1::msm(&prover_setup.g1_vec()[..1 << log_n], &s2);
     let e_2 = OptimizedMsmG2::msm(&prover_setup.g2_vec()[..1 << log_n], &s1);
 
-    // Create verifier state
-    let verifier_state = DoryVerifierState::new_with_s(c, d_1, d_2, e_1, e_2, s1, s2, log_n);
+    // Create verifier state (API updated)
+    let verifier_state = DoryVerifierState::new(d_1, d_2, e_1, e_2, log_n);
 
     // ----- Proof generation phase -----
     println!("Generating proof...");
@@ -212,6 +209,7 @@ fn test_inner_product_verify_should_fail() {
             transcript: proof_builder.transcript.clone(),
             _phantom: std::marker::PhantomData,
             vmv_message: None,
+            final_bases: proof_builder.final_bases.clone(),
         };
 
         if !corrupt_proof.first_messages.is_empty() {

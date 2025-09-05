@@ -50,3 +50,10 @@ missing_docs_in_private_items = "warn"
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--html-in-header", "katex-header.html"]
+ 
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "vmv_eval"
+harness = false

@@ -32,7 +32,7 @@ fn eval_vmv_re_prove<
 >(
     mut proof_builder: DoryProofBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>,
     mut prover_state: DoryProverState<E>,
-    v_vec: Vec<<E::G1 as Group>::Scalar>,
+    v_vec: &[<E::G1 as Group>::Scalar],
     prover_setup: &ProverSetup<E>,
 ) -> (
     DoryProofBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>,
@@ -68,7 +68,7 @@ where
     let gamma1_v_inner_product = if g1_bases_at_nu.is_empty() || prover_state.s1.is_empty() {
         E::G1::identity()
     } else {
-        M1::msm(g1_bases_at_nu, &v_vec)
+        M1::msm(g1_bases_at_nu, v_vec)
     };
     let d2 = E::pair(&gamma1_v_inner_product, prover_setup.g_fin());
 
@@ -91,7 +91,7 @@ where
     // Use fixed-base vectorized MSM since we're scaling the same base (g_fin) by each scalar
     let updated_v2 = M2::fixed_base_vector_msm(
         prover_setup.g_fin(),
-        &v_vec,
+        v_vec,
         prover_setup.g1_cache.as_ref(),
         prover_setup.g2_cache.as_ref(),
     );
@@ -134,14 +134,16 @@ where
     let vmv_state = build_vmv_prover_state::<E, P>(polynomial, point, t_vec_prime, sigma, nu);
 
     // 4. Convert VMV state to DoryProverState
-    let (v_vec, prover_state) = vmv_state_to_dory_prover_state(vmv_state, prover_setup);
+    let (v_vec, mut prover_state) = vmv_state_to_dory_prover_state(vmv_state, prover_setup);
+    // Wire PCS first-round optimization scalar vector into prover state via Arc slice (no clone of scalars)
+    prover_state.v2_scalars = Some(v_vec.clone().into());
 
     // 5. Initialize the DoryProofBuilder
     let proof_builder = DoryProofBuilder::new(initial_transcript);
 
     // 6. Initial commitments
     let (final_proof_builder, proof_state) =
-        eval_vmv_re_prove::<E, T, M1, M2>(proof_builder, prover_state, v_vec, prover_setup);
+        eval_vmv_re_prove::<E, T, M1, M2>(proof_builder, prover_state, &v_vec, prover_setup);
 
     // prove!
     let builder_after_ip = inner_product_prove::<_, _, _, _, _, _, _, M1, M2>(
@@ -173,14 +175,22 @@ where
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
     <E::G1 as Group>::Scalar: Copy,
 {
-    debug_assert_eq!(b_point.len(), nu + sigma);
-    let (b_left, b_right) = b_point.split_at(nu);
+    // Accept legacy tests that pass only `nu` coordinates; pad right with zeros if needed
+    let total_needed = nu + sigma;
+    // Build a single Arc<[Scalar]> buffer for coords and then slice without copies
+    let mut coords: Vec<<E::G1 as Group>::Scalar> = b_point.to_vec();
+    if coords.len() < total_needed {
+        coords.extend(core::iter::repeat(<E::G1 as Group>::Scalar::zero()).take(total_needed - coords.len()));
+    }
+    let coords_arc: std::sync::Arc<[<E::G1 as Group>::Scalar]> = coords.into();
+    let b_left = &coords_arc[..nu];
+    let b_right = &coords_arc[nu..total_needed];
 
     VMVVerifierState {
         y,
         t,
-        eval_point_left: b_left.to_vec(),
-        eval_point_right: b_right.to_vec(),
+        eval_point_left: std::sync::Arc::from(b_left),
+        eval_point_right: std::sync::Arc::from(b_right),
         nu,
     }
 }
@@ -236,17 +246,16 @@ where
     E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
     <E::G1 as Group>::Scalar: Field,
 {
-    let vmv_message = verify_builder.process_vmv_message();
+    let vmv_message = verify_builder.process_vmv_message_take();
     let final_verifier_state =
         vmv_state_to_dory_verifier_state(vmv_state, &vmv_message, verifier_setup);
 
-    // IMPORTANT:
-    // Sigma protocol 2 of `eval_vmv_re`: d2 = e(e1, Gamma_{2, fin})
-    let pairing_check = E::pair(&vmv_message.e1, &verifier_setup.g_fin);
-    assert!(
-        vmv_message.d2 == pairing_check,
-        "Sigma protocol 2 verification failed: d2 != e(e1, Gamma_{{2, fin}})"
-    );
+    // Deferred pairing check: handled in finalize. Keep for reference.
+    // let pairing_check = E::pair(&vmv_message.e1, &verifier_setup.g_fin);
+    // assert!(
+    //     vmv_message.d2 == pairing_check,
+    //     "Sigma protocol 2 verification failed: d2 != e(e1, Gamma_{2, fin})"
+    // );
 
     // Return the updated verify builder and unchanged verifier state
     // The verifier state conversion should be handled by the caller

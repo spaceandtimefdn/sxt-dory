@@ -65,6 +65,18 @@ pub trait Pairing: Sized + Send + Sync {
             })
     }
 
+    /// Multi-pairing on borrowed inputs to avoid cloning.
+    /// Computes Π e(p_i, q_i) for slices of references.
+    fn multi_pair_refs(ps: &[&Self::G1], qs: &[&Self::G2]) -> Self::GT {
+        assert_eq!(ps.len(), qs.len(), "multi_pair_refs requires equal length vectors");
+        if ps.is_empty() {
+            return Self::GT::identity();
+        }
+        ps.iter()
+            .zip(qs.iter())
+            .fold(Self::GT::identity(), |acc, (p, q)| acc.add(&Self::pair(p, q)))
+    }
+
     /// Multi-pairing with flexible caching support.
     ///
     /// For each side, you can either provide:

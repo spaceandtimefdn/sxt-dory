@@ -7,6 +7,7 @@ use crate::{
     messages::{FirstReduceChallenge, FirstReduceMessage, SecondReduceChallenge, SecondReduceMessage},
     setup::VerifierSetup,
     state::{DoryProverState, DoryVerifierState, VerifierState},
+    poly::fold_eval_from_coords_and_alphas,
 };
 
 use super::{ProverSetup, FinalizeChallenge};
@@ -49,41 +50,39 @@ where
         let g2_prime = &setup.g2_vec()[..1 << (self.nu - 1)];
         let g1_prime = &setup.g1_vec()[..1 << (self.nu - 1)];
 
-        let (d1_left, d1_right, d2_left, d2_right) =
-                // Use cached G2 if available, always use runtime G1
-                if setup.g2_cache.is_some() {
-                    let g2_prime_count = 1 << (self.nu - 1);
+        let (d1_left, d1_right, d2_left, d2_right) = {
+            // D₁L,R as before (opt: cached G2)
+            let (d1_left, d1_right) = if setup.g2_cache.is_some() {
+                let g2_prime_count = 1 << (self.nu - 1);
+                let d1_left = E::multi_pair_cached(
+                    Some(v1_l), None, None, None, Some(g2_prime_count), setup.g2_cache.as_ref(),
+                );
+                let d1_right = E::multi_pair_cached(
+                    Some(v1_r), None, None, None, Some(g2_prime_count), setup.g2_cache.as_ref(),
+                );
+                (d1_left, d1_right)
+            } else {
+                (E::multi_pair(v1_l, g2_prime), E::multi_pair(v1_r, g2_prime))
+            };
 
-                    // D₁L,R = ⟨v₁L/R , Γ₂′⟩ - v1 is runtime, g2_prime uses cache
-                    let d1_left = E::multi_pair_cached(
-                        Some(v1_l),
-                        None,
-                        None, // G1: use runtime points v1_l
-                        None,
-                        Some(g2_prime_count),
-                        setup.g2_cache.as_ref(), // G2: use first 2^(nu-1) cached elements
-                    );
-                    let d1_right = E::multi_pair_cached(
-                        Some(v1_r),
-                        None,
-                        None, // G1: use runtime points v1_r
-                        None,
-                        Some(g2_prime_count),
-                        setup.g2_cache.as_ref(), // G2: use first 2^(nu-1) cached elements
-                    );
+            // D₂L,R: specialize round 0 if v2_scalars present (PCS optimization)
+            let (d2_left, d2_right) = if self.v2_scalars.is_some() {
+                let v2_scalars = self.v2_scalars.as_ref().unwrap();
+                let n2 = 1usize << (self.nu - 1);
+                let (v_l, v_r) = v2_scalars.split_at(n2);
+                // MSM(Γ₁′, v_{L/R}) in G1
+                let m_l = M1::msm(g1_prime, v_l);
+                let m_r = M1::msm(g1_prime, v_r);
+                // Single pairing with Γ_{2,fin}
+                let d2_left = E::pair(&m_l, setup.g_fin());
+                let d2_right = E::pair(&m_r, setup.g_fin());
+                (d2_left, d2_right)
+            } else {
+                (E::multi_pair(g1_prime, v2_l), E::multi_pair(g1_prime, v2_r))
+            };
 
-                    // D₂L,R = ⟨Γ₁′ , v₂L/R⟩ - g1_prime is runtime, v2 is runtime
-                    let d2_left = E::multi_pair(g1_prime, v2_l);
-                    let d2_right = E::multi_pair(g1_prime, v2_r);
-                    (d1_left, d1_right, d2_left, d2_right)
-                } else {
-                    // Fallback to regular multi-pairing when cache is not available
-                    let d1_left = E::multi_pair(v1_l, g2_prime);
-                    let d1_right = E::multi_pair(v1_r, g2_prime);
-                    let d2_left = E::multi_pair(g1_prime, v2_l);
-                    let d2_right = E::multi_pair(g1_prime, v2_r);
-                    (d1_left, d1_right, d2_left, d2_right)
-                };
+            (d1_left, d1_right, d2_left, d2_right)
+        };
 
         /* ---------- COMPUTE E (for extended protocol) ---------- */
         // E₁β = ⟨Γ₁ , s₂⟩
@@ -113,6 +112,11 @@ where
         M2: MultiScalarMul<Self::G2>,
     {
         let beta = chall.beta;
+
+        // Clear PCS first-round scalar optimization after first message use
+        if self.v2_scalars.is_some() {
+            self.v2_scalars = None;
+        }
 
         let g1_prime = &setup.g1_vec()[..1 << self.nu];
         let g2_prime = &setup.g2_vec()[..1 << self.nu];
@@ -282,7 +286,7 @@ where
     ) -> bool {
 
         // Record the α used for this round for later base-case evaluation of s₁,s₂
-        self.alpha_challenges.push(alpha.clone());
+        self.alpha_challenges.push(alpha);
 
         // Update D₁ and D₂ (Light semantics, no inverses)
         // D₁' <- D₁L + α * D₁R + β * (Δ₁L + α * Δ₁R)
@@ -291,13 +295,13 @@ where
             self,
             setup,
             (
-                first_msg.d1_left.clone(),
-                first_msg.d1_right.clone(),
-                first_msg.d2_left.clone(),
-                first_msg.d2_right.clone(),
+                &first_msg.d1_left,
+                &first_msg.d1_right,
+                &first_msg.d2_left,
+                &first_msg.d2_right,
             ),
-            alpha.clone(),
-            beta.clone(),
+            alpha,
+            beta,
         );
 
         // Update E₁ and E₂ for the **extended** protocol (Light semantics)
@@ -305,15 +309,15 @@ where
         // E₂' <- E₂- + α * (E₂ + β * E₂β + α * E₂+)
         Self::dory_reduce_verify_update_es(
             self,
-            (first_msg.e1_beta.clone(), first_msg.e2_beta.clone()),
+            (&first_msg.e1_beta, &first_msg.e2_beta),
             (
-                second_msg.e1_plus.clone(),
-                second_msg.e1_minus.clone(),
-                second_msg.e2_plus.clone(),
-                second_msg.e2_minus.clone(),
+                &second_msg.e1_plus,
+                &second_msg.e1_minus,
+                &second_msg.e2_plus,
+                &second_msg.e2_minus,
             ),
-            alpha.clone(),
-            beta.clone(),
+            alpha,
+            beta,
         );
 
         // decrement the rounds
@@ -329,7 +333,7 @@ where
     fn dory_reduce_verify_update_ds(
         &mut self,
         setup: &Self::Setup,
-        d_values: (Self::GT, Self::GT, Self::GT, Self::GT),
+        d_values: (&Self::GT, &Self::GT, &Self::GT, &Self::GT),
         alpha: Self::Scalar,
         beta: Self::Scalar,
     ) {
@@ -360,8 +364,8 @@ where
     /// * E₂' ← E₂- + α · (E₂ + β · E₂β + α · E₂+)
     fn dory_reduce_verify_update_es(
         &mut self,
-        e_beta_pair: (Self::G1, Self::G2),
-        e_values: (Self::G1, Self::G1, Self::G2, Self::G2),
+        e_beta_pair: (&Self::G1, &Self::G2),
+        e_values: (&Self::G1, &Self::G1, &Self::G2, &Self::G2),
         alpha: Self::Scalar,
         beta: Self::Scalar,
     ) {
@@ -386,6 +390,11 @@ where
         self.e_2 = new_e_2;
     }
 
+    fn set_final_bases(&mut self, v1_final: Self::G1, v2_final: Self::G2) {
+        self.v1_final = Some(v1_final);
+        self.v2_final = Some(v2_final);
+    }
+
     /// Final verification step (Nemo-Finalize, non-ZK)
     /// Implements the deferred VMV pairing check batched with γ₁, γ₂, and
     /// leaves linear G1/G2 checks to be wired once s₁, s₂ base-case values are available.
@@ -400,36 +409,35 @@ where
         let gamma_1 = gamma_pair.gamma_1;
         let gamma_2 = gamma_pair.gamma_2;
 
-        // Compute base-case s₁_final and s₂_final from stored α challenges and eval points.
-        // Semantics: one fold per round with α: s' = α·s_L + s_R.
-        // For an initial tensor built from point coordinates x, the folded scalar equals
-        //   ∏_i (x_i + α_i · (1 - x_i)). For padded dimensions (when |x| < |α|), treat x_i = 0 ⇒ factor α_i.
-        let fold_eval = |coords: &[<E::G1 as Group>::Scalar], alphas: &[<E::G1 as Group>::Scalar]| -> <E::G1 as Group>::Scalar {
-            let mut acc = <E::G1 as Group>::Scalar::one();
-            let k = coords.len();
-            for (i, a) in alphas.iter().enumerate() {
-                let factor = if i < k {
-                    // x + α(1 - x)
-                    let x = coords[i];
-                    x.add(&a.mul(&(<E::G1 as Group>::Scalar::one().sub(&x))))
-                } else {
-                    *a
-                };
-                acc = acc.mul(&factor);
-            }
-            acc
+        let s1_final: <E::G1 as Group>::Scalar =
+            fold_eval_from_coords_and_alphas(&self.eval_point_left, &self.alpha_challenges);
+        let s2_final: <E::G1 as Group>::Scalar =
+            fold_eval_from_coords_and_alphas(&self.eval_point_right, &self.alpha_challenges);
+
+        // Enforce presence of base-case group elements
+        let (Some(v1_final), Some(v2_final)) = (&self.v1_final, &self.v2_final) else {
+            return false;
         };
 
-        let s1_final: <E::G1 as Group>::Scalar = fold_eval(&self.eval_point_left, &self.alpha_challenges);
-        let s2_final: <E::G1 as Group>::Scalar = fold_eval(&self.eval_point_right, &self.alpha_challenges);
+        // Linear base-case checks (non-ZK): E1 == s2_final · v1_final, E2 == s1_final · v2_final
+        let e1_expected = v1_final.scale(&s2_final);
+        if self.e_1 != e1_expected {
+            return false;
+        }
+        let e2_expected = v2_final.scale(&s1_final);
+        if self.e_2 != e2_expected {
+            return false;
+        }
 
         // GT batched pairing check:
         // e(E1_orig, Γ2_fin) + e(γ1 · E1, Γ2_0) + e(γ2 · Γ1_0, E2)
         //  == D2_orig + γ1 · D1 + γ2 · D2
-        let t0 = E::pair(&self.e_1_orig, &setup.g_fin);
-        let t1 = E::pair(&self.e_1.scale(&gamma_1), &setup.g2_0);
-        let t2 = E::pair(&setup.g1_0.scale(&gamma_2), &self.e_2);
-        let lhs = t0.add(&t1).add(&t2);
+        let e1_scaled = self.e_1.scale(&gamma_1);
+        let g1_scaled = setup.g1_0.scale(&gamma_2);
+        let lhs = E::multi_pair_refs(
+            &[&self.e_1_orig, &e1_scaled, &g1_scaled],
+            &[&setup.g_fin, &setup.g2_0, &self.e_2],
+        );
 
         let rhs = self
             .d_2_orig
@@ -440,24 +448,6 @@ where
             return false;
         }
 
-        // Linear base-case checks (non-ZK):
-        // Check E1 == <s2_final, v1_final> and E2 == <s1_final, v2_final>.
-        if let (Some(v1_final), Some(v2_final)) = (&self.v1_final, &self.v2_final) {
-            let e1_expected = v1_final.scale(&s2_final);
-            if self.e_1 != e1_expected {
-                return false;
-            }
-            let e2_expected = v2_final.scale(&s1_final);
-            if self.e_2 != e2_expected {
-                return false;
-            }
-        }
-
         true
-    }
-
-    fn set_final_bases(&mut self, v1_final: Self::G1, v2_final: Self::G2) {
-        self.v1_final = Some(v1_final);
-        self.v2_final = Some(v2_final);
     }
 }

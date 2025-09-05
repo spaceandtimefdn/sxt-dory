@@ -149,7 +149,7 @@ pub trait VerifierState {
     fn dory_reduce_verify_update_ds(
         &mut self,
         setup: &Self::Setup,
-        d_values: (Self::GT, Self::GT, Self::GT, Self::GT),
+        d_values: (&Self::GT, &Self::GT, &Self::GT, &Self::GT),
         alpha: Self::Scalar,
         beta: Self::Scalar,
     );
@@ -159,8 +159,8 @@ pub trait VerifierState {
     /// E₂' <- E₂- + α * (E₂ + β * E₂β + α * E₂+)
     fn dory_reduce_verify_update_es(
         &mut self,
-        e_beta_pair: (Self::G1, Self::G2),
-        e_values: (Self::G1, Self::G1, Self::G2, Self::G2),
+        e_beta_pair: (&Self::G1, &Self::G2),
+        e_values: (&Self::G1, &Self::G1, &Self::G2, &Self::G2),
         alpha: Self::Scalar,
         beta: Self::Scalar,
     );
@@ -195,6 +195,8 @@ where
     pub s2: Vec<<E::G1 as Group>::Scalar>,
     /// number of rounds
     pub nu: usize,
+    /// Optional scalar vector v for PCS first-round optimization where v2 = v · Γ2_fin
+    pub v2_scalars: Option<std::sync::Arc<[<E::G1 as Group>::Scalar]>>,
 }
 
 impl<E: Pairing> DoryProverState<E>
@@ -210,7 +212,19 @@ where
         s2: Vec<<E::G1 as Group>::Scalar>,
         nu: usize,
     ) -> Self {
-        Self { v1, v2, s1, s2, nu }
+        Self { v1, v2, s1, s2, nu, v2_scalars: None }
+    }
+
+    /// Constructor with PCS first-round scalar vector for v2
+    pub fn new_with_v2_scalars(
+        v1: Vec<E::G1>,
+        v2: Vec<E::G2>,
+        s1: Vec<<E::G1 as Group>::Scalar>,
+        s2: Vec<<E::G1 as Group>::Scalar>,
+        v2_scalars: Vec<<E::G1 as Group>::Scalar>,
+        nu: usize,
+    ) -> Self {
+        Self { v1, v2, s1, s2, nu, v2_scalars: Some(v2_scalars.into()) }
     }
 }
 
@@ -238,16 +252,17 @@ where
 
     /// Tensors used for VMV
     /// We only store the underlying evaluation point, not the tensored vector
-    pub eval_point_left: Vec<<E::G1 as Group>::Scalar>,
+    pub eval_point_left: std::sync::Arc<[<E::G1 as Group>::Scalar]>,
     /// Tensors used for VMV
     /// We only store the underlying evaluation point, not the tensored vector
-    pub eval_point_right: Vec<<E::G1 as Group>::Scalar>,
+    pub eval_point_right: std::sync::Arc<[<E::G1 as Group>::Scalar]>,
 
     /// Sequence of α challenges sampled across the IP reduction rounds
     pub alpha_challenges: Vec<<E::G1 as Group>::Scalar>,
 
     /// Base-case group elements provided by prover at the end of IP rounds
     pub v1_final: Option<E::G1>,
+    /// Base-case group elements provided by prover at the end of IP rounds
     pub v2_final: Option<E::G2>,
 
     /// Current round number. Length of v1 and v2 should be 2^nu.
@@ -267,8 +282,14 @@ where
             e_1: e_1.clone(),
             e_1_orig: e_1,
             e_2,
-            eval_point_left: vec![],
-            eval_point_right: vec![],
+            eval_point_left: {
+                let v: Vec<<E::G1 as Group>::Scalar> = Vec::new();
+                v.into()
+            },
+            eval_point_right: {
+                let v: Vec<<E::G1 as Group>::Scalar> = Vec::new();
+                v.into()
+            },
             alpha_challenges: vec![],
             v1_final: None,
             v2_final: None,
@@ -282,8 +303,8 @@ where
         d_2: E::GT,
         e_1: E::G1,
         e_2: E::G2,
-        eval_point_left: Vec<<E::G1 as Group>::Scalar>,
-        eval_point_right: Vec<<E::G1 as Group>::Scalar>,
+        eval_point_left: std::sync::Arc<[<E::G1 as Group>::Scalar]>,
+        eval_point_right: std::sync::Arc<[<E::G1 as Group>::Scalar]>,
         nu: usize,
     ) -> Self {
         Self {

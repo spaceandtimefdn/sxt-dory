@@ -151,14 +151,14 @@ where
         }
     }
 
-    /// Build a serializable Dory proof
-    pub fn build(&self) -> DoryProof<G1, G2, GT> {
+    /// Build a serializable Dory proof (consumes self to avoid cloning)
+    pub fn build(self) -> DoryProof<G1, G2, GT> {
         DoryProof {
-            first_messages: self.first_messages.clone(),
-            second_messages: self.second_messages.clone(),
-            final_message: self.final_message.clone(),
-            vmv_message: self.vmv_message.clone(),
-            final_bases: self.final_bases.clone(),
+            first_messages: self.first_messages,
+            second_messages: self.second_messages,
+            final_message: self.final_message,
+            vmv_message: self.vmv_message,
+            final_bases: self.final_bases,
         }
     }
 
@@ -290,7 +290,7 @@ pub trait VerificationBuilder {
     type Scalar: Field;
 
     /// Number of rounds (nu)
-    fn rounds(&mut self) -> usize;
+    fn rounds(&self) -> usize;
 
     /// Returns the messages for round[idx]
     fn take_round(
@@ -302,10 +302,10 @@ pub trait VerificationBuilder {
     );
 
     /// Getter for first msg
-    fn first_message(&mut self, idx: usize) -> &FirstReduceMessage<Self::G1, Self::G2, Self::GT>;
+    fn first_message(&self, idx: usize) -> &FirstReduceMessage<Self::G1, Self::G2, Self::GT>;
 
     /// Getter for second msg
-    fn second_message(&mut self, idx: usize) -> &SecondReduceMessage<Self::G1, Self::G2>;
+    fn second_message(&self, idx: usize) -> &SecondReduceMessage<Self::G1, Self::G2>;
 
     /// Consume a FirstReduceMessage, append it to the transcript,
     /// and return β, β⁻¹.
@@ -314,10 +314,22 @@ pub trait VerificationBuilder {
         msg: &FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
     ) -> FirstReduceChallenge<Self::Scalar>;
 
+    /// Append first-reduce message at index to transcript and return β.
+    fn process_first_reduce_message_at(
+        &mut self,
+        idx: usize,
+    ) -> FirstReduceChallenge<Self::Scalar>;
+
     /// Consume a SecondReduceMessage, append, and return α, α⁻¹.
     fn process_second_reduce_message(
         &mut self,
         msg: &SecondReduceMessage<Self::G1, Self::G2>,
+    ) -> SecondReduceChallenge<Self::Scalar>;
+
+    /// Append second-reduce message at index to transcript and return α.
+    fn process_second_reduce_message_at(
+        &mut self,
+        idx: usize,
     ) -> SecondReduceChallenge<Self::Scalar>;
 
     /// Derive gamma_1, gamma_2 after all rounds are ingested.
@@ -329,8 +341,14 @@ pub trait VerificationBuilder {
     /// Process a [`VMVMessage`].
     fn process_vmv_message(&mut self) -> VMVMessage<Self::G1, Self::GT>;
 
+    /// Process a [`VMVMessage`] and move it out of the builder without cloning.
+    fn process_vmv_message_take(&mut self) -> VMVMessage<Self::G1, Self::GT>;
+
     /// Process the final base-case group elements from the prover.
     fn process_final_bases(&mut self) -> FinalBasesMessage<Self::G1, Self::G2>;
+
+    /// Move the final base-case group elements out of the builder without cloning.
+    fn process_final_bases_take(&mut self) -> FinalBasesMessage<Self::G1, Self::G2>;
 }
 
 /// Concrete Dory verify builder
@@ -423,7 +441,7 @@ where
     type GT = GT;
     type Scalar = Scalar;
 
-    fn rounds(&mut self) -> usize {
+    fn rounds(&self) -> usize {
         self.first_messages.len()
     }
 
@@ -439,10 +457,10 @@ where
         (m1, m2)
     }
 
-    fn first_message(&mut self, idx: usize) -> &FirstReduceMessage<G1, G2, GT> {
+    fn first_message(&self, idx: usize) -> &FirstReduceMessage<G1, G2, GT> {
         &self.first_messages[idx]
     }
-    fn second_message(&mut self, idx: usize) -> &SecondReduceMessage<G1, G2> {
+    fn second_message(&self, idx: usize) -> &SecondReduceMessage<G1, G2> {
         &self.second_messages[idx]
     }
 
@@ -461,6 +479,23 @@ where
         FirstReduceChallenge { beta }
     }
 
+    fn process_first_reduce_message_at(
+        &mut self,
+        idx: usize,
+    ) -> FirstReduceChallenge<Scalar> {
+        let m = &self.first_messages[idx];
+        let transcript = &mut self.transcript;
+        transcript.append_group(b"d1_left", &m.d1_left);
+        transcript.append_group(b"d1_right", &m.d1_right);
+        transcript.append_group(b"d2_left", &m.d2_left);
+        transcript.append_group(b"d2_right", &m.d2_right);
+        transcript.append_group(b"e1_beta", &m.e1_beta);
+        transcript.append_group(b"e2_beta", &m.e2_beta);
+
+        let beta = transcript.challenge_scalar(b"first_reduce_beta");
+        FirstReduceChallenge { beta }
+    }
+
     fn process_second_reduce_message(
         &mut self,
         m: &SecondReduceMessage<G1, G2>,
@@ -472,6 +507,22 @@ where
         self.transcript.append_group(b"e2_minus", &m.e2_minus);
 
         let alpha = self.transcript.challenge_scalar(b"second_reduce_alpha");
+        SecondReduceChallenge { alpha }
+    }
+
+    fn process_second_reduce_message_at(
+        &mut self,
+        idx: usize,
+    ) -> SecondReduceChallenge<Scalar> {
+        let m = &self.second_messages[idx];
+        let transcript = &mut self.transcript;
+        // PCS variant: omit C_+ and C_- from transcript
+        transcript.append_group(b"e1_plus", &m.e1_plus);
+        transcript.append_group(b"e1_minus", &m.e1_minus);
+        transcript.append_group(b"e2_plus", &m.e2_plus);
+        transcript.append_group(b"e2_minus", &m.e2_minus);
+
+        let alpha = transcript.challenge_scalar(b"second_reduce_alpha");
         SecondReduceChallenge { alpha }
     }
 
@@ -497,11 +548,28 @@ where
         message.clone()
     }
 
+    fn process_vmv_message_take(&mut self) -> VMVMessage<G1, GT> {
+        let message = self
+            .vmv_msg
+            .take()
+            .expect("VMV message must be present in verify builder");
+        // Append to transcript before moving out
+        self.transcript.append_group(b"d2_eval_vmv", &message.d2);
+        self.transcript.append_group(b"e1_eval_vmv", &message.e1);
+        message
+    }
+
     fn process_final_bases(&mut self) -> FinalBasesMessage<G1, G2> {
         self.final_bases
             .as_ref()
             .expect("Final bases must be present in verify builder")
             .clone()
+    }
+
+    fn process_final_bases_take(&mut self) -> FinalBasesMessage<G1, G2> {
+        self.final_bases
+            .take()
+            .expect("Final bases must be present in verify builder")
     }
 }
 

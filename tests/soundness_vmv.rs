@@ -91,10 +91,10 @@ fn test_soundness_tamper_vmv_message_c() {
         &prover_setup,
     );
 
-    // Tamper with VMV message C
+    // Tamper with VMV message D2 instead of removed C
     if let Some(vmv_msg) = &mut proof.vmv_message {
-        println!("Tampering with VMV message C...");
-        vmv_msg.c = Fq12::random(&mut rng);
+        println!("Tampering with VMV message D2 (C removed in new API)...");
+        vmv_msg.d2 = Fq12::random(&mut rng);
 
         // Create fresh transcript for verification
         let verify_transcript = ToyTranscript::new(domain);
@@ -118,9 +118,9 @@ fn test_soundness_tamper_vmv_message_c() {
 
         assert!(
             verification_result.is_err(),
-            "Verification should fail with tampered VMV C"
+            "Verification should fail with tampered VMV D2 (formerly C test)"
         );
-        println!("✓ Verification correctly failed with tampered VMV C");
+        println!("✓ Verification correctly failed with tampered VMV D2 (C removed)");
     }
 }
 
@@ -940,10 +940,9 @@ fn test_soundness_all_vmv_messages_tampered() {
         &prover_setup,
     );
 
-    // Tamper with all VMV messages
+    // Tamper with all VMV messages (C removed in new API)
     if let Some(vmv_msg) = &mut proof.vmv_message {
         println!("Tampering with all VMV messages...");
-        vmv_msg.c = Fq12::random(&mut rng);
         vmv_msg.d2 = Fq12::random(&mut rng);
         vmv_msg.e1 = G1Affine::random(&mut rng);
 
@@ -969,9 +968,9 @@ fn test_soundness_all_vmv_messages_tampered() {
 
         assert!(
             verification_result.is_err(),
-            "Verification should fail with all VMV messages tampered"
+            "Verification should fail with all VMV messages tampered (no C)"
         );
-        println!("✓ Verification correctly failed with all VMV messages tampered");
+        println!("✓ Verification correctly failed with all VMV messages tampered (no C)");
     }
 }
 
@@ -1030,8 +1029,9 @@ fn test_soundness_relationship_attack() {
     // Mix VMV messages from different proofs
     if let (Some(vmv_msg1), Some(vmv_msg2)) = (&mut proof.vmv_message, &proof2.vmv_message) {
         println!("Mixing VMV messages from different proofs...");
-        vmv_msg1.c = vmv_msg2.c.clone();
-        // Keep d2 and e1 from original proof
+        // C removed; mix d2 instead
+        vmv_msg1.d2 = vmv_msg2.d2.clone();
+        // Keep e1 from original proof
     }
 
     // Get verification data for first polynomial

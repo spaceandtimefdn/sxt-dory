@@ -391,6 +391,7 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
         transcript: proof.transcript.clone(),
         _phantom: std::marker::PhantomData,
         vmv_message: proof.vmv_message.clone(),
+        final_bases: proof.final_bases.clone(),
     };
 
     // Tamper with a first message if available

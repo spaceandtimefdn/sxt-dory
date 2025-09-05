@@ -44,7 +44,7 @@ fn setup_test_environment(
     let d_2 = ArkBn254Pairing::multi_pair(&prover_setup.g1_vec()[..1 << log_n], &v2);
     let e_1 = OptimizedMsmG1::msm(&prover_setup.g1_vec()[..1 << log_n], &s2);
     let e_2 = OptimizedMsmG2::msm(&prover_setup.g2_vec()[..1 << log_n], &s1);
-    let verifier_state = DoryVerifierState::new_with_s(c, d_1, d_2, e_1, e_2, s1, s2, log_n);
+    let verifier_state = DoryVerifierState::new(d_1, d_2, e_1, e_2, log_n);
 
     (prover_setup, verifier_setup, prover_state, verifier_state)
 }
