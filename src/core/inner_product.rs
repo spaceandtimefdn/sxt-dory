@@ -3,6 +3,7 @@
 use crate::arithmetic::{Field, Group, MultiScalarMul};
 use crate::builder::{ProofBuilder, VerificationBuilder};
 use crate::state::{ProverState, VerifierState};
+use crate::messages::FinalBasesMessage;
 
 /// Prover side of extended Dory-innerproduct
 /// Follows very closely the prover side of the protocol on Page 24.
@@ -23,7 +24,7 @@ where
     M1: MultiScalarMul<G1>,
     M2: MultiScalarMul<G2>,
 {
-    let (builder, _state) = (0..num_rounds).fold((builder, state), |(builder, state), _| {
+    let (builder, state) = (0..num_rounds).fold((builder, state), |(builder, state), _| {
         let first_reduce_msg = state.compute_first_reduce_message::<M1, M2>(setup);
         let (challenge, builder) = builder.append_first_reduce_message(first_reduce_msg);
 
@@ -38,7 +39,11 @@ where
 
     // Keep transcripts in sync: derive finalize challenge (prover does not send a message here).
     let (_finalize_challenge, builder) = builder.challenge_finalize();
-    builder
+
+    // At base case, expose v1', v2' from prover state and append to proof
+    let (v1_final, v2_final) = state.final_bases();
+    let final_bases = FinalBasesMessage { v1_final, v2_final };
+    builder.append_final_bases(final_bases)
 }
 
 /// Verifier analogue for the extended Dory-innerproduct

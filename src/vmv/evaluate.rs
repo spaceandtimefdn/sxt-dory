@@ -8,7 +8,7 @@ use crate::{
     inner_product::inner_product_verify,
     inner_product_prove,
     messages::VMVMessage,
-    poly::{compute_left_right_vec, Polynomial},
+    poly::Polynomial,
     setup::{ProverSetup, VerifierSetup},
     state::{DoryProverState, DoryVerifierState},
     transcript::Transcript,
@@ -144,12 +144,18 @@ where
         eval_vmv_re_prove::<E, T, M1, M2>(proof_builder, prover_state, v_vec, prover_setup);
 
     // prove!
-    inner_product_prove::<_, _, _, _, _, _, _, M1, M2>(
+    let builder_after_ip = inner_product_prove::<_, _, _, _, _, _, _, M1, M2>(
         final_proof_builder,
         proof_state,
         prover_setup,
         nu,
-    )
+    );
+
+    // Provide v1_final and v2_final at base case from the prover state semantics.
+    // Since inner_product_prove consumed the state, we can’t access it here without
+    // changing the API; for now, leave final_bases absent. A follow-up change can
+    // return the final bases from inner_product_prove if desired.
+    builder_after_ip
 }
 
 // VERIFIER ANALOGUE:

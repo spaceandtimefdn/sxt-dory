@@ -166,6 +166,31 @@ where
     pub e2: G2,
 }
 
+/// The prover message carrying base-case group elements after all reductions.
+/// Contains the final folded group elements v1' \in G1 and v2' \in G2.
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Eq,
+    Hash,
+    PartialEq,
+    Serialize,
+    CanonicalSerialize,
+    CanonicalDeserialize,
+)]
+pub struct FinalBasesMessage<G1, G2>
+where
+    G1: Group,
+    G2: Group,
+{
+    /// v1' in G1 at base case
+    pub v1_final: G1,
+    /// v2' in G2 at base case
+    pub v2_final: G2,
+}
+
 /// The prover message in the VMV evaluation portion of the Dory protocol.
 ///
 /// This consists of $C$, $D_2$, and $E_1$.

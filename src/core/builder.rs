@@ -10,7 +10,7 @@ use crate::{
     arithmetic::{Field, Group},
     messages::{
         FirstReduceChallenge, FirstReduceMessage, FinalizeChallenge,
-        ScalarProductMessage, SecondReduceChallenge, SecondReduceMessage, VMVMessage,
+        ScalarProductMessage, SecondReduceChallenge, SecondReduceMessage, VMVMessage, FinalBasesMessage,
     },
     toy_transcript::ToyTranscript,
 };
@@ -31,6 +31,8 @@ where
     pub final_message: Option<ScalarProductMessage<G1, G2>>,
     /// Vector-matrix-vector message (for PCS)
     pub vmv_message: Option<VMVMessage<G1, GT>>,
+    /// Final base-case group elements
+    pub final_bases: Option<FinalBasesMessage<G1, G2>>,
 }
 
 /// Trait that defines the structure of the Dory proof.
@@ -76,6 +78,10 @@ pub trait ProofBuilder {
     /// Draw a [`FinalizeChallenge`] from the transcript.
     #[must_use]
     fn challenge_finalize(self) -> (FinalizeChallenge<Self::Scalar>, Self);
+
+    /// Append the final base-case group elements.
+    #[must_use]
+    fn append_final_bases(self, message: FinalBasesMessage<Self::G1, Self::G2>) -> Self;
 }
 
 /// Concrete ProofBuilder to collect messages and perform transcript tasks
@@ -97,6 +103,8 @@ where
 
     /// vector-matrix-vector message, used to transform general dory into PCS
     pub vmv_message: Option<VMVMessage<G1, GT>>,
+    /// final base-case group elements
+    pub final_bases: Option<FinalBasesMessage<G1, G2>>,
     /// Fiat shamir
     pub transcript: T,
     /// Phantom
@@ -118,6 +126,7 @@ where
             second_messages: Vec::new(),
             final_message: None,
             vmv_message: None,
+            final_bases: None,
             transcript,
             _phantom: PhantomData,
         }
@@ -136,6 +145,7 @@ where
             second_messages: Vec::new(),
             final_message: None,
             vmv_message: None,
+            final_bases: None,
             transcript,
             _phantom: PhantomData,
         }
@@ -148,6 +158,7 @@ where
             second_messages: self.second_messages.clone(),
             final_message: self.final_message.clone(),
             vmv_message: self.vmv_message.clone(),
+            final_bases: self.final_bases.clone(),
         }
     }
 
@@ -158,6 +169,7 @@ where
             second_messages: proof.second_messages,
             final_message: proof.final_message,
             vmv_message: proof.vmv_message,
+            final_bases: proof.final_bases,
             transcript,
             _phantom: PhantomData,
         }
@@ -173,6 +185,7 @@ where
             second_messages: proof.second_messages,
             final_message: proof.final_message,
             vmv_message: proof.vmv_message,
+            final_bases: proof.final_bases,
             transcript: T::default(),
             _phantom: PhantomData,
         }
@@ -257,6 +270,12 @@ where
         };
         (challenge, self)
     }
+
+    fn append_final_bases(mut self, message: FinalBasesMessage<Self::G1, Self::G2>) -> Self {
+        // No transcript impact (optional). If desired we could append to transcript too.
+        self.final_bases = Some(message);
+        self
+    }
 }
 
 /// Verification analogue of `ProofBuilder`.
@@ -309,6 +328,9 @@ pub trait VerificationBuilder {
 
     /// Process a [`VMVMessage`].
     fn process_vmv_message(&mut self) -> VMVMessage<Self::G1, Self::GT>;
+
+    /// Process the final base-case group elements from the prover.
+    fn process_final_bases(&mut self) -> FinalBasesMessage<Self::G1, Self::G2>;
 }
 
 /// Concrete Dory verify builder
@@ -325,6 +347,7 @@ where
     second_messages: Vec<SecondReduceMessage<G1, G2>>,
     scalar_msg: ScalarProductMessage<G1, G2>,
     vmv_msg: Option<VMVMessage<G1, GT>>,
+    final_bases: Option<FinalBasesMessage<G1, G2>>,
 
     _phantom: PhantomData<(G1, G2, GT, Scalar)>,
 }
@@ -347,6 +370,7 @@ where
             .final_message
             .expect("DoryProof must have a final (scalar product) message");
         let vmv_msg = proof.vmv_message;
+        let final_bases = proof.final_bases;
 
         Self {
             transcript,
@@ -354,6 +378,7 @@ where
             second_messages,
             scalar_msg,
             vmv_msg,
+            final_bases,
             _phantom: PhantomData,
         }
     }
@@ -367,6 +392,7 @@ where
             second_messages,
             final_message,
             vmv_message,
+            final_bases,
             ..
         } = proof;
 
@@ -378,6 +404,7 @@ where
             second_messages,
             scalar_msg,
             vmv_msg: vmv_message,
+            final_bases,
             _phantom: PhantomData,
         }
     }
@@ -468,6 +495,13 @@ where
         self.transcript.append_group(b"d2_eval_vmv", &message.d2);
         self.transcript.append_group(b"e1_eval_vmv", &message.e1);
         message.clone()
+    }
+
+    fn process_final_bases(&mut self) -> FinalBasesMessage<G1, G2> {
+        self.final_bases
+            .as_ref()
+            .expect("Final bases must be present in verify builder")
+            .clone()
     }
 }
 

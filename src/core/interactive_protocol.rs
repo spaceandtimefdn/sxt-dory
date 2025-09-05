@@ -238,6 +238,22 @@ where
 
         self
     }
+
+    /// Expose base-case folded group elements (length-1 vectors)
+    fn final_bases(&self) -> (Self::G1, Self::G2) {
+        assert_eq!(self.nu, 0, "final_bases called before base case");
+        let v1_final = self
+            .v1
+            .get(0)
+            .cloned()
+            .unwrap_or_else(|| <E::G1 as Group>::identity());
+        let v2_final = self
+            .v2
+            .get(0)
+            .cloned()
+            .unwrap_or_else(|| <E::G2 as Group>::identity());
+        (v1_final, v2_final)
+    }
 }
 
 /// Below is the **verifier** side of the interactive protocol for Dory
@@ -261,9 +277,12 @@ where
         setup: &Self::Setup,
         first_msg: &FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
         second_msg: &SecondReduceMessage<Self::G1, Self::G2>,
-        alpha: Self::Scalar,
         beta: Self::Scalar,
+        alpha: Self::Scalar,
     ) -> bool {
+
+        // Record the α used for this round for later base-case evaluation of s₁,s₂
+        self.alpha_challenges.push(alpha.clone());
 
         // Update D₁ and D₂ (Light semantics, no inverses)
         // D₁' <- D₁L + α * D₁R + β * (Δ₁L + α * Δ₁R)
@@ -381,6 +400,29 @@ where
         let gamma_1 = gamma_pair.gamma_1;
         let gamma_2 = gamma_pair.gamma_2;
 
+        // Compute base-case s₁_final and s₂_final from stored α challenges and eval points.
+        // Semantics: one fold per round with α: s' = α·s_L + s_R.
+        // For an initial tensor built from point coordinates x, the folded scalar equals
+        //   ∏_i (x_i + α_i · (1 - x_i)). For padded dimensions (when |x| < |α|), treat x_i = 0 ⇒ factor α_i.
+        let fold_eval = |coords: &[<E::G1 as Group>::Scalar], alphas: &[<E::G1 as Group>::Scalar]| -> <E::G1 as Group>::Scalar {
+            let mut acc = <E::G1 as Group>::Scalar::one();
+            let k = coords.len();
+            for (i, a) in alphas.iter().enumerate() {
+                let factor = if i < k {
+                    // x + α(1 - x)
+                    let x = coords[i];
+                    x.add(&a.mul(&(<E::G1 as Group>::Scalar::one().sub(&x))))
+                } else {
+                    *a
+                };
+                acc = acc.mul(&factor);
+            }
+            acc
+        };
+
+        let s1_final: <E::G1 as Group>::Scalar = fold_eval(&self.eval_point_left, &self.alpha_challenges);
+        let s2_final: <E::G1 as Group>::Scalar = fold_eval(&self.eval_point_right, &self.alpha_challenges);
+
         // GT batched pairing check:
         // e(E1_orig, Γ2_fin) + e(γ1 · E1, Γ2_0) + e(γ2 · Γ1_0, E2)
         //  == D2_orig + γ1 · D1 + γ2 · D2
@@ -398,9 +440,24 @@ where
             return false;
         }
 
-        // TODO: Linear checks at base case once s₁_final, s₂_final and v₁_final, v₂_final
-        // are available on the verifier side. For now, they are deferred.
+        // Linear base-case checks (non-ZK):
+        // Check E1 == <s2_final, v1_final> and E2 == <s1_final, v2_final>.
+        if let (Some(v1_final), Some(v2_final)) = (&self.v1_final, &self.v2_final) {
+            let e1_expected = v1_final.scale(&s2_final);
+            if self.e_1 != e1_expected {
+                return false;
+            }
+            let e2_expected = v2_final.scale(&s1_final);
+            if self.e_2 != e2_expected {
+                return false;
+            }
+        }
 
         true
+    }
+
+    fn set_final_bases(&mut self, v1_final: Self::G1, v2_final: Self::G2) {
+        self.v1_final = Some(v1_final);
+        self.v2_final = Some(v2_final);
     }
 }

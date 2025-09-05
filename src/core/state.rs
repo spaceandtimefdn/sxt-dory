@@ -98,6 +98,10 @@ pub trait ProverState {
         M1: MultiScalarMul<Self::G1>,
         M2: MultiScalarMul<Self::G2>;
 
+    /// Return base-case group elements after all rounds (nu == 0)
+    #[must_use]
+    fn final_bases(&self) -> (Self::G1, Self::G2);
+
     // #[must_use]
     // fn final_prove<M1, M2>(
     //     self,
@@ -168,6 +172,9 @@ pub trait VerifierState {
         setup: &Self::Setup,
         gamma_pair: FinalizeChallenge<Self::Scalar>,
     ) -> bool;
+
+    /// Store final base-case group elements sent by the prover
+    fn set_final_bases(&mut self, v1_final: Self::G1, v2_final: Self::G2);
 }
 
 /// --------- Concrete ProverState and VerifierState ---------------------
@@ -214,9 +221,6 @@ where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
-    /// The inner pairing product <v1,v2>.
-    /// PCS variant: remove c from the protocol
-    // pub c: E::GT,
     /// The commitment to v1: <v1,Γ_2>.
     pub d_1: E::GT,
     /// The commitment to v2: <Γ_1,v2>.
@@ -239,6 +243,13 @@ where
     /// We only store the underlying evaluation point, not the tensored vector
     pub eval_point_right: Vec<<E::G1 as Group>::Scalar>,
 
+    /// Sequence of α challenges sampled across the IP reduction rounds
+    pub alpha_challenges: Vec<<E::G1 as Group>::Scalar>,
+
+    /// Base-case group elements provided by prover at the end of IP rounds
+    pub v1_final: Option<E::G1>,
+    pub v2_final: Option<E::G2>,
+
     /// Current round number. Length of v1 and v2 should be 2^nu.
     pub nu: usize,
 }
@@ -258,6 +269,9 @@ where
             e_2,
             eval_point_left: vec![],
             eval_point_right: vec![],
+            alpha_challenges: vec![],
+            v1_final: None,
+            v2_final: None,
             nu,
         }
     }
@@ -281,6 +295,9 @@ where
             e_2,
             eval_point_left,
             eval_point_right,
+            alpha_challenges: vec![],
+            v1_final: None,
+            v2_final: None,
             nu,
         }
     }
