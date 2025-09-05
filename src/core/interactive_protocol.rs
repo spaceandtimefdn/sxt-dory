@@ -258,6 +258,34 @@ where
             .unwrap_or_else(|| <E::G2 as Group>::identity());
         (v1_final, v2_final)
     }
+
+    /// Borrow base-case folded group elements (length-1 vectors)
+    fn final_bases_ref(&self) -> (&Self::G1, &Self::G2) {
+        assert_eq!(self.nu, 0, "final_bases_ref called before base case");
+        let v1_ref = self
+            .v1
+            .get(0)
+            .expect("v1 empty at base case");
+        let v2_ref = self
+            .v2
+            .get(0)
+            .expect("v2 empty at base case");
+        (v1_ref, v2_ref)
+    }
+
+    /// Borrow base-case folded scalar values (length-1 vectors)
+    fn final_scalars_ref(&self) -> (&Self::Scalar, &Self::Scalar) {
+        assert_eq!(self.nu, 0, "final_scalars_ref called before base case");
+        let s1_ref = self
+            .s1
+            .get(0)
+            .expect("s1 empty at base case");
+        let s2_ref = self
+            .s2
+            .get(0)
+            .expect("s2 empty at base case");
+        (s1_ref, s2_ref)
+    }
 }
 
 /// Below is the **verifier** side of the interactive protocol for Dory

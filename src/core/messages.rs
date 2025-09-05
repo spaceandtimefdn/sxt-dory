@@ -140,32 +140,6 @@ where
     pub gamma_2: Scalar,
 }
 
-/// The prover message in the Scalar-Product portion (Section 3.1) of the Dory protocol.
-///
-/// This consists of $E_1$ and $E_2$.
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Eq,
-    Hash,
-    PartialEq,
-    Serialize,
-    CanonicalSerialize,
-    CanonicalDeserialize,
-)]
-pub struct ScalarProductMessage<G1, G2>
-where
-    G1: Group,
-    G2: Group,
-{
-    /// $E_1$
-    pub e1: G1,
-    /// $E_2$
-    pub e2: G2,
-}
-
 /// The prover message carrying base-case group elements after all reductions.
 /// Contains the final folded group elements v1' \in G1 and v2' \in G2.
 #[derive(

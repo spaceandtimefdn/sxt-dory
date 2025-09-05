@@ -3,7 +3,7 @@
 use crate::arithmetic::{Field, Group, MultiScalarMul};
 use crate::builder::{ProofBuilder, VerificationBuilder};
 use crate::state::{ProverState, VerifierState};
-use crate::messages::{FinalBasesMessage, ScalarProductMessage};
+use crate::messages::FinalBasesMessage;
 
 /// Prover side of extended Dory-innerproduct
 /// Follows very closely the prover side of the protocol on Page 24.
@@ -15,8 +15,8 @@ pub fn inner_product_prove<Builder, State, G1, G2, GT, Scalar, Setup, M1, M2>(
     num_rounds: usize,
 ) -> Builder
 where
-    G1: Group,
-    G2: Group,
+    G1: Group<Scalar = Scalar>,
+    G2: Group<Scalar = Scalar>,
     GT: Group,
     Scalar: Field,
     Builder: ProofBuilder<G1 = G1, G2 = G2, GT = GT, Scalar = Scalar>,
@@ -36,27 +36,6 @@ where
         let folded_state = state.reduce_fold::<M1, M2>(setup, challenge);
         (builder, folded_state)
     });
-
-    // At base case, compute scalar-product message (E1, E2) and append
-    let v1_final = state
-        .final_bases()
-        .0; // get v1' (we'll call final_bases again below to avoid moving state)
-    let v2_final = state.final_bases().1;
-    // s1_final and s2_final are the folded scalars at base case (length-1 vectors)
-    // Note: we cannot borrow state fields directly; use final_bases() and then state.s1[0], state.s2[0] via methods is not available,
-    // so recompute from final_bases results and state-owned vectors by calling final_bases twice safely (cheap clones).
-    // We still need the scalars; get them from state by exposing them via final fold semantics:
-    // Here, rely on the invariant that after num_rounds, state.s1 and state.s2 are length-1
-    let e1e2_builder = {
-        // SAFETY: ProverState doesn't expose s1/s2; instead reconstruct via group scaling on final bases using verifier's formula at prover side
-        // Since prover knows all alphas, their local s1/s2 vectors have been folded to length-1 already.
-        // We approximate that by leveraging the v1_final/v2_final and the current state held scalars through a helper closure.
-        // However, ProverState trait doesn't give direct access to scalars; so we compute E1,E2 using v1'/v2' and zero-cost fold result assumption via scale of identity when needed.
-        let e1 = v1_final; // placeholder overwritten below
-        let e2 = v2_final; // placeholder overwritten below
-        ScalarProductMessage { e1, e2 }
-    };
-    let builder = builder.append_scalar_product_message(e1e2_builder);
 
     // Keep transcripts in sync: derive finalize challenge (prover does not send a message here).
     let (_finalize_challenge, builder) = builder.challenge_finalize();

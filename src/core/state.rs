@@ -99,8 +99,16 @@ pub trait ProverState {
         M2: MultiScalarMul<Self::G2>;
 
     /// Return base-case group elements after all rounds (nu == 0)
-    #[must_use]
+    // #[must_use]
     fn final_bases(&self) -> (Self::G1, Self::G2);
+
+    /// Borrow base-case group elements after all rounds (nu == 0)
+    #[must_use]
+    fn final_bases_ref(&self) -> (&Self::G1, &Self::G2);
+
+    /// Borrow base-case folded scalar values (s1_final, s2_final)
+    #[must_use]
+    fn final_scalars_ref(&self) -> (&Self::Scalar, &Self::Scalar);
 
     // #[must_use]
     // fn final_prove<M1, M2>(

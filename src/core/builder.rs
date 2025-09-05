@@ -10,7 +10,7 @@ use crate::{
     arithmetic::{Field, Group},
     messages::{
         FirstReduceChallenge, FirstReduceMessage, FinalizeChallenge,
-        ScalarProductMessage, SecondReduceChallenge, SecondReduceMessage, VMVMessage, FinalBasesMessage,
+        SecondReduceChallenge, SecondReduceMessage, VMVMessage, FinalBasesMessage,
     },
     toy_transcript::ToyTranscript,
 };
@@ -27,8 +27,6 @@ where
     pub first_messages: Vec<FirstReduceMessage<G1, G2, GT>>,
     /// Second prover messages for each round
     pub second_messages: Vec<SecondReduceMessage<G1, G2>>,
-    /// Final scalar product message
-    pub final_message: Option<ScalarProductMessage<G1, G2>>,
     /// Vector-matrix-vector message (for PCS)
     pub vmv_message: Option<VMVMessage<G1, GT>>,
     /// Final base-case group elements
@@ -65,12 +63,6 @@ pub trait ProofBuilder {
         message: SecondReduceMessage<Self::G1, Self::G2>,
     ) -> (SecondReduceChallenge<Self::Scalar>, Self);
 
-    /// Append a [`ScalarProductMessage`] to the proof and transcript.
-    #[must_use]
-    fn append_scalar_product_message(
-        self,
-        message: ScalarProductMessage<Self::G1, Self::G2>,
-    ) -> Self;
     #[must_use]
     /// Append a [`VMVMessage`] to the proof and transcript.
     fn append_vmv_message(self, message: VMVMessage<Self::G1, Self::GT>) -> Self;
@@ -98,8 +90,6 @@ where
     pub first_messages: Vec<FirstReduceMessage<G1, G2, GT>>,
     /// Second prover message for round i
     pub second_messages: Vec<SecondReduceMessage<G1, G2>>,
-    /// Last Scalar product message at end of protocol
-    pub final_message: Option<ScalarProductMessage<G1, G2>>,
 
     /// vector-matrix-vector message, used to transform general dory into PCS
     pub vmv_message: Option<VMVMessage<G1, GT>>,
@@ -124,7 +114,6 @@ where
         Self {
             first_messages: Vec::new(),
             second_messages: Vec::new(),
-            final_message: None,
             vmv_message: None,
             final_bases: None,
             transcript,
@@ -143,7 +132,6 @@ where
         DoryProofBuilder {
             first_messages: Vec::new(),
             second_messages: Vec::new(),
-            final_message: None,
             vmv_message: None,
             final_bases: None,
             transcript,
@@ -156,7 +144,6 @@ where
         DoryProof {
             first_messages: self.first_messages,
             second_messages: self.second_messages,
-            final_message: self.final_message,
             vmv_message: self.vmv_message,
             final_bases: self.final_bases,
         }
@@ -167,7 +154,6 @@ where
         Self {
             first_messages: proof.first_messages,
             second_messages: proof.second_messages,
-            final_message: proof.final_message,
             vmv_message: proof.vmv_message,
             final_bases: proof.final_bases,
             transcript,
@@ -183,7 +169,6 @@ where
         Self {
             first_messages: proof.first_messages,
             second_messages: proof.second_messages,
-            final_message: proof.final_message,
             vmv_message: proof.vmv_message,
             final_bases: proof.final_bases,
             transcript: T::default(),
@@ -240,16 +225,6 @@ where
 
         self.second_messages.push(message);
         (challenge, self)
-    }
-
-    fn append_scalar_product_message(
-        mut self,
-        message: ScalarProductMessage<Self::G1, Self::G2>,
-    ) -> Self {
-        self.transcript.append_group(b"e1", &message.e1);
-        self.transcript.append_group(b"e2", &message.e2);
-        self.final_message = Some(message);
-        self
     }
 
     fn append_vmv_message(mut self, message: VMVMessage<Self::G1, Self::GT>) -> Self {
@@ -335,9 +310,6 @@ pub trait VerificationBuilder {
     /// Derive gamma_1, gamma_2 after all rounds are ingested.
     fn challenge_finalize(&mut self) -> FinalizeChallenge<Self::Scalar>;
 
-    /// Provide the final scalar-product message that the prover sent.
-    fn process_scalar_product_message(&self) -> &ScalarProductMessage<Self::G1, Self::G2>;
-
     /// Process a [`VMVMessage`].
     fn process_vmv_message(&mut self) -> VMVMessage<Self::G1, Self::GT>;
 
@@ -363,7 +335,6 @@ where
     transcript: T,
     first_messages: Vec<FirstReduceMessage<G1, G2, GT>>,
     second_messages: Vec<SecondReduceMessage<G1, G2>>,
-    scalar_msg: ScalarProductMessage<G1, G2>,
     vmv_msg: Option<VMVMessage<G1, GT>>,
     final_bases: Option<FinalBasesMessage<G1, G2>>,
 
@@ -384,9 +355,6 @@ where
         // Extract messages from the proof
         let first_messages = proof.first_messages;
         let second_messages = proof.second_messages;
-        let scalar_msg = proof
-            .final_message
-            .expect("DoryProof must have a final (scalar product) message");
         let vmv_msg = proof.vmv_message;
         let final_bases = proof.final_bases;
 
@@ -394,7 +362,6 @@ where
             transcript,
             first_messages,
             second_messages,
-            scalar_msg,
             vmv_msg,
             final_bases,
             _phantom: PhantomData,
@@ -408,19 +375,15 @@ where
         let DoryProofBuilder {
             first_messages,
             second_messages,
-            final_message,
             vmv_message,
             final_bases,
             ..
         } = proof;
 
-        let scalar_msg = final_message.expect("proof must contain the scalar-product message");
-
         Self {
             transcript,
             first_messages,
             second_messages,
-            scalar_msg,
             vmv_msg: vmv_message,
             final_bases,
             _phantom: PhantomData,
@@ -532,10 +495,6 @@ where
         FinalizeChallenge { gamma_1, gamma_2 }
     }
 
-    fn process_scalar_product_message(&self) -> &ScalarProductMessage<G1, G2> {
-        &self.scalar_msg
-    }
-
     fn process_vmv_message(&mut self) -> VMVMessage<G1, GT> {
         let message = self
             .vmv_msg
@@ -588,18 +547,15 @@ where
         println!("Number of rounds: {}", self.first_messages.len());
         println!("First reduce messages: {}", self.first_messages.len());
         println!("Second reduce messages: {}", self.second_messages.len());
-        println!("Has final message: {}", self.final_message.is_some());
         println!("Has VMV message: {}", self.vmv_message.is_some());
 
         // Calculate total proof elements
         let total_g1_elements = self.first_messages.iter().map(|_m| 1).sum::<usize>() + // e1_beta per round
                                self.second_messages.iter().map(|_m| 2).sum::<usize>() + // e1_plus + e1_minus per round
-                               if self.final_message.is_some() { 1 } else { 0 } + // final e1
                                if self.vmv_message.is_some() { 1 } else { 0 }; // vmv e1
 
         let total_g2_elements = self.first_messages.iter().map(|_m| 1).sum::<usize>() + // e2_beta per round
-                               self.second_messages.iter().map(|_m| 2).sum::<usize>() + // e2_plus + e2_minus per round
-                               if self.final_message.is_some() { 1 } else { 0 }; // final e2
+                               self.second_messages.iter().map(|_m| 2).sum::<usize>(); // e2_plus + e2_minus per round
 
         let total_gt_elements = self.first_messages.iter().map(|_m| 4).sum::<usize>() + // d1_left/right + d2_left/right per round
                                self.second_messages.iter().map(|_m| 0).sum::<usize>() + // PCS: no C terms per round
