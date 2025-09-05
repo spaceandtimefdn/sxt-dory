@@ -23,7 +23,7 @@ where
     M1: MultiScalarMul<G1>,
     M2: MultiScalarMul<G2>,
 {
-    let (builder, state) = (0..num_rounds).fold((builder, state), |(builder, state), _| {
+    let (builder, _state) = (0..num_rounds).fold((builder, state), |(builder, state), _| {
         let first_reduce_msg = state.compute_first_reduce_message::<M1, M2>(setup);
         let (challenge, builder) = builder.append_first_reduce_message(first_reduce_msg);
 
@@ -36,13 +36,9 @@ where
         (builder, folded_state)
     });
 
-    // Note: we pull `d_pair` here even though the Prover does not actually need it. This is so that the verifier
-    // and prover transcripts will stay in sync (see Scalar-Product protocol in the paper).
-    let (final_verify_challenge, builder) = builder.challenge_final_verify();
-
-    // Note: `compute_scalar_product_message` applies the `Fold-Scalars` transform, as described in the paper.
-    let final_verify_message = state.compute_final_verify_message::<M1, M2>(setup, final_verify_challenge);
-    builder.append_final_verify_message(final_verify_message)
+    // Keep transcripts in sync: derive finalize challenge (prover does not send a message here).
+    let (_finalize_challenge, builder) = builder.challenge_finalize();
+    builder
 }
 
 /// Verifier analogue for the extended Dory-innerproduct
@@ -71,14 +67,11 @@ where
             return Err(idx);
         }
     }
-    // when n = 1, we apply `fold-scalars` and then verifier side of `scalar-product (the final pairing check)`.
-    // On the prover side, `fold-scalars` is handled immediately before sending the scalar product message.
-    let fold_gamma = builder.challenge_fold_scalars();
-    let d_pair = builder.challenge_scalar_product_scalars();
-
-    // if !state.final_verify(setup, builder.process_scalar_product_message()) {
-    //     return Err(builder.rounds());
-    // }
+    // Finalize (deferred pairing and linear checks)
+    let finalize_challenge = builder.challenge_finalize();
+    if !state.finalize(setup, finalize_challenge) {
+        return Err(builder.rounds());
+    }
 
     Ok(())
 }

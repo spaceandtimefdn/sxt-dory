@@ -4,7 +4,7 @@ use crate::{
     messages::{
         FirstReduceChallenge, FirstReduceMessage,
         SecondReduceChallenge, SecondReduceMessage,
-        FinalVerifyChallenge
+        FinalizeChallenge
     },
 };
 
@@ -102,7 +102,7 @@ pub trait ProverState {
     // fn final_prove<M1, M2>(
     //     self,
     //     setup: &Self::Setup,
-    //     fold_scalars_challenge: FinalVerifyChallenge<Self::Scalar>,
+    //     fold_scalars_challenge: FinalizeChallenge<Self::Scalar>,
     // ) -> FinalMessage<Self::G1, Self::G2>
     // where
     //     Self::G1: Group,
@@ -163,10 +163,10 @@ pub trait VerifierState {
 
     /// Final verification step for Dory-InnerProduct-Light
     /// Verifies: TBD
-    fn final_verify(
+    fn finalize(
         &self,
         setup: &Self::Setup,
-        gamma_pair: FinalVerifyChallenge<Self::Scalar>,
+        gamma_pair: FinalizeChallenge<Self::Scalar>,
     ) -> bool;
 }
 
@@ -221,10 +221,14 @@ where
     pub d_1: E::GT,
     /// The commitment to v2: <Γ_1,v2>.
     pub d_2: E::GT,
+    /// Original D₂ from VMV-Reduce (kept unchanged for Nemo-Finalize)
+    pub d_2_orig: E::GT,
 
     // extended use case:
     /// The commitment to s1: <v1,s2>.
     pub e_1: E::G1,
+    /// Original E₁ from VMV-Reduce (kept unchanged for Nemo-Finalize)
+    pub e_1_orig: E::G1,
     /// The commitment to s2: <s1,v2>.
     pub e_2: E::G2,
 
@@ -247,8 +251,10 @@ where
     pub fn new(d_1: E::GT, d_2: E::GT, e_1: E::G1, e_2: E::G2, nu: usize) -> Self {
         Self {
             d_1,
-            d_2,
-            e_1,
+            d_2: d_2.clone(),
+            d_2_orig: d_2,
+            e_1: e_1.clone(),
+            e_1_orig: e_1,
             e_2,
             eval_point_left: vec![],
             eval_point_right: vec![],
@@ -268,8 +274,10 @@ where
     ) -> Self {
         Self {
             d_1,
-            d_2,
-            e_1,
+            d_2: d_2.clone(),
+            d_2_orig: d_2,
+            e_1: e_1.clone(),
+            e_1_orig: e_1,
             e_2,
             eval_point_left,
             eval_point_right,

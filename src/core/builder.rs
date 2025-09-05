@@ -9,7 +9,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use crate::{
     arithmetic::{Field, Group},
     messages::{
-        FirstReduceChallenge, FirstReduceMessage, FinalVerifyChallenge,
+        FirstReduceChallenge, FirstReduceMessage, FinalizeChallenge,
         ScalarProductMessage, SecondReduceChallenge, SecondReduceMessage, VMVMessage,
     },
     toy_transcript::ToyTranscript,
@@ -73,9 +73,9 @@ pub trait ProofBuilder {
     /// Append a [`VMVMessage`] to the proof and transcript.
     fn append_vmv_message(self, message: VMVMessage<Self::G1, Self::GT>) -> Self;
 
-    /// Draw a [`FinalVerifyChallenge`] from the transcript.
+    /// Draw a [`FinalizeChallenge`] from the transcript.
     #[must_use]
-    fn challenge_final_verify(self) -> (FinalVerifyChallenge<Self::Scalar>, Self);
+    fn challenge_finalize(self) -> (FinalizeChallenge<Self::Scalar>, Self);
 }
 
 /// Concrete ProofBuilder to collect messages and perform transcript tasks
@@ -248,10 +248,10 @@ where
         self
     }
 
-    fn challenge_final_verify(mut self) -> (FinalVerifyChallenge<Self::Scalar>, Self) {
-        let gamma_1 = self.transcript.challenge_scalar(b"final_verify_gamma_1");
-        let gamma_2 = self.transcript.challenge_scalar(b"final_verify_gamma_2");
-        let challenge = FinalVerifyChallenge {
+    fn challenge_finalize(mut self) -> (FinalizeChallenge<Self::Scalar>, Self) {
+        let gamma_1 = self.transcript.challenge_scalar(b"finalize_gamma_1");
+        let gamma_2 = self.transcript.challenge_scalar(b"finalize_gamma_2");
+        let challenge = FinalizeChallenge {
             gamma_1,
             gamma_2,
         };
@@ -302,7 +302,7 @@ pub trait VerificationBuilder {
     ) -> SecondReduceChallenge<Self::Scalar>;
 
     /// Derive gamma_1, gamma_2 after all rounds are ingested.
-    fn challenge_final_verify(&mut self) -> FinalVerifyChallenge<Self::Scalar>;
+    fn challenge_finalize(&mut self) -> FinalizeChallenge<Self::Scalar>;
 
     /// Provide the final scalar-product message that the prover sent.
     fn process_scalar_product_message(&self) -> &ScalarProductMessage<Self::G1, Self::G2>;
@@ -448,10 +448,10 @@ where
         SecondReduceChallenge { alpha }
     }
 
-    fn challenge_final_verify(&mut self) -> FinalVerifyChallenge<Self::Scalar> {
-        let gamma_1 = self.transcript.challenge_scalar(b"final_verify_gamma_1");
-        let gamma_2 = self.transcript.challenge_scalar(b"final_verify_gamma_2");
-        FinalVerifyChallenge { gamma_1, gamma_2 }
+    fn challenge_finalize(&mut self) -> FinalizeChallenge<Self::Scalar> {
+        let gamma_1 = self.transcript.challenge_scalar(b"finalize_gamma_1");
+        let gamma_2 = self.transcript.challenge_scalar(b"finalize_gamma_2");
+        FinalizeChallenge { gamma_1, gamma_2 }
     }
 
     fn process_scalar_product_message(&self) -> &ScalarProductMessage<G1, G2> {

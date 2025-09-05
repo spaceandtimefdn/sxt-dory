@@ -4,15 +4,12 @@ use rayon::prelude::*;
 
 use crate::{
     arithmetic::{Field, Group, MultiScalarMul, Pairing},
-    messages::{
-        FirstReduceChallenge, FirstReduceMessage, ScalarProductMessage,
-        SecondReduceChallenge, SecondReduceMessage,
-    },
+    messages::{FirstReduceChallenge, FirstReduceMessage, SecondReduceChallenge, SecondReduceMessage},
     setup::VerifierSetup,
     state::{DoryProverState, DoryVerifierState, VerifierState},
 };
 
-use super::{ProverSetup, FinalVerifyChallenge};
+use super::{ProverSetup, FinalizeChallenge};
 
 /// Below is the **prover** side of the interactive protocol for Dory
 /// We define the relevant message implementations in the order of communication
@@ -370,55 +367,40 @@ where
         self.e_2 = new_e_2;
     }
 
-    /// Final verification step for Extended Dory-Reduce
-    /// This implements the final pairing check based on:
-    /// 1. The scalar product verification from section 3.1 of the paper
-    ///
-    /// For nu = 0, we check:
-    /// pairing(E_1 + Gamma_1_0 * d, E_2 + Gamma_2_0 * d_inv) ==
-    /// (C + chi[0] + D_2 * d + D_1 * d_inv)
-    fn final_verify(
+    /// Final verification step (Nemo-Finalize, non-ZK)
+    /// Implements the deferred VMV pairing check batched with γ₁, γ₂, and
+    /// leaves linear G1/G2 checks to be wired once s₁, s₂ base-case values are available.
+    fn finalize(
         &self,
         setup: &Self::Setup,
-        message: &ScalarProductMessage<Self::G1, Self::G2>,
-        gamma_pair: FinalVerifyChallenge<Self::Scalar>,
+        gamma_pair: FinalizeChallenge<Self::Scalar>,
     ) -> bool {
-        // challenge
-        let (gamma_1, gamma_2) = (gamma_pair.gamma_1, gamma_pair.gamma_2);
-
-        // Assert that we're at the appropriate round (nu = 0)
+        // Base case
         assert_eq!(self.nu, 0);
 
-        // let s1_final = self
-        //     .eval_point_left
-        //     // .as_ref()
-        //     .and_then(|v| v.get(0))
-        //     .cloned()
-        //     .unwrap();
+        let gamma_1 = gamma_pair.gamma_1;
+        let gamma_2 = gamma_pair.gamma_2;
 
-        //     let s2_final = self
-        //         .s2_tensor
-        //         .as_ref()
-        //         .and_then(|v| v.get(0))
-        //         .cloned()
-        //         .unwrap();
+        // GT batched pairing check:
+        // e(E1_orig, Γ2_fin) + e(γ1 · E1, Γ2_0) + e(γ2 · Γ1_0, E2)
+        //  == D2_orig + γ1 · D1 + γ2 · D2
+        let t0 = E::pair(&self.e_1_orig, &setup.g_fin);
+        let t1 = E::pair(&self.e_1.scale(&gamma_1), &setup.g2_0);
+        let t2 = E::pair(&setup.g1_0.scale(&gamma_2), &self.e_2);
+        let lhs = t0.add(&t1).add(&t2);
 
-        // Left side of the equation: pairing(E_1 + Gamma_1_0 * gamma, E_2 + Gamma_2_0 * gamma_inv)
-        let e1_modified = message.e1.add(&setup.g1_0.scale(&d));
-        let e2_modified = message.e2.add(&setup.g2_0.scale(&d_inverse));
+        let rhs = self
+            .d_2_orig
+            .add(&self.d_1.scale(&gamma_1))
+            .add(&self.d_2.scale(&gamma_2));
 
-        let left_side = E::pair(&e1_modified, &e2_modified);
+        if lhs != rhs {
+            return false;
+        }
 
-        // Add chi[0]
-        let right_side = setup.chi[0];
+        // TODO: Linear checks at base case once s₁_final, s₂_final and v₁_final, v₂_final
+        // are available on the verifier side. For now, they are deferred.
 
-        // Add D_2 * gamma
-        right_side = right_side.add(&self.d_2.scale(&d));
-
-        // Add D_1 * gamma_inv
-        right_side = right_side.add(&self.d_1.scale(&d_inverse));
-
-        // Compare the two sides
-        left_side == right_side
+        true
     }
 }

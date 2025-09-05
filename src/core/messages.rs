@@ -130,7 +130,7 @@ where
     CanonicalSerialize,
     CanonicalDeserialize,
 )]
-pub struct FinalVerifyChallenge<Scalar>
+pub struct FinalizeChallenge<Scalar>
 where
     Scalar: Field,
 {
