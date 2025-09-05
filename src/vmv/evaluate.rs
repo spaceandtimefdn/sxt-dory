@@ -18,6 +18,7 @@ use crate::{
     },
     ProofBuilder,
 };
+use crate::curve::SmallScalarMul;
 
 /// Implements the Eval-VMV-RE protocol from Dory Section 5
 /// Proves the VMV relation: polynomial(point) = L^T × M × R
@@ -39,9 +40,9 @@ fn eval_vmv_re_prove<
     DoryProverState<E>,
 )
 where
-    E::G1: Group,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
-    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::G1: Group + SmallScalarMul,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
     <E::G1 as Group>::Scalar: Field,
 {
     // Validate inputs
@@ -117,9 +118,9 @@ pub fn create_evaluation_proof<
     prover_setup: &ProverSetup<E>,
 ) -> DoryProofBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>
 where
-    E::G1: Group,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
-    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::G1: Group + SmallScalarMul,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
     <E::G1 as Group>::Scalar: Field,
 {
     // 1. Compute parameters
@@ -241,9 +242,9 @@ fn eval_vmv_re_verify<
     DoryVerifierState<E>,
 )
 where
-    E::G1: Group,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
-    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::G1: Group + SmallScalarMul,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
     <E::G1 as Group>::Scalar: Field,
 {
     let vmv_message = verify_builder.process_vmv_message_take();
@@ -280,9 +281,9 @@ pub fn verify_evaluation_proof<
     transcript: T,
 ) -> Result<(), DoryError>
 where
-    E::G1: Group,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
-    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::G1: Group + SmallScalarMul,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
     <E::G1 as Group>::Scalar: Field,
 {
     // 1. Compute the MSM of commits and the factors

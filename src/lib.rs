@@ -7,6 +7,7 @@
 //! building block for other zk/SNARK protocols.
 
 use crate::arithmetic::{Field, Group, MultiScalarMul, Pairing};
+use crate::curve::SmallScalarMul;
 use crate::error::DoryError;
 use crate::toy_transcript::ToyTranscript;
 use crate::transcript::Transcript;
@@ -170,8 +171,8 @@ where
     E: Pairing,
     M1: MultiScalarMul<E::G1>,
     P: Polynomial<<E::G1 as Group>::Scalar, E::G1> + ?Sized + Sync,
-    E::G1: Group,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::G1: Group + SmallScalarMul,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
 {
     compute_polynomial_commitment::<E, M1, P, <E::G1 as Group>::Scalar, E::G1>(
         polynomial,
@@ -212,9 +213,9 @@ pub fn evaluate<
     transcript: T,
 ) -> DoryProofBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>
 where
-    E::G1: Group,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
-    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::G1: Group + SmallScalarMul,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
     <E::G1 as Group>::Scalar: Field + Clone,
 {
     // Create the evaluation proof
@@ -260,9 +261,9 @@ pub fn verify<
     transcript: T,
 ) -> Result<(), DoryError>
 where
-    E::G1: Group,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
-    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::G1: Group + SmallScalarMul,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
     <E::G1 as Group>::Scalar: Field,
 {
     // Prepare verification data
