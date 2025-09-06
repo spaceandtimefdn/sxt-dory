@@ -171,10 +171,13 @@ where
         let (s1_l, s1_r) = self.s1.split_at(n2);
         let (s2_l, s2_r) = self.s2.split_at(n2);
 
-        // PCS variant: omit C terms (c_plus, c_minus)
         // ---- E terms (extended protocol) ---------------------------------------
-        let e1_plus = M1::msm(v1_l, s2_r); // ⟨v₁L, s₂R⟩
-        let e1_minus = M1::msm(v1_r, s2_l); // ⟨v₁R, s₂L⟩
+        // Match verifier update: E₁' ← E₁- + α · (E₁ + β · E₁β + α · E₁+)
+        // Therefore:
+        //   E₁- = ⟨v₁L(new), s₂R⟩,  E₁+ = ⟨v₁R(new), s₂L⟩
+        let e1_minus = M1::msm(v1_l, s2_r); // ⟨v₁L, s₂R⟩
+        let e1_plus = M1::msm(v1_r, s2_l); // ⟨v₁R, s₂L⟩
+        // For E₂, the current assignments already match: E₂- = ⟨v₂L(new), s₁R⟩, E₂+ = ⟨v₂R(new), s₁L⟩
         let e2_plus = M2::msm(v2_r, s1_l); // ⟨v₂R, s₁L⟩
         let e2_minus = M2::msm(v2_l, s1_r); // ⟨v₂L, s₁R⟩
 
@@ -186,7 +189,7 @@ where
         }
     }
 
-    /// On every round, cut vector length in half and fold with α (Light semantics):
+    /// On every round, cut vector length in half and fold with α (Nemo semantics):
     ///
     ///   v₁ ← v₁L + α · v₁R
     ///   v₂ ← v₂L + α · v₂R
@@ -303,7 +306,7 @@ where
         // Record the α used for this round for later base-case evaluation of s₁,s₂
         self.alpha_challenges.push(alpha);
 
-        // Update D₁ and D₂ (Light semantics, no inverses)
+        // Update D₁ and D₂ (Nemo semantics, no inverses)
         // D₁' <- D₁L + α * D₁R + β * (Δ₁L + α * Δ₁R)
         // D₂' <- D₂L + α * D₂R + β * (Δ₂L + α * Δ₂R)
         Self::dory_reduce_verify_update_ds(
@@ -319,7 +322,7 @@ where
             beta,
         );
 
-        // Update E₁ and E₂ for the **extended** protocol (Light semantics)
+        // Update E₁ and E₂ for the **extended** protocol (Nemo semantics)
         // E₁' <- E₁- + α * (E₁ + β * E₁β + α * E₁+)
         // E₂' <- E₂- + α * (E₂ + β * E₂β + α * E₂+)
         Self::dory_reduce_verify_update_es(
@@ -341,7 +344,7 @@ where
         true
     }
 
-    /// From the Dory-Reduce-Light semantics (no inverses).
+    /// From the Nemo-Reduce semantics (no inverses).
     /// Updates `D₁` and `D₂` in verifier state:
     /// * D₁' ← D₁L + α · D₁R + β · (Δ₁L + α · Δ₁R)
     /// * D₂' ← D₂L + α · D₂R + β · (Δ₂L + α · Δ₂R)
@@ -374,7 +377,7 @@ where
         self.d_2 = new_d_2;
     }
 
-    /// Extended Dory-Reduce-Light semantics for E updates (no inverses):
+    /// Nemo-Reduce semantics for E updates (no inverses):
     /// * E₁' ← E₁- + α · (E₁ + β · E₁β + α · E₁+)
     /// * E₂' ← E₂- + α · (E₂ + β · E₂β + α · E₂+)
     fn dory_reduce_verify_update_es(

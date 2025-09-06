@@ -267,39 +267,17 @@ pub trait VerificationBuilder {
     /// Number of rounds (nu)
     fn rounds(&self) -> usize;
 
-    /// Returns the messages for round[idx]
-    fn take_round(
-        &mut self,
-        idx: usize,
-    ) -> (
-        FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
-        SecondReduceMessage<Self::G1, Self::G2>,
-    );
-
     /// Getter for first msg
     fn first_message(&self, idx: usize) -> &FirstReduceMessage<Self::G1, Self::G2, Self::GT>;
 
     /// Getter for second msg
     fn second_message(&self, idx: usize) -> &SecondReduceMessage<Self::G1, Self::G2>;
 
-    /// Consume a FirstReduceMessage, append it to the transcript,
-    /// and return β, β⁻¹.
-    fn process_first_reduce_message(
-        &mut self,
-        msg: &FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
-    ) -> FirstReduceChallenge;
-
     /// Append first-reduce message at index to transcript and return β.
     fn process_first_reduce_message_at(
         &mut self,
         idx: usize,
     ) -> FirstReduceChallenge;
-
-    /// Consume a SecondReduceMessage, append, and return α, α⁻¹.
-    fn process_second_reduce_message(
-        &mut self,
-        msg: &SecondReduceMessage<Self::G1, Self::G2>,
-    ) -> SecondReduceChallenge;
 
     /// Append second-reduce message at index to transcript and return α.
     fn process_second_reduce_message_at(
@@ -310,14 +288,8 @@ pub trait VerificationBuilder {
     /// Derive gamma_1, gamma_2 after all rounds are ingested.
     fn challenge_finalize(&mut self) -> FinalizeChallenge;
 
-    /// Process a [`VMVMessage`].
-    fn process_vmv_message(&mut self) -> VMVMessage<Self::G1, Self::GT>;
-
     /// Process a [`VMVMessage`] and move it out of the builder without cloning.
     fn process_vmv_message_take(&mut self) -> VMVMessage<Self::G1, Self::GT>;
-
-    /// Process the final base-case group elements from the prover.
-    fn process_final_bases(&mut self) -> FinalBasesMessage<Self::G1, Self::G2>;
 
     /// Move the final base-case group elements out of the builder without cloning.
     fn process_final_bases_take(&mut self) -> FinalBasesMessage<Self::G1, Self::G2>;
@@ -408,38 +380,11 @@ where
         self.first_messages.len()
     }
 
-    fn take_round(
-        &mut self,
-        idx: usize,
-    ) -> (
-        FirstReduceMessage<G1, G2, GT>,
-        SecondReduceMessage<G1, G2>,
-    ) {
-        let m1 = self.first_messages[idx].clone();
-        let m2 = self.second_messages[idx].clone();
-        (m1, m2)
-    }
-
     fn first_message(&self, idx: usize) -> &FirstReduceMessage<G1, G2, GT> {
         &self.first_messages[idx]
     }
     fn second_message(&self, idx: usize) -> &SecondReduceMessage<G1, G2> {
         &self.second_messages[idx]
-    }
-
-    fn process_first_reduce_message(
-        &mut self,
-        m: &FirstReduceMessage<G1, G2, GT>,
-    ) -> FirstReduceChallenge {
-        self.transcript.append_group(b"d1_left", &m.d1_left);
-        self.transcript.append_group(b"d1_right", &m.d1_right);
-        self.transcript.append_group(b"d2_left", &m.d2_left);
-        self.transcript.append_group(b"d2_right", &m.d2_right);
-        self.transcript.append_group(b"e1_beta", &m.e1_beta);
-        self.transcript.append_group(b"e2_beta", &m.e2_beta);
-
-        let beta = self.transcript.challenge_u128(b"first_reduce_beta");
-        FirstReduceChallenge { beta }
     }
 
     fn process_first_reduce_message_at(
@@ -457,20 +402,6 @@ where
 
         let beta = transcript.challenge_u128(b"first_reduce_beta");
         FirstReduceChallenge { beta }
-    }
-
-    fn process_second_reduce_message(
-        &mut self,
-        m: &SecondReduceMessage<G1, G2>,
-    ) -> SecondReduceChallenge {
-        // PCS variant: omit C_+ and C_- from transcript
-        self.transcript.append_group(b"e1_plus", &m.e1_plus);
-        self.transcript.append_group(b"e1_minus", &m.e1_minus);
-        self.transcript.append_group(b"e2_plus", &m.e2_plus);
-        self.transcript.append_group(b"e2_minus", &m.e2_minus);
-
-        let alpha = self.transcript.challenge_u128(b"second_reduce_alpha");
-        SecondReduceChallenge { alpha }
     }
 
     fn process_second_reduce_message_at(
@@ -495,18 +426,6 @@ where
         FinalizeChallenge { gamma_1, gamma_2 }
     }
 
-    fn process_vmv_message(&mut self) -> VMVMessage<G1, GT> {
-        let message = self
-            .vmv_msg
-            .as_ref()
-            .expect("VMV message must be present in verify builder");
-        // PCS variant: remove c from the protocol
-        // self.transcript.append_group(b"c_eval_vmv", &message.c);
-        self.transcript.append_group(b"d2_eval_vmv", &message.d2);
-        self.transcript.append_group(b"e1_eval_vmv", &message.e1);
-        message.clone()
-    }
-
     fn process_vmv_message_take(&mut self) -> VMVMessage<G1, GT> {
         let message = self
             .vmv_msg
@@ -516,13 +435,6 @@ where
         self.transcript.append_group(b"d2_eval_vmv", &message.d2);
         self.transcript.append_group(b"e1_eval_vmv", &message.e1);
         message
-    }
-
-    fn process_final_bases(&mut self) -> FinalBasesMessage<G1, G2> {
-        self.final_bases
-            .as_ref()
-            .expect("Final bases must be present in verify builder")
-            .clone()
     }
 
     fn process_final_bases_take(&mut self) -> FinalBasesMessage<G1, G2> {
@@ -559,7 +471,7 @@ where
 
         let total_gt_elements = self.first_messages.iter().map(|_m| 4).sum::<usize>() + // d1_left/right + d2_left/right per round
                                self.second_messages.iter().map(|_m| 0).sum::<usize>() + // PCS: no C terms per round
-                               if self.vmv_message.is_some() { 2 } else { 0 }; // vmv c + d2
+                               if self.vmv_message.is_some() { 1 } else { 0 }; // vmv d2
 
         println!("Total G1 elements in proof: {}", total_g1_elements);
         println!("Total G2 elements in proof: {}", total_g2_elements);

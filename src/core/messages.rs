@@ -3,7 +3,7 @@ use crate::arithmetic::Group;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
 
-/// The first prover message in the Dory-Reduce portion (Section 3.2) of the Dory protocol.
+/// The first prover message in the Nemo-Reduce portion (Section 3.2) of the Nemo protocol.
 ///
 /// This consists of $D_{1L}$, $D_{1R}$, $D_{2L}$, $D_{2R}$, $E_{1\beta}$, and $E_{2\beta}$.
 #[derive(
@@ -38,7 +38,7 @@ where
     pub e2_beta: G2,
 }
 
-/// The the first verifier challenge in the Dory-Reduce portion (Section 3.2) of the Dory protocol.
+/// The the first verifier challenge in the Nemo-Reduce portion (Section 3.2) of the Nemo protocol.
 ///
 /// The challenge, $\beta$, is a random scalar. Additionally, $\beta$ must be non-zero because
 /// the protocol uses $\beta^{-1}$, which we also include here.
@@ -59,7 +59,7 @@ pub struct FirstReduceChallenge {
     pub beta: [u64; 2],
 }
 
-/// The second prover message in the Dory-Reduce portion (Section 3.2) of the Dory protocol.
+/// The second prover message in the Nemo-Reduce portion (Section 3.2) of the Nemo protocol.
 ///
 /// PCS variant: we omit the $C_+$ and $C_-$ terms and only keep the extended E-terms.
 /// This reduces proof size and transcript data for polynomial commitments since C is not needed in the PCS.
@@ -90,7 +90,7 @@ where
     pub e2_minus: G2,
 }
 
-/// The second verifier challenge in the Dory-Reduce portion (Section 3.2) of the Dory protocol.
+/// The second verifier challenge in the Nemo-Reduce portion (Section 3.2) of the Nemo protocol.
 ///
 /// The challenge, $\alpha$, is a random scalar. Additionally, $\alpha$ must be non-zero because
 /// the protocol uses $\alpha^{-1}$, which we also include here.

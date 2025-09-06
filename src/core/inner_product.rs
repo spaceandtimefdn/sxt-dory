@@ -5,7 +5,7 @@ use crate::builder::{ProofBuilder, VerificationBuilder};
 use crate::state::{ProverState, VerifierState};
 use crate::messages::FinalBasesMessage;
 
-/// Prover side of extended Dory-innerproduct
+/// Prover side of extended Nemo-innerproduct
 /// Follows very closely the prover side of the protocol on Page 24.
 #[tracing::instrument(skip_all)]
 pub fn inner_product_prove<Builder, State, G1, G2, GT, Scalar, Setup, M1, M2>(
@@ -46,7 +46,7 @@ where
     builder.append_final_bases(final_bases)
 }
 
-/// Verifier analogue for the extended Dory-innerproduct
+/// Verifier analogue for the extended Nemo-innerproduct
 pub fn inner_product_verify<B, State, G1, G2, GT, Scalar, Setup>(
     mut builder: B,
     mut state: State,
@@ -75,7 +75,10 @@ where
         }
     }
     // Finalize (deferred pairing and linear checks)
+    // Derive finalize challenge to keep transcript order in sync, then ingest final bases
     let finalize_challenge = builder.challenge_finalize();
+    let bases = builder.process_final_bases_take();
+    state.set_final_bases(bases.v1_final, bases.v2_final);
     if !state.finalize(setup, finalize_challenge) {
         return Err(builder.rounds());
     }

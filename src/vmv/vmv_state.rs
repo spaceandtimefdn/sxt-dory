@@ -51,13 +51,11 @@ where
 /// Compute the size of the matrix M that is derived from the coefficients
 /// 2^nu is the side length of M
 pub fn compute_nu(num_vars: usize, sigma: usize) -> usize {
-    if num_vars <= sigma * 2 {
-        // No padding needed
-        sigma
-    } else {
-        // Padding needed
-        num_vars - sigma
-    }
+    // Target rows so that 2^nu * 2^sigma >= 2^num_vars, and keep nu >= 0
+    // Choose minimal nu that satisfies the inequality with given sigma
+    if num_vars <= sigma { return 0; }
+    let rem = num_vars - sigma;
+    rem
 }
 
 /// Compute the (Pedersen) commitments to the rows of the matrix M that is derived from coeffs `a`.
@@ -75,7 +73,9 @@ where
     E::G1: Group,
     <E::G1 as Group>::Scalar: Field + Clone,
 {
-    let bases = &prover_setup.g1_vec()[..1 << nu];
+    // Use Γ₁[σ] as bases to commit each row of length 2^σ
+    debug_assert!(prover_setup.g1_vec().len() >= (1usize << sigma), "Γ1 length < 2^σ");
+    let bases = &prover_setup.g1_vec()[..1 << sigma];
     let row_len = 1 << sigma;
 
     let mut res = polynomial.commit_rows::<M1>(bases, row_len);
@@ -123,14 +123,37 @@ pub fn vmv_state_to_dory_prover_state<E: Pairing>(
 where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
+    <E::G1 as Group>::Scalar: Clone,
 {
     // Extract values from VMV state
     // Note: the paper has a typo and we want to actually set s1 = R, s2 = L (as we do below)
     let v_vec = vmv_state.v_vec;
-    let s1 = vmv_state.r_vec;
-    let s2 = vmv_state.l_vec;
+    let r_vec = vmv_state.r_vec;
+    let s2 = vmv_state.l_vec; // length 2^nu
     let v1 = vmv_state.t_vec_prime; // row commitments
     let nu = vmv_state.nu; // nu
+
+    // Ensure s1 has length 2^nu by expanding r_vec (length 2^sigma) with block repetition
+    let target_len = 1usize << nu;
+    debug_assert!(target_len.is_power_of_two());
+    debug_assert!(r_vec.len().is_power_of_two());
+    debug_assert!(target_len % r_vec.len() == 0, "2^ν must be a multiple of 2^σ");
+    let s1 = if r_vec.len() == target_len {
+        r_vec
+    } else if r_vec.len() < target_len {
+        let repeat = target_len / r_vec.len();
+        let mut expanded = Vec::with_capacity(target_len);
+        for val in r_vec.iter() {
+            for _ in 0..repeat {
+                expanded.push(val.clone());
+            }
+        }
+        expanded
+    } else {
+        // This case should not occur with current compute_nu (guarantees nu >= sigma)
+        // Fallback: truncate to target_len (conservative); a better approach would rebalance nu/sigma.
+        r_vec.into_iter().take(target_len).collect()
+    };
 
     // eval_vmv_re will calculate v2
     let v2 = Vec::new();

@@ -59,17 +59,17 @@ where
 
     // D₂ = e(⟨Γ₁[nu], ~v⟩, Γ₂,fin)
     // Protocol: D₂ = e(⟨Γ₁,~v⟩, Γ₂,fin) + rD₂·HT (randomness omitted)
-    let g1_bases_at_nu =
-        if prover_state.nu > 0 && prover_setup.g1_vec().len() >= (1 << prover_state.nu) {
-            &prover_setup.g1_vec()[..1 << prover_state.nu]
-        } else {
-            &[][..]
-        };
+    // Slice Γ₁ by the width of v_vec (2^σ), not by ν. This is robust when σ ≠ ν.
+    let g1_bases_for_sigma = if v_vec.is_empty() || prover_setup.g1_vec().len() < v_vec.len() {
+        &[][..]
+    } else {
+        &prover_setup.g1_vec()[..v_vec.len()]
+    };
 
-    let gamma1_v_inner_product = if g1_bases_at_nu.is_empty() || prover_state.s1.is_empty() {
+    let gamma1_v_inner_product = if g1_bases_for_sigma.is_empty() {
         E::G1::identity()
     } else {
-        M1::msm(g1_bases_at_nu, v_vec)
+        M1::msm(g1_bases_for_sigma, v_vec)
     };
     let d2 = E::pair(&gamma1_v_inner_product, prover_setup.g_fin());
 
@@ -97,7 +97,32 @@ where
         prover_setup.g2_cache.as_ref(),
     );
 
-    prover_state.v2 = updated_v2;
+    // If ν > σ, expand v2 by repeating each entry 2^(ν-σ) times to reach length 2^ν.
+    // This aligns with padding the missing right-dimensions by (1,1) tensors.
+    let target_len = 1usize << prover_state.nu;
+    let base_len = updated_v2.len();
+    debug_assert!(base_len == 0 || base_len.is_power_of_two());
+    debug_assert!(target_len.is_power_of_two());
+    debug_assert!(base_len == 0 || target_len % base_len == 0, "target 2^ν must be multiple of 2^σ");
+    let v2_expanded = if base_len > 0 && target_len > base_len {
+        let repeat = target_len / base_len;
+        let mut out = Vec::with_capacity(target_len);
+        for g in updated_v2.iter() {
+            for _ in 0..repeat {
+                out.push(g.clone());
+            }
+        }
+        out
+    } else {
+        updated_v2
+    };
+
+    // Use expanded v2 and disable scalar shortcut if expansion occurred to avoid length mismatch
+    let expanded = v2_expanded.len() == target_len && base_len != target_len;
+    prover_state.v2 = v2_expanded;
+    if expanded {
+        prover_state.v2_scalars = None;
+    }
 
     (proof_builder, prover_state)
 }
@@ -123,16 +148,21 @@ where
     E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
     <E::G1 as Group>::Scalar: Field,
 {
-    // 1. Compute parameters
-    let nu = compute_nu(point.len(), sigma);
-    // println!("nu length: {:?}", nu); -> useful for debug
+    // 1. Choose split to avoid repetition: σ_eff = max(σ, ceil(d/2)), ν_rows = d - σ_eff, run IP rounds N = σ_eff
+    let d = point.len();
+    let sigma_eff = core::cmp::max(sigma, (d + 1) / 2);
+    let _nu_rows = d.saturating_sub(sigma_eff);
+    let nu = sigma_eff; // protocol rounds and target side length 2^N
+    debug_assert!(prover_setup.g1_vec().len() >= (1usize << sigma_eff), "Γ1 length < 2^σ_eff");
+    debug_assert!(prover_setup.g2_vec().len() >= (1usize << nu), "Γ2 length < 2^N");
+    // println!("N (rounds) = {}, sigma_eff = {}, nu_rows = {}", nu, sigma_eff, _nu_rows);
 
     // 2. Compute row commits (T` in the paper?)
     let t_vec_prime = row_commitments
-        .unwrap_or_else(|| commit_to_rows::<E, M1, P>(polynomial, sigma, nu, prover_setup));
+        .unwrap_or_else(|| commit_to_rows::<E, M1, P>(polynomial, sigma_eff, nu, prover_setup));
 
     // 3. Build VMV prover state
-    let vmv_state = build_vmv_prover_state::<E, P>(polynomial, point, t_vec_prime, sigma, nu);
+    let vmv_state = build_vmv_prover_state::<E, P>(polynomial, point, t_vec_prime, sigma_eff, nu);
 
     // 4. Convert VMV state to DoryProverState
     let (v_vec, mut prover_state) = vmv_state_to_dory_prover_state(vmv_state, prover_setup);

@@ -45,7 +45,7 @@ pub trait ProverState {
         M1: MultiScalarMul<Self::G1>,
         M2: MultiScalarMul<Self::G2>;
     /// Combines vᵢ with Γᵢ using the [`FirstReduceChallenge`] (step (*) in
-    /// Dory-Reduce-Light). Updates:
+    /// Nemo-Reduce). Updates:
     /// v₁(new) ← v₁ + β·Γ₁;  v₂(new) ← v₂ + β·Γ₂.
     /// 
     /// Note: can speed up this computation due to same scalar (β) applied to fixed base (Γ₁, Γ₂)
@@ -81,7 +81,7 @@ pub trait ProverState {
         M1: MultiScalarMul<Self::G1>,
         M2: MultiScalarMul<Self::G2>;
     /// Folds the vᵢ and sᵢ vectors using the [`SecondReduceChallenge`] (step (**) in
-    /// Dory-Reduce-Light). Updates:
+    /// Nemo-Reduce). Updates:
     /// v₁′ ← v₁L(new) + α·v₁R(new);  v₂′ ← v₂L(new) + α·v₂R(new);
     /// s₁′ ← α·s₁L + s₁R;           s₂′ ← α·s₂L + s₂R.
     ///
@@ -125,7 +125,7 @@ pub trait VerifierState {
     /// The setup type. This should contain the public parameters needed for verification.
     type Setup;
 
-    /// This is the verifier side of the extended Dory-Reduce algorithm in section 3.2 & 4.2 of the paper.
+    /// This is the verifier side of the extended Nemo-Reduce algorithm in section 3.2 & 4.2 of the paper.
     fn dory_reduce_verify_round(
         &mut self,
         setup: &Self::Setup,
@@ -157,7 +157,7 @@ pub trait VerifierState {
         beta: [u64; 2],
     );
 
-    /// Final verification step for Dory-InnerProduct-Light
+    /// Final verification step for Nemo-InnerProduct
     /// Verifies: TBD
     fn finalize(
         &self,
