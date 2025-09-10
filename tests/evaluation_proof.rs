@@ -103,11 +103,6 @@ fn test_evaluation_proof() {
     println!("Proof message counts:");
     println!("  - First messages: {}", proof.first_messages.len());
     println!("  - Second messages: {}", proof.second_messages.len());
-    println!(
-        "  - Final bases message: {:?}",
-        // No final scalar-product message; use final bases presence as completion signal
-        proof.final_bases.clone().unwrap()
-    );
 
     // Verify that proof contains messages
     assert!(

@@ -261,26 +261,6 @@ where
     verifier_state.eval_point_left = vmv_state.eval_point_left;
     verifier_state.eval_point_right = vmv_state.eval_point_right;
 
-    eprintln!("DEBUG: Initial verifier state created:");
-    eprintln!("  - d_1: {:?}", verifier_state.d_1);
-    eprintln!("  - d_2: {:?}", verifier_state.d_2);
-    eprintln!("  - e_1: {:?}", verifier_state.e_1);
-    eprintln!("  - e_2: {:?}", verifier_state.e_2);
-    eprintln!("  - nu: {}", verifier_state.nu);
-    eprintln!("  - eval_point_left length: {}", verifier_state.eval_point_left.len());
-    eprintln!("  - eval_point_right length: {}", verifier_state.eval_point_right.len());
-    
-    // Debug: Print the actual eval point values
-    eprintln!("  - eval_point_left has {} values", verifier_state.eval_point_left.len());
-    eprintln!("  - eval_point_right has {} values", verifier_state.eval_point_right.len());
-    // Quick equality checks
-    let left_eq_right = verifier_state.eval_point_left.as_ref() == verifier_state.eval_point_right.as_ref();
-    let prefix_eq = if verifier_state.eval_point_right.len() >= verifier_state.eval_point_left.len() {
-        &verifier_state.eval_point_right[..verifier_state.eval_point_left.len()] == verifier_state.eval_point_left.as_ref()
-    } else { false };
-    eprintln!("  - eval_point_left == eval_point_right: {}", left_eq_right);
-    eprintln!("  - eval_point_left == prefix(eval_point_right): {}", prefix_eq);
-
     verifier_state
 }
 

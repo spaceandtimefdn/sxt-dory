@@ -391,7 +391,6 @@ impl<E: Pairing> VerifierSetup<E> {
         let mut chi = Vec::with_capacity(max_log_n + 1);
 
         for k in 0..=max_log_n {
-            println!("k: {k}");
             if k == 0 {
                 delta_1l.push(E::GT::identity());
                 delta_1r.push(E::GT::identity());

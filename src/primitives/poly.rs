@@ -150,15 +150,16 @@ pub fn fold_eval_from_coords_and_alphas<F: Field>(coords: &[F], alphas: &[[u64; 
             (true, true) => {
                 // Both present: x + a * (1 - x)
                 let x = coords[i];
-                let a = F::one().mul_u128(alphas[i]);
-                x.add(&a.mul(&F::one().sub(&x)))
+                x.add(&(&F::one().sub(&x)).mul_u128(alphas[i]))
             }
             (true, false) => {
                 // Extra coord with no alpha: multiply by x
+                eprintln!("DEBUG: Extra coord with no alpha");
                 coords[i]
             }
             (false, true) => {
                 // Extra alpha with no coord: multiply by a
+                eprintln!("DEBUG: Extra alpha with no coord");
                 F::one().mul_u128(alphas[i])
             }
             (false, false) => unreachable!(),
