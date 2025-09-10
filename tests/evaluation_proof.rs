@@ -16,8 +16,8 @@ use dory::curve::{
 };
 
 #[test]
-fn test_evaluation_proof_sigma_2() {
-    println!("===== Evaluation Proof Test (sigma=2) =====");
+fn test_evaluation_proof() {
+    println!("===== Evaluation Proof Test =====");
     let total_start = Instant::now();
 
     // ----- Test Parameters -----
@@ -37,15 +37,15 @@ fn test_evaluation_proof_sigma_2() {
     println!("\n[1/4] Creating setup...");
     let setup_start = Instant::now();
 
-    // Calculate nu (polynomial degree)
-    let nu = length.next_power_of_two().trailing_zeros() as usize;
-    println!("  - Nu (log of next power of 2 of length): {}", nu);
-    println!("  - 2^nu: {}", 1 << nu);
+    // Calculate point_dim (number of variables)
+    let point_dim = length.next_power_of_two().trailing_zeros() as usize;
+    println!("  - Point dimension (log of next power of 2 of length): {}", point_dim);
+    println!("  - 2^point_dim: {}", 1 << point_dim);
 
-    // Verify nu is valid for the polynomial length
-    assert!(length <= 1 << nu, "Length should be at most 2^nu");
+    // Verify point_dim is valid for the polynomial length
+    assert!(length <= 1 << point_dim, "Length should be at most 2^point_dim");
     assert!(
-        1 << (nu - 1) < length,
+        1 << (point_dim - 1) < length,
         "Length should be more than 2^(nu-1)"
     );
 
@@ -64,7 +64,7 @@ fn test_evaluation_proof_sigma_2() {
 
     // Generate random evaluation point
     let b_points = core::iter::repeat_with(|| Fr::random(&mut rng))
-        .take(nu)
+        .take(point_dim)
         .collect::<Vec<_>>();
 
     println!("  - Polynomial coefficient count: {}", a.len());
@@ -121,7 +121,6 @@ fn test_evaluation_proof_sigma_2() {
 
     // ----- Verify the proof -----
     println!("\n[5/5] Verifying evaluation proof...");
-    let verify_start = Instant::now();
 
     // Compute proper commitment, batching factors, and evaluations
     let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
@@ -140,6 +139,8 @@ fn test_evaluation_proof_sigma_2() {
 
     // Create fresh transcript for verification
     let verify_transcript = ToyTranscript::new(domain);
+
+    let verify_start = Instant::now();
 
     // Call verify_evaluation_proof
     let verification_result = verify_evaluation_proof::<
@@ -163,6 +164,7 @@ fn test_evaluation_proof_sigma_2() {
     println!("Verification completed in: {:?}", verify_time);
 
     // Check verification result
+    let success = verification_result.is_ok();
     match verification_result {
         Ok(_) => println!("✓ Proof verification succeeded!"),
         Err(e) => println!("✗ Proof verification failed: {:?}", e),
@@ -182,7 +184,11 @@ fn test_evaluation_proof_sigma_2() {
         verify_time,
         verify_time.as_secs_f64() / total_time.as_secs_f64() * 100.0
     );
-    println!("Evaluation proof test completed successfully!");
+    if success {
+        println!("Evaluation proof test completed successfully!");
+    }
+
+    assert!(success, "Evaluation proof verification failed");
 }
 
 #[test]

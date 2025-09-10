@@ -247,7 +247,9 @@ where
     }
 
     fn append_final_bases(mut self, message: FinalBasesMessage<Self::G1, Self::G2>) -> Self {
-        // No transcript impact (optional). If desired we could append to transcript too.
+        // Append final bases to transcript to bind finalize challenges
+        self.transcript.append_group(b"final_v1", &message.v1_final);
+        self.transcript.append_group(b"final_v2", &message.v2_final);
         self.final_bases = Some(message);
         self
     }
@@ -438,9 +440,14 @@ where
     }
 
     fn process_final_bases_take(&mut self) -> FinalBasesMessage<G1, G2> {
-        self.final_bases
+        let msg = self
+            .final_bases
             .take()
-            .expect("Final bases must be present in verify builder")
+            .expect("Final bases must be present in verify builder");
+        // Mirror prover: bind final bases in transcript before finalize challenges
+        self.transcript.append_group(b"final_v1", &msg.v1_final);
+        self.transcript.append_group(b"final_v2", &msg.v2_final);
+        msg
     }
 }
 

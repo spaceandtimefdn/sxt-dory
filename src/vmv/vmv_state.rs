@@ -51,11 +51,13 @@ where
 /// Compute the size of the matrix M that is derived from the coefficients
 /// 2^nu is the side length of M
 pub fn compute_nu(num_vars: usize, sigma: usize) -> usize {
-    // Target rows so that 2^nu * 2^sigma >= 2^num_vars, and keep nu >= 0
-    // Choose minimal nu that satisfies the inequality with given sigma
-    if num_vars <= sigma { return 0; }
-    let rem = num_vars - sigma;
-    rem
+    if num_vars <= sigma * 2 {
+        // No padding needed: prefer square (ν = σ)
+        sigma
+    } else {
+        // Padding needed: columns capped at 2^σ, remaining variables go to rows
+        num_vars - sigma
+    }
 }
 
 /// Compute the (Pedersen) commitments to the rows of the matrix M that is derived from coeffs `a`.

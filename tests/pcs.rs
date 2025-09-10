@@ -14,8 +14,8 @@ fn test_pcs_api_workflow() {
     let domain = b"dory_pcs_test";
 
     // Multilinear polynomial parameters
-    let num_variables = 24;
-    let sigma = 12; // sigma must be <= max_log_n / 2 for the SRS
+    let num_variables = 18;
+    let sigma = 9; // sigma must be <= max_log_n / 2 for the SRS
     let num_coeffs = 1 << num_variables;
 
     println!(

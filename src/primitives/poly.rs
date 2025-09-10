@@ -84,7 +84,6 @@ where
         }
     }
 }
-
 /// Compute vectors L and R for matrix-based polynomial evaluation
 /// Given a polynomial arranged as a matrix M, computes L and R such that:
 /// polynomial_evaluation(b_point) = L^T × M × R
@@ -143,15 +142,30 @@ pub fn compute_left_right_vec<F: Field>(
 pub fn fold_eval_from_coords_and_alphas<F: Field>(coords: &[F], alphas: &[[u64; 2]]) -> F {
     let mut acc = F::one();
     let k = coords.len();
-    for (i, a_limbs) in alphas.iter().enumerate() {
-        let a = F::one().mul_u128(*a_limbs);
-        let factor = if i < k {
-            let x = coords[i];
-            x.add(&a.mul(&F::one().sub(&x)))
-        } else {
-            a
+    let m = alphas.len();
+    eprintln!("DEBUG: fold_eval_from_coords_and_alphas called with coords.len()={}, alphas.len()={}", k, m);
+    let total = core::cmp::max(k, m);
+    for i in 0..total {
+        let factor = match (i < k, i < m) {
+            (true, true) => {
+                // Both present: x + a * (1 - x)
+                let x = coords[i];
+                let a = F::one().mul_u128(alphas[i]);
+                x.add(&a.mul(&F::one().sub(&x)))
+            }
+            (true, false) => {
+                // Extra coord with no alpha: multiply by x
+                coords[i]
+            }
+            (false, true) => {
+                // Extra alpha with no coord: multiply by a
+                F::one().mul_u128(alphas[i])
+            }
+            (false, false) => unreachable!(),
         };
         acc = acc.mul(&factor);
+        eprintln!("  - i={}, factor computed, acc updated", i);
     }
+    eprintln!("  - Final result computed");
     acc
 }

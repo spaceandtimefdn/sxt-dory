@@ -427,42 +427,76 @@ where
         let gamma_1 = gamma_pair.gamma_1;
         let gamma_2 = gamma_pair.gamma_2;
 
-        let s1_final: <E::G1 as Group>::Scalar =
-            fold_eval_from_coords_and_alphas(&self.eval_point_left, &self.alpha_challenges);
-        let s2_final: <E::G1 as Group>::Scalar =
-            fold_eval_from_coords_and_alphas(&self.eval_point_right, &self.alpha_challenges);
+        // Use recorded alpha order (forward)
+        let alphas = &self.alpha_challenges;
+
+        // If this is not a VMV path (inner-product tests), eval_point_* can be empty; fall back to using exactly nu coords when provided
+        let s1_fwd: <E::G1 as Group>::Scalar = if self.eval_point_right.is_empty() {
+            // Default: multiply alphas only
+            fold_eval_from_coords_and_alphas(&[][..], &alphas)
+        } else {
+            fold_eval_from_coords_and_alphas(&self.eval_point_right, &alphas)
+        };
+        let s2_fwd: <E::G1 as Group>::Scalar = if self.eval_point_left.is_empty() {
+            fold_eval_from_coords_and_alphas(&[][..], &alphas)
+        } else {
+            fold_eval_from_coords_and_alphas(&self.eval_point_left, &alphas)
+        };
+        eprintln!("DEBUG: Verifier-side computed final scalars (forward order):");
+        eprintln!("  - s1_fwd from eval_point_right (len {}), s2_fwd from eval_point_left (len {})",
+            self.eval_point_right.len(), self.eval_point_left.len());
+        // Print alpha challenges (as [u64;2])
+        eprintln!("  - alpha_challenges (recorded order): {:?}", self.alpha_challenges);
 
         // Enforce presence of base-case group elements
         let (Some(v1_final), Some(v2_final)) = (&self.v1_final, &self.v2_final) else {
+            eprintln!("DEBUG: Missing final base elements");
             return false;
         };
 
-        // Linear base-case checks (non-ZK): E1 == s2_final · v1_final, E2 == s1_final · v2_final
-        let e1_expected = v1_final.scale(&s2_final);
-        if self.e_1 != e1_expected {
-            return false;
-        }
-        let e2_expected = v2_final.scale(&s1_final);
-        if self.e_2 != e2_expected {
-            return false;
-        }
-
-        // GT batched pairing check:
-        // e(E1_orig, Γ2_fin) + e(γ1 · E1, Γ2_0) + e(γ2 · Γ1_0, E2)
-        //  == D2_orig + γ1 · D1 + γ2 · D2
-        let e1_scaled = self.e_1.scale_u128(gamma_1);
+        // Pairing check first: e(E1_orig, Γ2_fin) + e(γ1·V1, Γ2_0) + e(γ2·Γ1_0, V2) == D2_orig + γ1·D1 + γ2·D2
+        let v1_scaled = v1_final.scale_u128(gamma_1);
         let g1_scaled = setup.g1_0.scale_u128(gamma_2);
         let lhs = E::multi_pair_refs(
-            &[&self.e_1_orig, &e1_scaled, &g1_scaled],
-            &[&setup.g_fin, &setup.g2_0, &self.e_2],
+            &[&self.e_1_orig, &v1_scaled, &g1_scaled],
+            &[&setup.g_fin, &setup.g2_0, &v2_final],
         );
-
         let rhs = self
             .d_2_orig
             .add(&self.d_1.scale_u128(gamma_1))
             .add(&self.d_2.scale_u128(gamma_2));
+        let pairing_ok = lhs == rhs;
+        eprintln!("DEBUG: Pairing check {}", if pairing_ok { "passed" } else { "FAILED" });
 
-        if lhs != rhs {
+        // Debug prints for final verification
+        eprintln!("DEBUG: Final verification values:");
+        eprintln!("  - eval_point_left length: {}", self.eval_point_left.len());
+        eprintln!("  - eval_point_right length: {}", self.eval_point_right.len());
+        eprintln!("  - v1_final: {:?}", v1_final);
+        eprintln!("  - v2_final: {:?}", v2_final);
+        eprintln!("  - e_1 (current): {:?}", self.e_1);
+        eprintln!("  - e_2 (current): {:?}", self.e_2);
+
+        // Linear base-case checks (non-ZK): E1 == s2_fwd · v1_final, E2 == s1_fwd · v2_final
+        let e1_expected = v1_final.scale(&s2_fwd);
+        if self.e_1 != e1_expected {
+            eprintln!("DEBUG: E1 check failed - forward mapping did not match");
+            eprintln!("  - e_1: {:?}", self.e_1);
+            eprintln!("  - e1_expected: {:?}", e1_expected);
+            return false;
+        }
+
+        let e2_expected = v2_final.scale(&s1_fwd);
+        eprintln!("  - e2_expected: {:?}", e2_expected);
+        if self.e_2 != e2_expected {
+            eprintln!("DEBUG: E2 check failed - values differ");
+            eprintln!("  - e_2: {:?}", self.e_2);
+            eprintln!("  - e2_expected: {:?}", e2_expected);
+            return false;
+        }
+
+        // If pairing failed earlier, return false now
+        if !pairing_ok {
             return false;
         }
 

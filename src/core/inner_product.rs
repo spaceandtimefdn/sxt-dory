@@ -37,13 +37,14 @@ where
         (builder, folded_state)
     });
 
-    // Keep transcripts in sync: derive finalize challenge (prover does not send a message here).
-    let (_finalize_challenge, builder) = builder.challenge_finalize();
-
     // At base case, expose v1', v2' from prover state and append to proof
     let (v1_final, v2_final) = state.final_bases();
     let final_bases = FinalBasesMessage { v1_final, v2_final };
-    builder.append_final_bases(final_bases)
+    let builder = builder.append_final_bases(final_bases);
+
+    // Keep transcripts in sync: derive finalize challenge (prover does not send a message here).
+    let (_finalize_challenge, builder) = builder.challenge_finalize();
+    builder
 }
 
 /// Verifier analogue for the extended Nemo-innerproduct
@@ -75,10 +76,11 @@ where
         }
     }
     // Finalize (deferred pairing and linear checks)
-    // Derive finalize challenge to keep transcript order in sync, then ingest final bases
-    let finalize_challenge = builder.challenge_finalize();
+    // Ingest final bases, then derive finalize challenge to keep transcript order in sync
     let bases = builder.process_final_bases_take();
     state.set_final_bases(bases.v1_final, bases.v2_final);
+
+    let finalize_challenge = builder.challenge_finalize();
     if !state.finalize(setup, finalize_challenge) {
         return Err(builder.rounds());
     }

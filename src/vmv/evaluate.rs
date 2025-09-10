@@ -18,6 +18,7 @@ use crate::{
     },
     ProofBuilder,
 };
+// use ark_serialize::CanonicalSerialize;
 use crate::curve::SmallScalarMul;
 
 /// Implements the Eval-VMV-RE protocol from Dory Section 5
@@ -148,21 +149,18 @@ where
     E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
     <E::G1 as Group>::Scalar: Field,
 {
-    // 1. Choose split to avoid repetition: σ_eff = max(σ, ceil(d/2)), ν_rows = d - σ_eff, run IP rounds N = σ_eff
+    // 1. Flexible σ/ν: derive ν from d and chosen σ
     let d = point.len();
-    let sigma_eff = core::cmp::max(sigma, (d + 1) / 2);
-    let _nu_rows = d.saturating_sub(sigma_eff);
-    let nu = sigma_eff; // protocol rounds and target side length 2^N
-    debug_assert!(prover_setup.g1_vec().len() >= (1usize << sigma_eff), "Γ1 length < 2^σ_eff");
-    debug_assert!(prover_setup.g2_vec().len() >= (1usize << nu), "Γ2 length < 2^N");
-    // println!("N (rounds) = {}, sigma_eff = {}, nu_rows = {}", nu, sigma_eff, _nu_rows);
+    let nu = compute_nu(d, sigma);
+    debug_assert!(prover_setup.g1_vec().len() >= (1usize << sigma), "Γ1 length < 2^σ");
+    debug_assert!(prover_setup.g2_vec().len() >= (1usize << nu), "Γ2 length < 2^ν");
 
     // 2. Compute row commits (T` in the paper?)
     let t_vec_prime = row_commitments
-        .unwrap_or_else(|| commit_to_rows::<E, M1, P>(polynomial, sigma_eff, nu, prover_setup));
+        .unwrap_or_else(|| commit_to_rows::<E, M1, P>(polynomial, sigma, nu, prover_setup));
 
     // 3. Build VMV prover state
-    let vmv_state = build_vmv_prover_state::<E, P>(polynomial, point, t_vec_prime, sigma_eff, nu);
+    let vmv_state = build_vmv_prover_state::<E, P>(polynomial, point, t_vec_prime, sigma, nu);
 
     // 4. Convert VMV state to DoryProverState
     let (v_vec, mut prover_state) = vmv_state_to_dory_prover_state(vmv_state, prover_setup);
@@ -184,10 +182,6 @@ where
         nu,
     );
 
-    // Provide v1_final and v2_final at base case from the prover state semantics.
-    // Since inner_product_prove consumed the state, we can’t access it here without
-    // changing the API; for now, leave final_bases absent. A follow-up change can
-    // return the final bases from inner_product_prove if desired.
     builder_after_ip
 }
 
@@ -206,22 +200,34 @@ where
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
     <E::G1 as Group>::Scalar: Copy,
 {
-    // Accept legacy tests that pass only `nu` coordinates; pad right with zeros if needed
-    let total_needed = nu + sigma;
-    // Build a single Arc<[Scalar]> buffer for coords and then slice without copies
-    let mut coords: Vec<<E::G1 as Group>::Scalar> = b_point.to_vec();
-    if coords.len() < total_needed {
-        coords.extend(core::iter::repeat(<E::G1 as Group>::Scalar::zero()).take(total_needed - coords.len()));
+    // Flexible split: assign up to σ coords to the right (columns), remainder to left (rows)
+    let d = b_point.len();
+    let right_vars = core::cmp::min(sigma, d);
+    let left_vars = core::cmp::min(nu, d.saturating_sub(right_vars));
+
+    let mut right_coords: Vec<<E::G1 as Group>::Scalar> = Vec::with_capacity(right_vars);
+    let mut left_coords: Vec<<E::G1 as Group>::Scalar> = Vec::with_capacity(left_vars);
+
+    if d == 0 {
+        right_coords.push(<E::G1 as Group>::Scalar::one());
+        left_coords.push(<E::G1 as Group>::Scalar::one());
+    } else {
+        if right_vars > 0 {
+            right_coords.extend_from_slice(&b_point[..right_vars]);
+        }
+        if left_vars > 0 {
+            left_coords.extend_from_slice(&b_point[right_vars..right_vars + left_vars]);
+        }
     }
-    let coords_arc: std::sync::Arc<[<E::G1 as Group>::Scalar]> = coords.into();
-    let b_left = &coords_arc[..nu];
-    let b_right = &coords_arc[nu..total_needed];
+
+    let b_right: std::sync::Arc<[<E::G1 as Group>::Scalar]> = right_coords.into();
+    let b_left: std::sync::Arc<[<E::G1 as Group>::Scalar]> = left_coords.into();
 
     VMVVerifierState {
         y,
         t,
-        eval_point_left: std::sync::Arc::from(b_left),
-        eval_point_right: std::sync::Arc::from(b_right),
+        eval_point_left: b_left,
+        eval_point_right: b_right,
         nu,
     }
 }
@@ -254,6 +260,26 @@ where
     let mut verifier_state = DoryVerifierState::new(d_1, d_2, e_1, e_2, nu);
     verifier_state.eval_point_left = vmv_state.eval_point_left;
     verifier_state.eval_point_right = vmv_state.eval_point_right;
+
+    eprintln!("DEBUG: Initial verifier state created:");
+    eprintln!("  - d_1: {:?}", verifier_state.d_1);
+    eprintln!("  - d_2: {:?}", verifier_state.d_2);
+    eprintln!("  - e_1: {:?}", verifier_state.e_1);
+    eprintln!("  - e_2: {:?}", verifier_state.e_2);
+    eprintln!("  - nu: {}", verifier_state.nu);
+    eprintln!("  - eval_point_left length: {}", verifier_state.eval_point_left.len());
+    eprintln!("  - eval_point_right length: {}", verifier_state.eval_point_right.len());
+    
+    // Debug: Print the actual eval point values
+    eprintln!("  - eval_point_left has {} values", verifier_state.eval_point_left.len());
+    eprintln!("  - eval_point_right has {} values", verifier_state.eval_point_right.len());
+    // Quick equality checks
+    let left_eq_right = verifier_state.eval_point_left.as_ref() == verifier_state.eval_point_right.as_ref();
+    let prefix_eq = if verifier_state.eval_point_right.len() >= verifier_state.eval_point_left.len() {
+        &verifier_state.eval_point_right[..verifier_state.eval_point_left.len()] == verifier_state.eval_point_left.as_ref()
+    } else { false };
+    eprintln!("  - eval_point_left == eval_point_right: {}", left_eq_right);
+    eprintln!("  - eval_point_left == prefix(eval_point_right): {}", prefix_eq);
 
     verifier_state
 }
@@ -327,10 +353,10 @@ where
             acc.add(&e.mul(&f))
         });
 
-    // 3. Compute nu
+    // 3. Flexible σ/ν: derive ν from d and chosen σ
     let nu = compute_nu(b_points.len(), sigma);
 
-    // 4. Build VMV verifier state
+    // 4. Build VMV verifier state using provided σ and derived ν
     let vmv_state = build_vmv_verifier_state::<E>(product, b_points, a_commit, sigma, nu);
 
     // 5. Create verifier builder from proof
