@@ -44,8 +44,8 @@ pub trait ProverState {
         Self::G2: Group,
         M1: MultiScalarMul<Self::G1>,
         M2: MultiScalarMul<Self::G2>;
-    /// Combines vᵢ with Γᵢ using the [`FirstReduceChallenge`] (step (*) in
-    /// Nemo-Reduce). Updates:
+    /// Combines vᵢ with Γᵢ using the [`FirstReduceChallenge`]
+    /// (step (*) in Nemo-Reduce). Updates:
     /// v₁(new) ← v₁ + β·Γ₁;  v₂(new) ← v₂ + β·Γ₂.
     /// 
     /// Note: can speed up this computation due to same scalar (β) applied to fixed base (Γ₁, Γ₂)
@@ -256,6 +256,7 @@ where
     /// Current round number (should be sigma reduce rounds in total).
     pub round_num: usize,
 }
+
 impl<E: Pairing> DoryVerifierState<E>
 where
     E::G1: Group,

@@ -8,7 +8,7 @@ use dory::{
     curve::commit_and_evaluate_batch,
     setup::ProverSetup,
     toy_transcript::ToyTranscript,
-    vmv::evaluate::{create_evaluation_proof, verify_evaluation_proof},
+    core::pcs::{create_evaluation_proof, verify_evaluation_proof},
 };
 
 use dory::curve::{
@@ -21,9 +21,8 @@ fn test_evaluation_proof() {
     let total_start = Instant::now();
 
     // ----- Test Parameters -----
-    let length: usize = 1 << 9;
-    let max_log_n: usize = 9;
-    // sigma = 5, nu = 4
+    let length: usize = 1 << 12;
+    let max_log_n: usize = 12;
 
     println!("Parameters:");
     println!("  - Polynomial length: {}", length);
@@ -409,7 +408,7 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
     // Create fresh transcript for verification
     let verify_transcript = ToyTranscript::new(domain);
 
-    let verification_result = dory::vmv::verify_evaluation_proof::<
+    let verification_result = dory::core::pcs::verify_evaluation_proof::<
         ArkBn254Pairing,
         ToyTranscript,
         OptimizedMsmG1,

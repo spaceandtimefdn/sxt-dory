@@ -15,12 +15,13 @@ pub struct ProverSetupCore<E: Pairing> {
     pub g1_vec: Vec<E::G1>,
     /// Γ₂  — row generators    (|Γ₂| = n)
     pub g2_vec: Vec<E::G2>,
-    /// H₁  — Pedersen/AFGHO blinding in G1
-    pub h1: E::G1,
-    /// H₂  — Pedersen/AFGHO blinding in G2
-    pub h2: E::G2,
-    /// e(H₁, H₂) cached once
-    pub ht: E::GT,
+    // Only needed for ZK, commented out for now
+    // /// H₁  — Pedersen/AFGHO blinding in G1
+    // pub h1: E::G1,
+    // /// H₂  — Pedersen/AFGHO blinding in G2
+    // pub h2: E::G2,
+    // /// e(H₁, H₂) cached once
+    // pub ht: E::GT,
     /// gamma_fin in the paper
     pub g_fin: E::G2,
 }
@@ -82,19 +83,21 @@ pub struct VerifierSetup<E: Pairing> {
     pub delta_2l: Vec<E::GT>,
     /// Δ₂R[k] = e(Γ₁[..2^(k-1)], Γ₂[2^(k-1)..2^k)]
     pub delta_2r: Vec<E::GT>,
-    /// χ[k] = e(Γ₁[..2^k], Γ₂[..2^k])
-    pub chi: Vec<E::GT>,
+    // χ no longer needed for optimized Dory
+    // /// χ[k] = e(Γ₁[..2^k], Γ₂[..2^k])
+    // pub chi: Vec<E::GT>,
 
     /// First element of Γ₁
     pub g1_0: E::G1,
     /// First element of Γ₂
     pub g2_0: E::G2,
-    /// H₁ — blinding generator
-    pub h1: E::G1,
-    /// H₂ — blinding generator
-    pub h2: E::G2,
-    /// e(H₁, H₂)
-    pub ht: E::GT,
+    // Only needed for ZK, commented out for now
+    // /// H₁ — blinding generator
+    // pub h1: E::G1,
+    // /// H₂ — blinding generator
+    // pub h2: E::G2,
+    // /// e(H₁, H₂)
+    // pub ht: E::GT,
     /// $\Gamma_fin$ in the paper
     pub g_fin: E::G2,
 
@@ -136,17 +139,17 @@ impl<E: Pairing> ProverSetup<E> {
             .collect();
 
         let g_fin = E::G2::random(&mut rng);
-        let h1 = E::G1::random(&mut rng);
-        let h2 = E::G2::random(&mut rng);
-        let ht = E::pair(&h1, &h2);
+        // let h1 = E::G1::random(&mut rng);
+        // let h2 = E::G2::random(&mut rng);
+        // let ht = E::pair(&h1, &h2);
 
         Self {
             core: ProverSetupCore {
                 g1_vec,
                 g2_vec,
-                h1,
-                h2,
-                ht,
+                // h1,
+                // h2,
+                // ht,
                 g_fin,
             },
             g1_cache: None,
@@ -264,20 +267,20 @@ impl<E: Pairing> ProverSetup<E> {
         &self.core.g2_vec
     }
 
-    /// getter for h1
-    pub fn h1(&self) -> &E::G1 {
-        &self.core.h1
-    }
+    // /// getter for h1
+    // pub fn h1(&self) -> &E::G1 {
+    //     &self.core.h1
+    // }
 
-    /// getter for h2
-    pub fn h2(&self) -> &E::G2 {
-        &self.core.h2
-    }
+    // /// getter for h2
+    // pub fn h2(&self) -> &E::G2 {
+    //     &self.core.h2
+    // }
 
-    /// getter for ht
-    pub fn ht(&self) -> &E::GT {
-        &self.core.ht
-    }
+    // /// getter for ht
+    // pub fn ht(&self) -> &E::GT {
+    //     &self.core.ht
+    // }
 
     /// getter for g_fin
     pub fn g_fin(&self) -> &E::G2 {
@@ -417,8 +420,8 @@ impl<E: Pairing> VerifierSetup<E> {
                 // Δ₂R[k] = e(Γ₁[..2^(k-1)], Γ₂[2^(k-1)..2^k])
                 delta_2r.push(E::multi_pair(g1_first_half, g2_second_half));
 
-                // χ[k] = e(Γ₁[..2^k], Γ₂[..2^k])
-                chi.push(chi[k - 1].add(&E::multi_pair(g1_second_half, g2_second_half)));
+                // // χ[k] = e(Γ₁[..2^k], Γ₂[..2^k])
+                // chi.push(chi[k - 1].add(&E::multi_pair(g1_second_half, g2_second_half)));
             }
         }
 
@@ -427,12 +430,11 @@ impl<E: Pairing> VerifierSetup<E> {
             delta_1r,
             delta_2l: delta_1l, // Delta_2L is the same as Delta_1L
             delta_2r,
-            chi,
             g1_0: prover_setup.core.g1_vec[0].clone(),
             g2_0: prover_setup.core.g2_vec[0].clone(),
-            h1: prover_setup.core.h1.clone(),
-            h2: prover_setup.core.h2.clone(),
-            ht: prover_setup.core.ht.clone(),
+            // h1: prover_setup.core.h1.clone(),
+            // h2: prover_setup.core.h2.clone(),
+            // ht: prover_setup.core.ht.clone(),
             max_log_n,
             g_fin: prover_setup.core.g_fin.clone(),
         }

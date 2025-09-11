@@ -14,15 +14,13 @@ use crate::transcript::Transcript;
 // use ark_serialize::CanonicalSerialize;
 use ark_std::rand::RngCore;
 
-mod core;
+pub mod core;
 mod error;
 mod primitives;
 
 pub mod curve;
-// pub mod vmv;
 pub use core::*;
 pub use primitives::*;
-// pub use vmv::*;
 
 // =================================================================================================
 //                                        Dory PCS API
