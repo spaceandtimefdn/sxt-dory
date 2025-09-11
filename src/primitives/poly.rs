@@ -1,11 +1,25 @@
 //! (multilinear) polynomial utlities
 use crate::arithmetic::{Field, Group, MultiScalarMul};
 
+/// Bit ordering convention (big / little endian) used for coefficient indexing
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum BitOrdering {
+    /// Current behavior: LSB first
+    LittleEndian,
+    /// MSB first
+    BigEndian,
+}
+
 /// multilinear polynomials trait for custom (optimized) primitive operations
 /// We provide generic implementations as well
 pub trait Polynomial<F: Field, G1: Group<Scalar = F>> {
     /// Returns the number of coefficients in the polynomial
     fn len(&self) -> usize;
+
+    /// Returns the bit ordering convention used for coefficient indexing
+    fn bit_ordering(&self) -> BitOrdering {
+        BitOrdering::LittleEndian // Default to little-endian for backward compatibility
+    }
 
     /// Commits to rows of the polynomial when viewed as a matrix
     fn commit_rows<M1: MultiScalarMul<G1>>(&self, g1_generators: &[G1], row_len: usize) -> Vec<G1>;
@@ -28,9 +42,13 @@ pub trait Polynomial<F: Field, G1: Group<Scalar = F>> {
 /// evaluated at the given point. These basis functions are products of the form:
 /// (1-x₁)^b₁ * x₁^(1-b₁) * (1-x₂)^b₂ * x₂^(1-b₂) * ... where each bᵢ ∈ {0,1}
 ///
+/// The bit ordering determines how coefficient indices map to bit patterns:
+/// - LittleEndian: index i corresponds to bit pattern b₀b₁b₂... (LSB first)
+/// - BigEndian: index i corresponds to bit pattern ...b₂b₁b₀ (MSB first)
+///
 /// To evaluate a multilinear polynomial with coefficients `coeffs` at `point`:
 /// result = coeffs · evaluation_vector
-pub fn multilinear_lagrange_vec<F>(v: &mut [F], point: &[F])
+pub fn multilinear_lagrange_vec<F>(v: &mut [F], point: &[F], _endian: BitOrdering)
 where
     F: Field,
 {
@@ -84,54 +102,49 @@ where
         }
     }
 }
+
 /// Compute vectors L and R for matrix-based polynomial evaluation
 /// Given a polynomial arranged as a matrix M, computes L and R such that:
 /// polynomial_evaluation(b_point) = L^T × M × R
 #[tracing::instrument(skip_all)]
-pub fn compute_left_right_vec<F: Field>(
-    b_point: &[F],
-    sigma: usize, // log₂(max_columns) - matrix width
-    nu: usize,    // log₂(vector_length) - matrix length
-) -> (Vec<F>, Vec<F>) {
-    let mut right_vec = vec![F::zero(); 1 << nu]; // Column evaluation vector
-    let mut left_vec = vec![F::zero(); 1 << nu]; // Row evaluation vector
+pub fn compute_left_right_vec<F: Field>(b_point: &[F], endian: BitOrdering) -> (Vec<F>, Vec<F>) {
     let point_dim = b_point.len();
+    let sigma = (point_dim + 1) / 2; // log₂(max_columns) - matrix width
+    let nu = point_dim - sigma; // log₂(vector_length) - matrix length
+    let mut right_vec = vec![F::zero(); 1 << sigma]; // Column evaluation vector
+    let mut left_vec = vec![F::zero(); 1 << sigma]; // Row evaluation vector
 
-    match point_dim {
-        // Case 1: Constant polynomial (0 variables)
-        0 => {
-            right_vec[0] = F::one();
-            left_vec[0] = F::one();
-            // Matrix is 1×1, so L^T × M × R = 1 × M[0,0] × 1
-        }
-
-        // Case 2: All variables fit in columns (single row needed)
-        n if n <= sigma => {
-            // All variables determine column position
-            multilinear_lagrange_vec(&mut right_vec[..1 << point_dim], b_point);
-            left_vec[0] = F::one(); // Only need first row
-                                    // L^T × M × R = [1, 0, ...] × M × R
-        }
-
-        // Case 3: Variables split between rows and columns (no padding)
-        n if n <= sigma * 2 => {
-            // Split variables: first `nu` for columns, rest for rows
-            multilinear_lagrange_vec(&mut right_vec, &b_point[..nu]); // Column vars
-            multilinear_lagrange_vec(&mut left_vec[..1 << (point_dim - nu)], &b_point[nu..]);
-            // Row vars
-            // L^T × M × R where both L and R have meaningful entries
-        }
-
-        // Case 4: Too many variables - need column padding
-        _ => {
-            // Use max column capacity, put remaining variables in rows
-            multilinear_lagrange_vec(&mut right_vec[..(1 << sigma)], &b_point[..sigma]); // First σ vars → columns
-            multilinear_lagrange_vec(&mut left_vec, &b_point[sigma..]); // Remaining vars → rows
-                                                                        // Matrix has padded columns but we only use the first 2^σ columns
-        }
+    if point_dim % 2 == 1 {
+        assert!(nu == sigma - 1, "nu must be sigma - 1 when point_dim is odd");
+        let right_eval_point = &b_point[..sigma];
+        let mut left_eval_point = Vec::from(&b_point[sigma..]);
+        left_eval_point.push(F::zero());
+        multilinear_lagrange_vec(&mut right_vec, right_eval_point, endian);
+        multilinear_lagrange_vec(&mut left_vec, &left_eval_point, endian);
+    } else {
+        multilinear_lagrange_vec(&mut right_vec, &b_point[..sigma], endian);
+        multilinear_lagrange_vec(&mut left_vec, &b_point[sigma..], endian);
     }
 
     (left_vec, right_vec)
+}
+
+
+/// Helper function to get the bit value for a given coefficient index and variable
+/// 
+/// # Arguments
+/// * `linear_index` - The coefficient index (0-based)
+/// * `variable_index` - The variable index (0-based, where 0 is the first variable)
+/// * `total_vars` - Total number of variables
+/// * `ordering` - The bit ordering convention
+/// 
+/// # Returns
+/// `true` if the bit should be 1, `false` if it should be 0
+pub fn get_bit_index(linear_index: usize, variable_index: usize, total_vars: usize, ordering: BitOrdering) -> bool {
+    match ordering {
+        BitOrdering::LittleEndian => (linear_index >> variable_index) & 1 == 1,
+        BitOrdering::BigEndian => (linear_index >> (total_vars - 1 - variable_index)) & 1 == 1,
+    }
 }
 
 /// Fold a multilinear tensor evaluation vector driven by per-round α challenges.

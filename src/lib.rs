@@ -208,7 +208,6 @@ pub fn evaluate<
     polynomial: &P,
     row_commitments: Option<Vec<E::G1>>,
     point: &[<E::G1 as Group>::Scalar],
-    sigma: usize,
     prover_setup: &ProverSetup<E>,
     transcript: T,
 ) -> DoryProofBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>
@@ -224,7 +223,6 @@ where
         polynomial,
         row_commitments,
         point,
-        sigma,
         prover_setup,
     )
 }
@@ -256,7 +254,6 @@ pub fn verify<
     evaluation: <E::G1 as Group>::Scalar,
     point: &[<E::G1 as Group>::Scalar],
     proof: DoryProofBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>,
-    sigma: usize,
     verifier_setup: &VerifierSetup<E>,
     transcript: T,
 ) -> Result<(), DoryError>
@@ -278,7 +275,6 @@ where
         &batching_factors,
         &evaluations,
         point,
-        sigma,
         verifier_setup,
         transcript,
     )

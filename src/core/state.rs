@@ -126,7 +126,7 @@ pub trait VerifierState {
     type Setup;
 
     /// This is the verifier side of the extended Nemo-Reduce algorithm in section 3.2 & 4.2 of the paper.
-    fn dory_reduce_verify_round(
+    fn reduce_verify_round(
         &mut self,
         setup: &Self::Setup,
         first_msg: &FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
@@ -138,7 +138,7 @@ pub trait VerifierState {
     /// Updates D₁ and D₂ in the verifier state (new writeup)
     /// D₁' <- D₁L + α * D₁R + β * (Δ₁L + α * Δ₁R)
     /// D₂' <- D₂L + α * D₂R + β * (Δ₂L + α * Δ₂R)
-    fn dory_reduce_verify_update_ds(
+    fn reduce_verify_update_ds(
         &mut self,
         setup: &Self::Setup,
         d_values: (&Self::GT, &Self::GT, &Self::GT, &Self::GT),
@@ -149,7 +149,7 @@ pub trait VerifierState {
     /// Updates E₁ and E₂ in the extended verifier state (new writeup)
     /// E₁' <- E₁- + α * (E₁ + β * E₁β + α * E₁+)
     /// E₂' <- E₂- + α * (E₂ + β * E₂β + α * E₂+)
-    fn dory_reduce_verify_update_es(
+    fn reduce_verify_update_es(
         &mut self,
         e_beta_pair: (&Self::G1, &Self::G2),
         e_values: (&Self::G1, &Self::G1, &Self::G2, &Self::G2),
@@ -242,12 +242,8 @@ where
     /// The commitment to s2: <s1,v2>.
     pub e_2: E::G2,
 
-    /// Tensors used for VMV
     /// We only store the underlying evaluation point, not the tensored vector
-    pub eval_point_left: std::sync::Arc<[<E::G1 as Group>::Scalar]>,
-    /// Tensors used for VMV
-    /// We only store the underlying evaluation point, not the tensored vector
-    pub eval_point_right: std::sync::Arc<[<E::G1 as Group>::Scalar]>,
+    pub eval_point: std::sync::Arc<[<E::G1 as Group>::Scalar]>,
 
     /// Sequence of α challenges sampled across the IP reduction rounds (small scalar limbs)
     pub alpha_challenges: Vec<[u64; 2]>,
@@ -257,8 +253,8 @@ where
     /// Base-case group elements provided by prover at the end of IP rounds
     pub v2_final: Option<E::G2>,
 
-    /// Current round number. Length of v1 and v2 should be 2^nu.
-    pub nu: usize,
+    /// Current round number (should be sigma reduce rounds in total).
+    pub round_num: usize,
 }
 impl<E: Pairing> DoryVerifierState<E>
 where
@@ -266,39 +262,14 @@ where
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
     /// Constructor
-    pub fn new(d_1: E::GT, d_2: E::GT, e_1: E::G1, e_2: E::G2, nu: usize) -> Self {
-        Self {
-            d_1,
-            d_2: d_2.clone(),
-            d_2_orig: d_2,
-            e_1: e_1.clone(),
-            e_1_orig: e_1,
-            e_2,
-            eval_point_left: {
-                let v: Vec<<E::G1 as Group>::Scalar> = Vec::new();
-                v.into()
-            },
-            eval_point_right: {
-                let v: Vec<<E::G1 as Group>::Scalar> = Vec::new();
-                v.into()
-            },
-            alpha_challenges: vec![],
-            v1_final: None,
-            v2_final: None,
-            nu,
-        }
-    }
-
-    /// Constructor
-    pub fn new_with_eval_point(
+    pub fn new(
         d_1: E::GT,
         d_2: E::GT,
         e_1: E::G1,
         e_2: E::G2,
-        eval_point_left: std::sync::Arc<[<E::G1 as Group>::Scalar]>,
-        eval_point_right: std::sync::Arc<[<E::G1 as Group>::Scalar]>,
-        nu: usize,
+        eval_point: std::sync::Arc<[<E::G1 as Group>::Scalar]>,
     ) -> Self {
+        let round_num = (eval_point.len() + 1) / 2;
         Self {
             d_1,
             d_2: d_2.clone(),
@@ -306,12 +277,11 @@ where
             e_1: e_1.clone(),
             e_1_orig: e_1,
             e_2,
-            eval_point_left,
-            eval_point_right,
+            eval_point,
             alpha_challenges: vec![],
             v1_final: None,
             v2_final: None,
-            nu,
+            round_num,
         }
     }
 }

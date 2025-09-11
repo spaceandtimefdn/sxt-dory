@@ -23,12 +23,11 @@ fn test_evaluation_proof() {
     // ----- Test Parameters -----
     let length: usize = 1 << 9;
     let max_log_n: usize = 9;
-    let sigma: usize = 5;
+    // sigma = 5, nu = 4
 
     println!("Parameters:");
     println!("  - Polynomial length: {}", length);
     println!("  - Max log n: {}", max_log_n);
-    println!("  - Sigma: {}", sigma);
 
     let mut rng = test_rng();
     let domain = b"eval_proof_test_domain";
@@ -91,7 +90,6 @@ fn test_evaluation_proof() {
         &polynomial,
         None,
         &b_points,
-        sigma,
         &prover_setup,
     );
 
@@ -127,7 +125,6 @@ fn test_evaluation_proof() {
         &polynomial,
         &b_points,
         0, // offset
-        sigma,
         &prover_setup,
     );
     let verifier_setup = prover_setup.to_verifier_setup();
@@ -150,7 +147,6 @@ fn test_evaluation_proof() {
         &batching_factors,
         &evaluations,
         &b_points,
-        sigma,
         &verifier_setup,
         verify_transcript,
     );
@@ -243,7 +239,6 @@ fn test_evaluation_proof_verification_should_fail() {
         &polynomial,
         None,
         &b_points,
-        sigma,
         &prover_setup,
     );
 
@@ -262,7 +257,7 @@ fn test_evaluation_proof_verification_should_fail() {
                 OptimizedMsmG1,
                 Fr,
                 <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-            >(&polynomial, &b_points, 0, sigma, &prover_setup);
+            >(&polynomial, &b_points, 0, &prover_setup);
 
         // Tamper with the commitment
         commitment_batch[0] = Fq12::random(&mut rng); // Wrong commitment
@@ -285,7 +280,6 @@ fn test_evaluation_proof_verification_should_fail() {
             &batching_factors,
             &evaluations,
             &b_points,
-            sigma,
             &verifier_setup,
             verify_transcript,
         );
@@ -365,7 +359,6 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
         &polynomial,
         None,
         &b_points,
-        sigma,
         &prover_setup,
     );
 
@@ -383,7 +376,7 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
             OptimizedMsmG1,
             Fr,
             <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-        >(&polynomial, &b_points, 0, sigma, &prover_setup);
+        >(&polynomial, &b_points, 0, &prover_setup);
 
     // Create a corrupted copy of the proof by tampering with proof messages
     let mut corrupted_proof = DoryProofBuilder {
@@ -428,7 +421,6 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
         &batching_factors,
         &evaluations,
         &b_points,
-        sigma,
         &verifier_setup,
         verify_transcript,
     );

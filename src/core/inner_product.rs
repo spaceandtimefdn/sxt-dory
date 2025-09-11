@@ -71,7 +71,7 @@ where
         // Then borrow messages immutably for state update
         let m1 = builder.first_message(idx);
         let m2 = builder.second_message(idx);
-        if !state.dory_reduce_verify_round(setup, m1, m2, first.beta, second.alpha) {
+        if !state.reduce_verify_round(setup, m1, m2, first.beta, second.alpha) {
             return Err(idx);
         }
     }

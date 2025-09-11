@@ -7,6 +7,7 @@ use ark_ec::{
     pairing::{MillerLoopOutput, Pairing as ArkPairing},
     AffineRepr, CurveGroup,
 };
+use crate::primitives::poly::BitOrdering;
 use ark_ff::{Field as ArkField, One, PrimeField, UniformRand, Zero};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError};
 use ark_serialize::{Read, Valid, Validate, Write};
@@ -1438,12 +1439,21 @@ impl<G: Group> MultiScalarMul<G> for DummyMsm<G> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct StandardPolynomial<F: Field> {
     pub coeffs: Vec<F>,
+    pub bit_ordering: BitOrdering,
 }
 
 impl<F: Field> StandardPolynomial<F> {
     pub fn new(coeffs: &[F]) -> Self {
         Self {
             coeffs: coeffs.to_vec(),
+            bit_ordering: BitOrdering::LittleEndian,
+        }
+    }
+
+    pub fn new_with_ordering(coeffs: &[F], bit_ordering: BitOrdering) -> Self {
+        Self {
+            coeffs: coeffs.to_vec(),
+            bit_ordering,
         }
     }
 
@@ -1469,7 +1479,7 @@ impl<F: Field> StandardPolynomial<F> {
             expected_size
         );
 
-        multilinear_lagrange_vec(&mut eval_vec, point);
+        multilinear_lagrange_vec(&mut eval_vec, point, self.bit_ordering);
 
         // Compute inner product <coeffs, eval_vec>
         let mut result = F::zero();
@@ -1485,6 +1495,10 @@ impl<F: Field> StandardPolynomial<F> {
 impl<F: Field, G1: Group<Scalar = F>> Polynomial<F, G1> for StandardPolynomial<F> {
     fn len(&self) -> usize {
         self.coeffs.len()
+    }
+
+    fn bit_ordering(&self) -> BitOrdering {
+        self.bit_ordering
     }
 
     /// Commits to rows of the polynomial when viewed as a matrix
@@ -1582,7 +1596,6 @@ pub fn commit_and_evaluate_batch<
     poly: &StandardPolynomial<F>,
     point: &[F],
     offset: usize,
-    sigma: usize,
     prover_setup: &ProverSetup<E>,
 ) -> (
     Vec<E::GT>, // commitment_batch
@@ -1592,6 +1605,7 @@ pub fn commit_and_evaluate_batch<
 where
     F: Field + Clone,
 {
+    let sigma = (point.len() + 1) / 2;
     // Compute the commitment to the polynomial
     let (commitment, _) =
         compute_polynomial_commitment::<E, M1, _, F, G1>(poly, offset, sigma, prover_setup);

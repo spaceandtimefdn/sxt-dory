@@ -13,7 +13,7 @@ use crate::{
     state::{DoryProverState, DoryVerifierState},
     transcript::Transcript,
     vmv::{
-        build_vmv_prover_state, commit_to_rows, compute_nu, vmv_state_to_dory_prover_state,
+        build_vmv_prover_state, commit_to_rows, vmv_state_to_dory_prover_state,
         VMVVerifierState,
     },
     ProofBuilder,
@@ -24,7 +24,7 @@ use crate::curve::SmallScalarMul;
 /// Implements the Eval-VMV-RE protocol from Dory Section 5
 /// Proves the VMV relation: polynomial(point) = L^T × M × R
 ///
-/// Note: Randomness terms (rC, rD2, rE1) are omitted since we don't need hiding (yet)
+/// Note: Randomness terms (rD2, rE1) are omitted since we don't need hiding (yet)
 #[tracing::instrument(skip_all)]
 fn eval_vmv_re_prove<
     E: Pairing,
@@ -54,9 +54,7 @@ where
         println!("prover_setup.g1_vec doesn't have enough elements for nu");
     }
 
-    // --- Protocol computations (Dory Section 5) ---
-
-    // PCS variant: omit C
+    // --- Protocol computations ---
 
     // D₂ = e(⟨Γ₁[nu], ~v⟩, Γ₂,fin)
     // Protocol: D₂ = e(⟨Γ₁,~v⟩, Γ₂,fin) + rD₂·HT (randomness omitted)
@@ -140,7 +138,6 @@ pub fn create_evaluation_proof<
     polynomial: &P,
     row_commitments: Option<Vec<E::G1>>,
     point: &[<E::G1 as Group>::Scalar],
-    sigma: usize,
     prover_setup: &ProverSetup<E>,
 ) -> DoryProofBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>
 where
@@ -149,9 +146,10 @@ where
     E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
     <E::G1 as Group>::Scalar: Field,
 {
-    // 1. Flexible σ/ν: derive ν from d and chosen σ
+    // 1. Set σ = (d + 1) / 2 and ν = d - σ
     let d = point.len();
-    let nu = compute_nu(d, sigma);
+    let sigma = (d + 1) / 2;
+    let nu = d - sigma;
     debug_assert!(prover_setup.g1_vec().len() >= (1usize << sigma), "Γ1 length < 2^σ");
     debug_assert!(prover_setup.g2_vec().len() >= (1usize << nu), "Γ2 length < 2^ν");
 
@@ -160,9 +158,9 @@ where
         .unwrap_or_else(|| commit_to_rows::<E, M1, P>(polynomial, sigma, nu, prover_setup));
 
     // 3. Build VMV prover state
-    let vmv_state = build_vmv_prover_state::<E, P>(polynomial, point, t_vec_prime, sigma, nu);
+    let vmv_state = build_vmv_prover_state::<E, P>(polynomial, point, t_vec_prime);
 
-    // 4. Convert VMV state to DoryProverState
+    // 4. Convert VMV state to ProverState
     let (v_vec, mut prover_state) = vmv_state_to_dory_prover_state(vmv_state, prover_setup);
     // Wire PCS first-round optimization scalar vector into prover state via Arc slice (no clone of scalars)
     prover_state.v2_scalars = Some(v_vec.clone().into());
@@ -192,47 +190,20 @@ fn build_vmv_verifier_state<E: Pairing>(
     y: <E::G1 as Group>::Scalar,
     b_point: &[<E::G1 as Group>::Scalar],
     t: E::GT,
-    sigma: usize,
-    nu: usize,
 ) -> VMVVerifierState<E>
 where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
     <E::G1 as Group>::Scalar: Copy,
 {
-    // Flexible split: assign up to σ coords to the right (columns), remainder to left (rows)
-    let d = b_point.len();
-    let right_vars = core::cmp::min(sigma, d);
-    let left_vars = core::cmp::min(nu, d.saturating_sub(right_vars));
-
-    let mut right_coords: Vec<<E::G1 as Group>::Scalar> = Vec::with_capacity(right_vars);
-    let mut left_coords: Vec<<E::G1 as Group>::Scalar> = Vec::with_capacity(left_vars);
-
-    if d == 0 {
-        right_coords.push(<E::G1 as Group>::Scalar::one());
-        left_coords.push(<E::G1 as Group>::Scalar::one());
-    } else {
-        if right_vars > 0 {
-            right_coords.extend_from_slice(&b_point[..right_vars]);
-        }
-        if left_vars > 0 {
-            left_coords.extend_from_slice(&b_point[right_vars..right_vars + left_vars]);
-        }
-    }
-
-    let b_right: std::sync::Arc<[<E::G1 as Group>::Scalar]> = right_coords.into();
-    let b_left: std::sync::Arc<[<E::G1 as Group>::Scalar]> = left_coords.into();
-
     VMVVerifierState {
         y,
         t,
-        eval_point_left: b_left,
-        eval_point_right: b_right,
-        nu,
+        eval_point: b_point.into(),
     }
 }
 
-/// Convert a VMVVerifierState to a DoryVerifierState
+/// Convert a VMVVerifierState to a VerifierState
 /// This handles the tensor structure and received messages into the normal verifier state
 fn vmv_state_to_dory_verifier_state<E: Pairing>(
     vmv_state: VMVVerifierState<E>,
@@ -244,24 +215,17 @@ where
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
     // Extract received messages (no C)
+    // TODO: remove clone
     let d_2 = vmv_message.d2.clone();
     let e_1 = vmv_message.e1.clone();
 
     // Extract values from VMV verifier state
     let d_1 = vmv_state.t;
 
-    let nu = vmv_state.nu;
-
-    // We don't compute e2 on prover side as an optimization (values to produce e2 are known)
-    // IMPORTANT: this is implicitly satisfying sigma protocol 1 of the`eval_vmv_re` code box
-    // that is we are equivalently checking, e2 = s1 * Gamma_{2,fin}
+    // E2 = y * Gamma_{2,fin}
     let e_2 = verifier_setup.g_fin.scale(&vmv_state.y);
 
-    let mut verifier_state = DoryVerifierState::new(d_1, d_2, e_1, e_2, nu);
-    verifier_state.eval_point_left = vmv_state.eval_point_left;
-    verifier_state.eval_point_right = vmv_state.eval_point_right;
-
-    verifier_state
+    DoryVerifierState::new(d_1, d_2, e_1, e_2, vmv_state.eval_point)
 }
 
 /// Verifier analogue of `eval_vmv_re` protocol in the paper
@@ -312,7 +276,6 @@ pub fn verify_evaluation_proof<
     batching_factors: &[<E::G1 as Group>::Scalar],
     evaluations: &[<E::G1 as Group>::Scalar],
     b_points: &[<E::G1 as Group>::Scalar],
-    sigma: usize,
     verifier_setup: &VerifierSetup<E>,
     transcript: T,
 ) -> Result<(), DoryError>
@@ -333,11 +296,13 @@ where
             acc.add(&e.mul(&f))
         });
 
-    // 3. Flexible σ/ν: derive ν from d and chosen σ
-    let nu = compute_nu(b_points.len(), sigma);
+    // 3. Set σ = (d + 1) / 2 and ν = d - σ
+    let d = b_points.len();
+    let sigma = (d + 1) / 2;
+    let nu = d - sigma;
 
-    // 4. Build VMV verifier state using provided σ and derived ν
-    let vmv_state = build_vmv_verifier_state::<E>(product, b_points, a_commit, sigma, nu);
+    // 4. Build VMV verifier state
+    let vmv_state = build_vmv_verifier_state::<E>(product, b_points, a_commit);
 
     // 5. Create verifier builder from proof
     let verify_builder = DoryVerifyBuilder::new_from_proof(proof, transcript);

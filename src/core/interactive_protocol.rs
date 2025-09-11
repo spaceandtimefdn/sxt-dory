@@ -6,7 +6,7 @@ use crate::{
     arithmetic::{Field, Group, MultiScalarMul, Pairing},
     messages::{FirstReduceChallenge, FirstReduceMessage, SecondReduceChallenge, SecondReduceMessage},
     setup::VerifierSetup,
-    state::{DoryProverState, DoryVerifierState, VerifierState},
+    state::{ProverState, VerifierState, DoryVerifierState, DoryProverState},
     poly::fold_eval_from_coords_and_alphas,
 };
 use crate::curve::SmallScalarMul;
@@ -15,7 +15,7 @@ use super::{ProverSetup, FinalizeChallenge};
 
 /// Below is the **prover** side of the interactive protocol for Dory
 /// We define the relevant message implementations in the order of communication
-impl<E: Pairing> crate::ProverState for DoryProverState<E>
+impl<E: Pairing> ProverState for DoryProverState<E>
 where
     E::G1: Group + SmallScalarMul,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
@@ -294,7 +294,7 @@ where
 
     /// This is the round i verifier algorithm of the extended Dory-Reduce algorithm in section 3.2 & 4.2 of the paper.
     /// This function should be called after messages are received and challenges are pulled from the transcript.
-    fn dory_reduce_verify_round(
+    fn reduce_verify_round(
         &mut self,
         setup: &Self::Setup,
         first_msg: &FirstReduceMessage<Self::G1, Self::G2, Self::GT>,
@@ -309,7 +309,7 @@ where
         // Update D₁ and D₂ (Nemo semantics, no inverses)
         // D₁' <- D₁L + α * D₁R + β * (Δ₁L + α * Δ₁R)
         // D₂' <- D₂L + α * D₂R + β * (Δ₂L + α * Δ₂R)
-        Self::dory_reduce_verify_update_ds(
+        Self::reduce_verify_update_ds(
             self,
             setup,
             (
@@ -325,7 +325,7 @@ where
         // Update E₁ and E₂ for the **extended** protocol (Nemo semantics)
         // E₁' <- E₁- + α * (E₁ + β * E₁β + α * E₁+)
         // E₂' <- E₂- + α * (E₂ + β * E₂β + α * E₂+)
-        Self::dory_reduce_verify_update_es(
+        Self::reduce_verify_update_es(
             self,
             (&first_msg.e1_beta, &first_msg.e2_beta),
             (
@@ -339,7 +339,7 @@ where
         );
 
         // decrement the rounds
-        self.nu -= 1;
+        self.round_num -= 1;
 
         true
     }
@@ -348,7 +348,7 @@ where
     /// Updates `D₁` and `D₂` in verifier state:
     /// * D₁' ← D₁L + α · D₁R + β · (Δ₁L + α · Δ₁R)
     /// * D₂' ← D₂L + α · D₂R + β · (Δ₂L + α · Δ₂R)
-    fn dory_reduce_verify_update_ds(
+    fn reduce_verify_update_ds(
         &mut self,
         setup: &Self::Setup,
         d_values: (&Self::GT, &Self::GT, &Self::GT, &Self::GT),
@@ -358,10 +358,10 @@ where
         let (d_1l, d_1r, d_2l, d_2r) = d_values;
 
         // Get the precomputed values for the current round
-        let delta_1l = &setup.delta_1l[self.nu];
-        let delta_1r = &setup.delta_1r[self.nu];
-        let delta_2l = &setup.delta_2l[self.nu];
-        let delta_2r = &setup.delta_2r[self.nu];
+        let delta_1l = &setup.delta_1l[self.round_num];
+        let delta_1r = &setup.delta_1r[self.round_num];
+        let delta_2l = &setup.delta_2l[self.round_num];
+        let delta_2r = &setup.delta_2r[self.round_num];
 
         // D₁' ← D₁L + α·D₁R + β·(Δ₁L + α·Δ₁R)
         let mut new_d_1 = d_1l.add(&d_1r.scale_u128(alpha));
@@ -380,7 +380,7 @@ where
     /// Nemo-Reduce semantics for E updates (no inverses):
     /// * E₁' ← E₁- + α · (E₁ + β · E₁β + α · E₁+)
     /// * E₂' ← E₂- + α · (E₂ + β · E₂β + α · E₂+)
-    fn dory_reduce_verify_update_es(
+    fn reduce_verify_update_es(
         &mut self,
         e_beta_pair: (&Self::G1, &Self::G2),
         e_values: (&Self::G1, &Self::G1, &Self::G2, &Self::G2),
@@ -422,7 +422,7 @@ where
         gamma_pair: FinalizeChallenge,
     ) -> bool {
         // Base case
-        assert_eq!(self.nu, 0);
+        assert_eq!(self.round_num, 0);
 
         let gamma_1 = gamma_pair.gamma_1;
         let gamma_2 = gamma_pair.gamma_2;
@@ -430,21 +430,24 @@ where
         // Use recorded alpha order (forward)
         let alphas = &self.alpha_challenges;
 
+        // Split the eval point into left and right
+        let (eval_point_left, eval_point_right) = self.eval_point.split_at(self.eval_point.len() / 2);
+
         // If this is not a VMV path (inner-product tests), eval_point_* can be empty; fall back to using exactly nu coords when provided
-        let s1_fwd: <E::G1 as Group>::Scalar = if self.eval_point_right.is_empty() {
+        let s1_fwd: <E::G1 as Group>::Scalar = if eval_point_right.is_empty() {
             // Default: multiply alphas only
             fold_eval_from_coords_and_alphas(&[][..], &alphas)
         } else {
-            fold_eval_from_coords_and_alphas(&self.eval_point_right, &alphas)
+            fold_eval_from_coords_and_alphas(&eval_point_right, &alphas)
         };
-        let s2_fwd: <E::G1 as Group>::Scalar = if self.eval_point_left.is_empty() {
+        let s2_fwd: <E::G1 as Group>::Scalar = if eval_point_left.is_empty() {
             fold_eval_from_coords_and_alphas(&[][..], &alphas)
         } else {
-            fold_eval_from_coords_and_alphas(&self.eval_point_left, &alphas)
+            fold_eval_from_coords_and_alphas(&eval_point_left, &alphas)
         };
         eprintln!("DEBUG: Verifier-side computed final scalars (forward order):");
         eprintln!("  - s1_fwd from eval_point_right (len {}), s2_fwd from eval_point_left (len {})",
-            self.eval_point_right.len(), self.eval_point_left.len());
+            eval_point_right.len(), eval_point_left.len());
         // Print alpha challenges (as [u64;2])
         eprintln!("  - alpha_challenges (recorded order): {:?}", self.alpha_challenges);
 
@@ -470,8 +473,8 @@ where
 
         // Debug prints for final verification
         eprintln!("DEBUG: Final verification values:");
-        eprintln!("  - eval_point_left length: {}", self.eval_point_left.len());
-        eprintln!("  - eval_point_right length: {}", self.eval_point_right.len());
+        eprintln!("  - eval_point_left length: {}", eval_point_left.len());
+        eprintln!("  - eval_point_right length: {}", eval_point_right.len());
         eprintln!("  - v1_final: {:?}", v1_final);
         eprintln!("  - v2_final: {:?}", v2_final);
         eprintln!("  - e_1 (current): {:?}", self.e_1);

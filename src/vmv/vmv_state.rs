@@ -3,6 +3,7 @@
 use crate::{
     arithmetic::{Field, Group, Pairing},
     poly::{compute_left_right_vec, Polynomial},
+    primitives::poly::BitOrdering,
     setup::ProverSetup,
     state::DoryProverState,
     MultiScalarMul,
@@ -15,7 +16,7 @@ where
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
     /// Evaluations of the columns of the matrix. That is, v = L^T * M.
-    /// v[j] = <L, M[_, j]> = sum_{i=0}^{2^nu} L[i] M[i,j].
+    /// v[j] = <L, M[_, j]> = sum_{i=0}^{2^nu} L[i] M[i,j], where nu = floor(d / 2)
     pub(super) v_vec: Vec<<E::G1 as Group>::Scalar>,
 
     /// Commitments to the rows of the matrix.
@@ -26,8 +27,6 @@ where
     pub(super) l_vec: Vec<<E::G1 as Group>::Scalar>,
     /// The right vector, R of LMR.
     pub(super) r_vec: Vec<<E::G1 as Group>::Scalar>,
-    /// number of rows is 2^nu
-    pub(super) nu: usize,
 }
 
 /// Verifier analogue of VMVProverState
@@ -40,12 +39,8 @@ where
     pub(super) y: <E::G1 as Group>::Scalar,
     /// The commitment to the entire matrix. That is, `T = <T_vec_prime, Gamma_2[nu]>`.
     pub(super) t: <E as Pairing>::GT,
-    /// The left part of the evaluation point, l.
-    pub(super) eval_point_left: std::sync::Arc<[<E::G1 as Group>::Scalar]>,
-    /// The right part of the evaluation point, r.
-    pub(super) eval_point_right: std::sync::Arc<[<E::G1 as Group>::Scalar]>,
-    /// number of rows is 2^nu
-    pub(super) nu: usize,
+    /// The evaluation point.
+    pub(super) eval_point: std::sync::Arc<[<E::G1 as Group>::Scalar]>,
 }
 
 /// Compute the size of the matrix M that is derived from the coefficients
@@ -96,8 +91,6 @@ pub fn build_vmv_prover_state<E, P>(
     polynomial: &P,                       // Multilinear polynomial coefficients
     b_point: &[<E::G1 as Group>::Scalar], // Evaluation point ( $v \in \mathbb{R}^d) for d variables
     row_commitments: Vec<E::G1>,
-    sigma: usize,
-    nu: usize,
 ) -> VMVProverState<E>
 where
     E: Pairing,
@@ -105,7 +98,9 @@ where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
-    let (l_vec, r_vec) = compute_left_right_vec(b_point, sigma, nu);
+    let sigma = (b_point.len() + 1) / 2;
+    let nu = b_point.len() - sigma;
+    let (l_vec, r_vec) = compute_left_right_vec(b_point, BitOrdering::LittleEndian);
     let v_vec = polynomial.vector_matrix_product(&l_vec, sigma, nu);
 
     VMVProverState {
@@ -113,11 +108,10 @@ where
         t_vec_prime: row_commitments,
         l_vec,
         r_vec,
-        nu,
     }
 }
 
-/// Convert a VMVProverState to a DoryProverState
+/// Convert a VMVProverState to a ProverState
 pub fn vmv_state_to_dory_prover_state<E: Pairing>(
     vmv_state: VMVProverState<E>,
     _prover_setup: &ProverSetup<E>,
@@ -127,19 +121,22 @@ where
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
     <E::G1 as Group>::Scalar: Clone,
 {
+    // PLACEHOLDER FOR NOW!!
+    let nu = vmv_state.r_vec.len();
+
+
     // Extract values from VMV state
     // Note: the paper has a typo and we want to actually set s1 = R, s2 = L (as we do below)
     let v_vec = vmv_state.v_vec;
     let r_vec = vmv_state.r_vec;
     let s2 = vmv_state.l_vec; // length 2^nu
     let v1 = vmv_state.t_vec_prime; // row commitments
-    let nu = vmv_state.nu; // nu
 
     // Ensure s1 has length 2^nu by expanding r_vec (length 2^sigma) with block repetition
     let target_len = 1usize << nu;
     debug_assert!(target_len.is_power_of_two());
     debug_assert!(r_vec.len().is_power_of_two());
-    debug_assert!(target_len % r_vec.len() == 0, "2^ν must be a multiple of 2^σ");
+    // debug_assert!(target_len % r_vec.len() == 0, "2^ν must be a multiple of 2^σ");
     let s1 = if r_vec.len() == target_len {
         r_vec
     } else if r_vec.len() < target_len {
@@ -160,7 +157,7 @@ where
     // eval_vmv_re will calculate v2
     let v2 = Vec::new();
 
-    // Create the DoryProverState
+    // Create the ProverState
     let state = DoryProverState::new(v1, v2, s1, s2, nu);
 
     (v_vec, state)
