@@ -2,7 +2,6 @@
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Valid};
 use ark_std::rand::RngCore;
 use std::fmt::Debug;
-use crate::curve::SmallScalarMul;
 
 /// --------- field ----------------------------------------------------------
 pub trait Field:
@@ -34,6 +33,8 @@ pub trait Group:
     fn add(&self, rhs: &Self) -> Self;
     fn neg(&self) -> Self;
     fn scale(&self, k: &Self::Scalar) -> Self;
+    /// Scale by a small scalar provided as 2 little-endian u64 limbs
+    fn scale_u128(&self, limbs_le2: [u64; 2]) -> Self;
 
     fn random<R: RngCore>(rng: &mut R) -> Self;
 }
@@ -130,7 +131,7 @@ pub trait MultiScalarMul<G: Group> {
         bases: &[G],
         vs: &mut [G],
         scalar_le2: [u64; 2],
-    ) where G: SmallScalarMul {
+    ) {
         assert_eq!(bases.len(), vs.len(), "bases and vs must have same length");
         for (base, v) in bases.iter().zip(vs.iter_mut()) {
             *v = v.add(&base.scale_u128(scalar_le2));
@@ -162,7 +163,7 @@ pub trait MultiScalarMul<G: Group> {
         g2_cache: Option<&crate::curve::G2Cache>,
         vs: &mut [G],
         scalar_le2: [u64; 2],
-    ) where G: SmallScalarMul {
+    ) {
         let _ = (bases_count, g1_cache, g2_cache, vs, scalar_le2);
         panic!("fixed_scalar_variable_with_add_cached_small must be implemented by concrete MSM types");
     }
@@ -183,8 +184,7 @@ pub trait MultiScalarMul<G: Group> {
     }
 
     /// Fixed-scalar vectorized multiplication with add using small scalar [u64; 2]
-    fn fixed_scalar_scale_with_add_small(vs: &mut [G], addends: &[G], scalar_le2: [u64; 2])
-    where G: SmallScalarMul {
+    fn fixed_scalar_scale_with_add_small(vs: &mut [G], addends: &[G], scalar_le2: [u64; 2]) {
         assert_eq!(
             vs.len(),
             addends.len(),

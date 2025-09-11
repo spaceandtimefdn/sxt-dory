@@ -9,7 +9,6 @@ use crate::{
     state::{ProverState, VerifierState, DoryVerifierState, DoryProverState},
     poly::fold_eval_from_coords_and_alphas,
 };
-use crate::curve::SmallScalarMul;
 
 use super::{ProverSetup, FinalizeChallenge};
 
@@ -17,8 +16,8 @@ use super::{ProverSetup, FinalizeChallenge};
 /// We define the relevant message implementations in the order of communication
 impl<E: Pairing> ProverState for DoryProverState<E>
 where
-    E::G1: Group + SmallScalarMul,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
+    E::G1: Group,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
     type G1 = E::G1;
     type G2 = E::G2;
@@ -282,9 +281,9 @@ where
 /// We define the relevant message implementations in the order of communication
 impl<E: Pairing> VerifierState for DoryVerifierState<E>
 where
-    E::G1: Group + SmallScalarMul,
-    E::G2: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
-    E::GT: Group<Scalar = <E::G1 as Group>::Scalar> + SmallScalarMul,
+    E::G1: Group,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
     type G1 = E::G1;
     type G2 = E::G2;

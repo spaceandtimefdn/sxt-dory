@@ -11,6 +11,11 @@ pub mod interactive_protocol;
 pub mod messages;
 pub mod setup;
 pub mod state;
+pub mod evaluate;
+pub mod commit;
+
+pub use evaluate::*;
+pub use commit::*;
 
 pub use builder::*;
 pub use inner_product::*;

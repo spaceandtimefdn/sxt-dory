@@ -100,6 +100,10 @@ impl Group for G1Affine {
         self.mul_bigint((*k).into_bigint()).into_affine()
     }
 
+    fn scale_u128(&self, limbs_le2: [u64; 2]) -> Self {
+        self.mul_bigint(limbs_le2).into_affine()
+    }
+
     fn random<R: RngCore>(_rng: &mut R) -> Self {
         let mut rng = test_rng();
         G1Projective::rand(&mut rng).into_affine()
@@ -234,6 +238,10 @@ impl Group for G2AffineWrapper {
         G2AffineWrapper(self.0.mul_bigint((*k).into_bigint()).into_affine())
     }
 
+    fn scale_u128(&self, limbs_le2: [u64; 2]) -> Self {
+        G2AffineWrapper(self.0.mul_bigint(limbs_le2).into_affine())
+    }
+
     fn random<R: RngCore>(_rng: &mut R) -> Self {
         // We use our own fixed RNG for testing
         let mut rng = test_rng();
@@ -267,35 +275,14 @@ impl Group for Fq12 {
         self.pow(repr)
     }
 
+    fn scale_u128(&self, limbs_le2: [u64; 2]) -> Self {
+        self.pow(limbs_le2)
+    }
+
     fn random<R: RngCore>(_rng: &mut R) -> Self {
         // We use our own fixed RNG for testing
         let mut rng = test_rng();
         Self::rand(&mut rng)
-    }
-}
-
-/* --------- Small-scalar (u128) scaling extension -------------------- */
-
-pub trait SmallScalarMul: Sized {
-    /// Scale by a small scalar provided as 2 little-endian u64 limbs
-    fn scale_u128(&self, limbs_le2: [u64; 2]) -> Self;
-}
-
-impl SmallScalarMul for G1Affine {
-    fn scale_u128(&self, limbs_le2: [u64; 2]) -> Self {
-        self.mul_bigint(limbs_le2).into_affine()
-    }
-}
-
-impl SmallScalarMul for G2AffineWrapper {
-    fn scale_u128(&self, limbs_le2: [u64; 2]) -> Self {
-        G2AffineWrapper(self.0.mul_bigint(limbs_le2).into_affine())
-    }
-}
-
-impl SmallScalarMul for Fq12 {
-    fn scale_u128(&self, limbs_le2: [u64; 2]) -> Self {
-        self.pow(limbs_le2)
     }
 }
 
@@ -1101,7 +1088,7 @@ impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
     ) {
         assert_eq!(bases_count, vs.len(), "bases_count must equal vs length");
         if let Some(cache) = g1_cache {
-            if let Some(windowed_data) = cache.get_windowed_data() {
+            if let Some(_windowed_data) = cache.get_windowed_data() {
                 // Convert limbs to Fr
                 let mut bytes = [0u8; 16];
                 bytes[0..8].copy_from_slice(&scalar_le2[0].to_le_bytes());
@@ -1313,7 +1300,7 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
     ) {
         assert_eq!(bases_count, vs.len(), "bases_count must equal vs length");
         if let Some(cache) = g2_cache {
-            if let Some(windowed_data) = cache.get_windowed_data() {
+            if let Some(_windowed_data) = cache.get_windowed_data() {
                 let mut bytes = [0u8; 16];
                 bytes[0..8].copy_from_slice(&scalar_le2[0].to_le_bytes());
                 bytes[8..16].copy_from_slice(&scalar_le2[1].to_le_bytes());

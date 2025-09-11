@@ -6,8 +6,7 @@ use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion
 use dory::curve::{test_rng, ArkBn254Pairing, OptimizedMsmG1, OptimizedMsmG2, StandardPolynomial, DummyMsm};
 use dory::setup::ProverSetup;
 use dory::toy_transcript::ToyTranscript;
-use dory::vmv::evaluate::{create_evaluation_proof, verify_evaluation_proof};
-use dory::vmv::{commit_to_rows, compute_nu};
+use dory::core::{create_evaluation_proof, verify_evaluation_proof, commit_to_rows, compute_nu};
 
 /// Benchmark the opening evaluation proof
 /// Benchmark the opening evaluation proof
@@ -87,7 +86,6 @@ fn bench_vmv_eval(c: &mut Criterion) {
                             black_box(&polynomial),
                             Some(black_box(rc)),
                             black_box(&b_points),
-                            sigma,
                             black_box(&prover_setup),
                         );
                         black_box(proof);
@@ -107,7 +105,7 @@ fn bench_vmv_eval(c: &mut Criterion) {
                 OptimizedMsmG1,
                 Fr,
                 <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-            >(&polynomial, &b_points, 0, sigma, &prover_setup);
+            >(&polynomial, &b_points, 0, &prover_setup);
 
             c.bench_function(&verify_bench_name, |b| {
                 // Only measure verification; create fresh proof and transcript per-iter
@@ -125,7 +123,6 @@ fn bench_vmv_eval(c: &mut Criterion) {
                             &polynomial,
                             None,
                             &b_points,
-                            sigma,
                             &prover_setup,
                         );
                         proof
@@ -144,7 +141,6 @@ fn bench_vmv_eval(c: &mut Criterion) {
                             black_box(&batching_factors),
                             black_box(&evaluations),
                             black_box(&b_points),
-                            sigma,
                             &verifier_setup,
                             v_transcript,
                         );

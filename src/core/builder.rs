@@ -389,6 +389,17 @@ where
         &self.second_messages[idx]
     }
 
+    fn process_vmv_message_take(&mut self) -> VMVMessage<G1, GT> {
+        let message = self
+            .vmv_msg
+            .take()
+            .expect("VMV message must be present in verify builder");
+        // Append to transcript before moving out
+        self.transcript.append_group(b"d2_eval_vmv", &message.d2);
+        self.transcript.append_group(b"e1_eval_vmv", &message.e1);
+        message
+    }
+
     fn process_first_reduce_message_at(
         &mut self,
         idx: usize,
@@ -426,17 +437,6 @@ where
         let gamma_1 = self.transcript.challenge_u128(b"finalize_gamma_1");
         let gamma_2 = self.transcript.challenge_u128(b"finalize_gamma_2");
         FinalizeChallenge { gamma_1, gamma_2 }
-    }
-
-    fn process_vmv_message_take(&mut self) -> VMVMessage<G1, GT> {
-        let message = self
-            .vmv_msg
-            .take()
-            .expect("VMV message must be present in verify builder");
-        // Append to transcript before moving out
-        self.transcript.append_group(b"d2_eval_vmv", &message.d2);
-        self.transcript.append_group(b"e1_eval_vmv", &message.e1);
-        message
     }
 
     fn process_final_bases_take(&mut self) -> FinalBasesMessage<G1, G2> {
