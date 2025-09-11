@@ -391,17 +391,13 @@ impl<E: Pairing> VerifierSetup<E> {
         let mut delta_1l = Vec::with_capacity(max_log_n + 1);
         let mut delta_1r = Vec::with_capacity(max_log_n + 1);
         let mut delta_2r = Vec::with_capacity(max_log_n + 1);
-        let mut chi = Vec::with_capacity(max_log_n + 1);
+        // Remove chi precomputation; compute deltas directly per round
 
         for k in 0..=max_log_n {
             if k == 0 {
                 delta_1l.push(E::GT::identity());
                 delta_1r.push(E::GT::identity());
                 delta_2r.push(E::GT::identity());
-                chi.push(E::pair(
-                    &prover_setup.core.g1_vec[0],
-                    &prover_setup.core.g2_vec[0],
-                ));
             } else {
                 let half_len = 1 << (k - 1);
                 let full_len = 1 << k;
@@ -412,7 +408,7 @@ impl<E: Pairing> VerifierSetup<E> {
                 let g2_second_half = &prover_setup.core.g2_vec[half_len..full_len];
 
                 // Δ₁L[k] = Δ₂L[k] = e(Γ₁[..2^(k-1)], Γ₂[..2^(k-1)])
-                delta_1l.push(chi[k - 1].clone());
+                delta_1l.push(E::multi_pair(g1_first_half, g2_first_half));
 
                 // Δ₁R[k] = e(Γ₁[2^(k-1)..2^k], Γ₂[..2^(k-1)])
                 delta_1r.push(E::multi_pair(g1_second_half, g2_first_half));

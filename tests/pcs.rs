@@ -73,7 +73,6 @@ fn test_pcs_api_workflow() {
         &StandardPolynomial::new(&coeffs),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript,
     );
@@ -92,7 +91,6 @@ fn test_pcs_api_workflow() {
         evaluation,
         &point,
         proof,
-        sigma,
         &verifier_setup,
         verify_transcript,
     );

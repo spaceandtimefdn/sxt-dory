@@ -12,12 +12,11 @@ pub mod messages;
 pub mod setup;
 pub mod state;
 pub mod commit;
+pub mod vmv;
 pub mod evaluate;
-pub mod pcs;
 
 pub use commit::*;
 pub use evaluate::*;
-pub use pcs::*;
 
 pub use builder::*;
 pub use inner_product::*;

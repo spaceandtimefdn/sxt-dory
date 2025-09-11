@@ -52,11 +52,12 @@ pub fn compute_polynomial_commitment<
 /// Compute the size split (ν, σ) from variable count and chosen σ
 /// 2^ν is the number of rows; 2^σ the number of columns
 pub fn compute_nu(num_vars: usize, sigma: usize) -> usize {
-    if num_vars <= sigma * 2 {
-        sigma
-    } else {
-        num_vars - sigma
-    }
+    // Enforce symmetric split: sigma = ceil(d/2), nu = floor(d/2)
+    let d = num_vars;
+    let enforced_sigma = (d + 1) / 2; // ceil(d/2)
+    let enforced_nu = d / 2; // floor(d/2)
+    debug_assert_eq!(sigma, enforced_sigma, "sigma must equal ceil(d/2)");
+    enforced_nu
 }
 
 /// Compute the (Pedersen) commitments to the rows of the matrix M that is derived from coeffs `a`.

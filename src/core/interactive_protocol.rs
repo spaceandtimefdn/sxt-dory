@@ -7,7 +7,7 @@ use crate::{
     messages::{FirstReduceChallenge, FirstReduceMessage, SecondReduceChallenge, SecondReduceMessage},
     setup::VerifierSetup,
     state::{ProverState, VerifierState, DoryVerifierState, DoryProverState},
-    poly::fold_eval_from_coords_and_alphas,
+    poly::{fold_eval_from_coords_and_alphas, BitOrdering},
 };
 
 use super::{ProverSetup, FinalizeChallenge};
@@ -435,14 +435,14 @@ where
         // If this is not a VMV path (inner-product tests), eval_point_* can be empty; fall back to using exactly nu coords when provided
         let s1_fwd: <E::G1 as Group>::Scalar = if eval_point_right.is_empty() {
             // Default: multiply alphas only
-            fold_eval_from_coords_and_alphas(&[][..], &alphas)
+            fold_eval_from_coords_and_alphas(&[][..], &alphas, BitOrdering::LittleEndian)
         } else {
-            fold_eval_from_coords_and_alphas(&eval_point_right, &alphas)
+            fold_eval_from_coords_and_alphas(&eval_point_right, &alphas, BitOrdering::LittleEndian)
         };
         let s2_fwd: <E::G1 as Group>::Scalar = if eval_point_left.is_empty() {
-            fold_eval_from_coords_and_alphas(&[][..], &alphas)
+            fold_eval_from_coords_and_alphas(&[][..], &alphas, BitOrdering::LittleEndian)
         } else {
-            fold_eval_from_coords_and_alphas(&eval_point_left, &alphas)
+            fold_eval_from_coords_and_alphas(&eval_point_left, &alphas, BitOrdering::LittleEndian)
         };
         eprintln!("DEBUG: Verifier-side computed final scalars (forward order):");
         eprintln!("  - s1_fwd from eval_point_right (len {}), s2_fwd from eval_point_left (len {})",

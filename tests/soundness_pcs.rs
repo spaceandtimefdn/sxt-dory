@@ -2,8 +2,8 @@
 use ark_bn254::{Fq12, Fr};
 use ark_ff::UniformRand;
 use dory::{
-    arithmetic::Field as DoryField, commit, create_transcript, evaluate, setup_with_srs_file,
-    verify,
+    arithmetic::Field as DoryField, commit, create_transcript, setup_with_srs_file,
+    verify, evaluate,
 };
 
 use dory::curve::{
@@ -60,7 +60,6 @@ fn test_soundness_wrong_evaluation() {
         &StandardPolynomial::new(&coeffs),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript,
     );
@@ -74,7 +73,6 @@ fn test_soundness_wrong_evaluation() {
         wrong_evaluation,
         &point,
         proof,
-        sigma,
         &verifier_setup,
         verify_transcript,
     );
@@ -106,7 +104,6 @@ fn test_soundness_wrong_commitment() {
         &StandardPolynomial::new(&coeffs),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript,
     );
@@ -120,7 +117,6 @@ fn test_soundness_wrong_commitment() {
         evaluation,
         &point,
         proof,
-        sigma,
         &verifier_setup,
         verify_transcript,
     );
@@ -155,7 +151,6 @@ fn test_soundness_wrong_evaluation_point() {
         &StandardPolynomial::new(&coeffs),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript,
     );
@@ -172,7 +167,6 @@ fn test_soundness_wrong_evaluation_point() {
         evaluation,
         &wrong_point,
         proof,
-        sigma,
         &verifier_setup,
         verify_transcript,
     );
@@ -221,7 +215,6 @@ fn test_soundness_binding_property() {
         &StandardPolynomial::new(&coeffs1),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript,
     );
@@ -235,7 +228,6 @@ fn test_soundness_binding_property() {
         eval1,
         &point,
         proof1,
-        sigma,
         &verifier_setup,
         verify_transcript,
     );
@@ -274,7 +266,6 @@ fn test_soundness_polynomial_mismatch() {
         &StandardPolynomial::new(&coeffs2),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript,
     );
@@ -286,7 +277,6 @@ fn test_soundness_polynomial_mismatch() {
         eval2,
         &point,
         proof2,
-        sigma,
         &verifier_setup,
         create_transcript(domain),
     );
@@ -321,7 +311,6 @@ fn test_soundness_offset_manipulation() {
         &StandardPolynomial::new(&coeffs),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript,
     );
@@ -333,7 +322,7 @@ fn test_soundness_offset_manipulation() {
         evaluation,
         &point,
         proof,
-        sigma,
+        
         &verifier_setup,
         create_transcript(domain),
     );
@@ -368,7 +357,6 @@ fn test_soundness_zero_polynomial() {
         &StandardPolynomial::new(&zero_coeffs),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript,
     );
@@ -387,7 +375,6 @@ fn test_soundness_zero_polynomial() {
         wrong_evaluation,
         &point,
         proof,
-        sigma,
         &verifier_setup,
         create_transcript(domain),
     );
@@ -425,7 +412,6 @@ fn test_soundness_constant_polynomial() {
         &StandardPolynomial::new(&coeffs),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript,
     );
@@ -444,7 +430,6 @@ fn test_soundness_constant_polynomial() {
         wrong_evaluation,
         &point,
         proof,
-        sigma,
         &verifier_setup,
         create_transcript(domain),
     );
@@ -483,7 +468,6 @@ fn test_soundness_completeness_multiple_points() {
             &polynomial,
             None,
             &point,
-            sigma,
             &prover_setup,
             transcript,
         );
@@ -494,7 +478,6 @@ fn test_soundness_completeness_multiple_points() {
             evaluation,
             &point,
             proof,
-            sigma,
             &verifier_setup,
             create_transcript(domain),
         );
@@ -535,7 +518,6 @@ fn test_soundness_cross_polynomial_attack() {
         &StandardPolynomial::new(&coeffs1),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript1,
     );
@@ -546,7 +528,6 @@ fn test_soundness_cross_polynomial_attack() {
         &StandardPolynomial::new(&coeffs2),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript2,
     );
@@ -559,7 +540,6 @@ fn test_soundness_cross_polynomial_attack() {
         eval2,
         &point,
         proof2,
-        sigma,
         &verifier_setup,
         create_transcript(domain),
     );
@@ -574,7 +554,6 @@ fn test_soundness_cross_polynomial_attack() {
         eval1,
         &point,
         proof1,
-        sigma,
         &verifier_setup,
         create_transcript(domain),
     );
@@ -626,7 +605,6 @@ fn test_soundness_batch_verification() {
             &StandardPolynomial::new(&coeffs_batch[0]),
             None,
             &point,
-            sigma,
             &prover_setup,
             transcript,
         );
@@ -637,7 +615,6 @@ fn test_soundness_batch_verification() {
             evaluations[1],
             &point,
             proof,
-            sigma,
             &verifier_setup,
             create_transcript(domain),
         );
@@ -678,7 +655,6 @@ fn test_soundness_sparse_polynomial() {
         &StandardPolynomial::new(&sparse_coeffs),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript,
     );
@@ -691,7 +667,6 @@ fn test_soundness_sparse_polynomial() {
         wrong_evaluation,
         &point,
         proof,
-        sigma,
         &verifier_setup,
         create_transcript(domain),
     );
@@ -733,7 +708,6 @@ fn test_soundness_commitment_consistency() {
         &StandardPolynomial::new(&coeffs),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript,
     );
@@ -745,7 +719,6 @@ fn test_soundness_commitment_consistency() {
         evaluation,
         &point,
         proof,
-        sigma,
         &verifier_setup,
         create_transcript(domain),
     );
@@ -756,7 +729,6 @@ fn test_soundness_commitment_consistency() {
         &StandardPolynomial::new(&coeffs),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript2,
     );
@@ -766,7 +738,6 @@ fn test_soundness_commitment_consistency() {
         evaluation,
         &point,
         proof2,
-        sigma,
         &verifier_setup,
         create_transcript(domain),
     );
@@ -802,7 +773,6 @@ fn test_soundness_degree_bound() {
         &StandardPolynomial::new(&max_degree_coeffs),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript,
     );
@@ -813,7 +783,6 @@ fn test_soundness_degree_bound() {
         evaluation,
         &point,
         proof,
-        sigma,
         &verifier_setup,
         create_transcript(domain),
     );
@@ -826,7 +795,6 @@ fn test_soundness_degree_bound() {
         &StandardPolynomial::new(&max_degree_coeffs),
         None,
         &point,
-        sigma,
         &prover_setup,
         transcript2,
     );
@@ -838,7 +806,6 @@ fn test_soundness_degree_bound() {
         wrong_evaluation,
         &point,
         proof2,
-        sigma,
         &verifier_setup,
         create_transcript(domain),
     );

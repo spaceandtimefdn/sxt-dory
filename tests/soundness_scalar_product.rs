@@ -6,7 +6,7 @@ use dory::{
     builder::{DoryProofBuilder, DoryVerifyBuilder},
     inner_product::{inner_product_prove, inner_product_verify},
     setup::ProverSetup,
-    state::{ProverState, VerifierState},
+    state::{DoryProverState, DoryVerifierState},
     toy_transcript::ToyTranscript,
 };
 
@@ -18,8 +18,8 @@ fn setup_scalar_product_test_environment(
 ) -> (
     ProverSetup<ArkBn254Pairing>,
     dory::setup::VerifierSetup<ArkBn254Pairing>,
-    ProverState<ArkBn254Pairing>,
-    VerifierState<ArkBn254Pairing>,
+    DoryProverState<ArkBn254Pairing>,
+    DoryVerifierState<ArkBn254Pairing>,
 ) {
     let mut rng = test_rng();
     let vector_size = 1 << log_n;
@@ -39,13 +39,13 @@ fn setup_scalar_product_test_environment(
     let s2: Vec<Fr> = (0..vector_size).map(|_| Fr::random(&mut rng)).collect();
 
     // Create states
-    let prover_state = ProverState::new(v1.clone(), v2.clone(), s1.clone(), s2.clone(), log_n);
+    let prover_state = DoryProverState::new(v1.clone(), v2.clone(), s1.clone(), s2.clone(), log_n);
     let c = ArkBn254Pairing::multi_pair(&v1, &v2);
     let d_1 = ArkBn254Pairing::multi_pair(&v1, &prover_setup.g2_vec()[..1 << log_n]);
     let d_2 = ArkBn254Pairing::multi_pair(&prover_setup.g1_vec()[..1 << log_n], &v2);
     let e_1 = OptimizedMsmG1::msm(&prover_setup.g1_vec()[..1 << log_n], &s2);
     let e_2 = OptimizedMsmG2::msm(&prover_setup.g2_vec()[..1 << log_n], &s1);
-    let verifier_state = VerifierState::new(d_1, d_2, e_1, e_2, log_n);
+    let verifier_state = DoryVerifierState::new(d_1, d_2, e_1, e_2, std::sync::Arc::from(vec![Fr::zero(); log_n]));
 
     (prover_setup, verifier_setup, prover_state, verifier_state)
 }

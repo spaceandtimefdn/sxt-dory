@@ -48,7 +48,7 @@ pub trait Polynomial<F: Field, G1: Group<Scalar = F>> {
 ///
 /// To evaluate a multilinear polynomial with coefficients `coeffs` at `point`:
 /// result = coeffs · evaluation_vector
-pub fn multilinear_lagrange_vec<F>(v: &mut [F], point: &[F], _endian: BitOrdering)
+pub fn multilinear_lagrange_vec<F>(v: &mut [F], point: &[F], endian: BitOrdering)
 where
     F: Field,
 {
@@ -63,41 +63,80 @@ where
         return;
     }
 
-    // Initialize for first variable: basis functions [1-x₀, x₀]
-    let one_minus_p0 = F::one().sub(&point[0]);
-    v[0] = one_minus_p0;
-    if v.len() > 1 {
-        v[1] = point[0];
-    }
-
-    // For each subsequent variable, double the active portion of the evaluation vector
-    // by splitting each existing value into (value * (1-pᵢ)) and (value * pᵢ)
-    for (level, p) in point[1..].iter().enumerate() {
-        let mid = 1 << (level + 1); // Size of active portion after previous variables
-
-        // Apply the transformation: right[i] = left[i] * p, left[i] = left[i] * (1-p)
-        let one_minus_p = F::one().sub(p);
-
-        if mid >= v.len() {
-            // No right portion if we've filled the vector, just multiply all by (1-p)
-            for li in v.iter_mut() {
-                *li = li.mul(&one_minus_p);
-            }
-        } else {
-            // We can split the vector:
-            let (left, right) = v.split_at_mut(mid);
-            let k = left.len().min(right.len());
-
-            // Transform paired elements
-            for (li, ri) in left[..k].iter_mut().zip(right[..k].iter_mut()) {
-                let li_val = *li;
-                *ri = li_val.mul(p);
-                *li = li_val.mul(&one_minus_p);
+    match endian {
+        BitOrdering::LittleEndian => {
+            // Initialize for first variable: basis functions [1-x₀, x₀]
+            let one_minus_p0 = F::one().sub(&point[0]);
+            v[0] = one_minus_p0;
+            if v.len() > 1 {
+                v[1] = point[0];
             }
 
-            // Handle remaining left elements (when left is longer than right)
-            for li in left[k..].iter_mut() {
-                *li = li.mul(&one_minus_p);
+            // For each subsequent variable, double the active portion of the evaluation vector
+            // by splitting each existing value into (value * (1-pᵢ)) and (value * pᵢ)
+            for (level, p) in point[1..].iter().enumerate() {
+                let mid = 1 << (level + 1); // Size of active portion after previous variables
+
+                // Apply the transformation: right[i] = left[i] * p, left[i] = left[i] * (1-p)
+                let one_minus_p = F::one().sub(p);
+
+                if mid >= v.len() {
+                    // No right portion if we've filled the vector, just multiply all by (1-p)
+                    for li in v.iter_mut() {
+                        *li = li.mul(&one_minus_p);
+                    }
+                } else {
+                    // We can split the vector:
+                    let (left, right) = v.split_at_mut(mid);
+                    let k = left.len().min(right.len());
+
+                    // Transform paired elements
+                    for (li, ri) in left[..k].iter_mut().zip(right[..k].iter_mut()) {
+                        let li_val = *li;
+                        *ri = li_val.mul(p);
+                        *li = li_val.mul(&one_minus_p);
+                    }
+
+                    // Handle remaining left elements (when left is longer than right)
+                    for li in left[k..].iter_mut() {
+                        *li = li.mul(&one_minus_p);
+                    }
+                }
+            }
+        }
+        BitOrdering::BigEndian => {
+            let n = point.len();
+            // Initialize using the last variable first (MSB first)
+            let p0 = point[n - 1];
+            let one_minus_p0 = F::one().sub(&p0);
+            v[0] = one_minus_p0;
+            if v.len() > 1 {
+                v[1] = p0;
+            }
+
+            // Process remaining variables in reverse order
+            for (level, p) in point[..n - 1].iter().rev().enumerate() {
+                let mid = 1 << (level + 1);
+                let one_minus_p = F::one().sub(p);
+
+                if mid >= v.len() {
+                    for li in v.iter_mut() {
+                        *li = li.mul(&one_minus_p);
+                    }
+                } else {
+                    let (left, right) = v.split_at_mut(mid);
+                    let k = left.len().min(right.len());
+
+                    for (li, ri) in left[..k].iter_mut().zip(right[..k].iter_mut()) {
+                        let li_val = *li;
+                        *ri = li_val.mul(p);
+                        *li = li_val.mul(&one_minus_p);
+                    }
+
+                    for li in left[k..].iter_mut() {
+                        *li = li.mul(&one_minus_p);
+                    }
+                }
             }
         }
     }
@@ -152,7 +191,11 @@ pub fn get_bit_index(linear_index: usize, variable_index: usize, total_vars: usi
 ///   ∏_i (coords[i] + alpha_i · (1 - coords[i]))
 /// For i >= coords.len(), treats coords[i] = 0 (factor reduces to alpha_i).
 #[inline]
-pub fn fold_eval_from_coords_and_alphas<F: Field>(coords: &[F], alphas: &[[u64; 2]]) -> F {
+pub fn fold_eval_from_coords_and_alphas<F: Field>(
+    coords: &[F],
+    alphas: &[[u64; 2]],
+    ordering: BitOrdering,
+) -> F {
     let mut acc = F::one();
     let k = coords.len();
     let m = alphas.len();
@@ -162,13 +205,21 @@ pub fn fold_eval_from_coords_and_alphas<F: Field>(coords: &[F], alphas: &[[u64; 
         let factor = match (i < k, i < m) {
             (true, true) => {
                 // Both present: x + a * (1 - x)
-                let x = coords[i];
+                let coord_idx = match ordering {
+                    BitOrdering::LittleEndian => i,
+                    BitOrdering::BigEndian => k - 1 - i,
+                };
+                let x = coords[coord_idx];
                 x.add(&(&F::one().sub(&x)).mul_u128(alphas[i]))
             }
             (true, false) => {
                 // Extra coord with no alpha: multiply by x
                 eprintln!("DEBUG: Extra coord with no alpha");
-                coords[i]
+                let coord_idx = match ordering {
+                    BitOrdering::LittleEndian => i,
+                    BitOrdering::BigEndian => k - 1 - i,
+                };
+                coords[coord_idx]
             }
             (false, true) => {
                 // Extra alpha with no coord: multiply by a
