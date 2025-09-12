@@ -14,6 +14,9 @@ use crate::transcript::Transcript;
 // use ark_serialize::CanonicalSerialize;
 use ark_std::rand::RngCore;
 
+#[cfg(feature = "recursion")]
+use jolt_optimizations::ExponentiationSteps;
+
 mod core;
 mod error;
 mod primitives;
@@ -270,8 +273,94 @@ where
     let batching_factors = vec![<E::G1 as Group>::Scalar::one()];
     let evaluations = vec![evaluation];
 
-    // Verify the proof
-    verify_evaluation_proof::<E, T, M1, M2, MGT>(
+    // When recursion feature is enabled, use recursion-aware verification
+    #[cfg(feature = "recursion")]
+    {
+        // Extract the GT exponentiation steps from the proof if available
+        let recursion_ops = if !proof.gt_exponentiation_steps.is_empty() {
+            Some(proof.gt_exponentiation_steps.clone())
+        } else {
+            None
+        };
+
+        // Use the recursion-aware verification
+        return verify_evaluation_proof_with_recursion::<E, T, M1, M2, MGT>(
+            proof,
+            &commitment_batch,
+            &batching_factors,
+            &evaluations,
+            point,
+            sigma,
+            verifier_setup,
+            transcript,
+            recursion_ops,
+        );
+    }
+
+    // When recursion feature is disabled, use regular verification
+    #[cfg(not(feature = "recursion"))]
+    {
+        verify_evaluation_proof::<E, T, M1, M2, MGT>(
+            proof,
+            &commitment_batch,
+            &batching_factors,
+            &evaluations,
+            point,
+            sigma,
+            verifier_setup,
+            transcript,
+        )
+    }
+}
+
+/// Verify a Dory evaluation proof with explicit recursion support
+///
+/// This is a low-level function that allows explicitly providing GT exponentiation steps.
+/// In most cases, you should use the main `verify()` function which automatically
+/// extracts and uses GT steps when the recursion feature is enabled.
+///
+/// # Parameters
+/// - `commitment`: The polynomial commitment in GT
+/// - `evaluation`: The claimed evaluation result
+/// - `point`: The evaluation point (multilinear)
+/// - `proof`: The evaluation proof to verify
+/// - `sigma`: matrix to commit is of size 2^sigma
+/// - `verifier_setup`: The verifier setup containing verification elements
+/// - `transcript`: Fresh transcript for verification
+/// - `recursion_ops`: Optional precomputed GT exponentiation steps for recursion mode
+///
+/// # Returns
+/// `Ok(())` if verification succeeds, `Err(DoryError)` if it fails
+#[cfg(feature = "recursion")]
+pub fn verify_with_explicit_recursion_ops<
+    E: Pairing,
+    T: Transcript<Scalar = <E::G1 as Group>::Scalar>,
+    M1: MultiScalarMul<E::G1>,
+    M2: MultiScalarMul<E::G2>,
+    MGT: MultiScalarMul<E::GT>,
+>(
+    commitment: E::GT,
+    evaluation: <E::G1 as Group>::Scalar,
+    point: &[<E::G1 as Group>::Scalar],
+    proof: DoryProofBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>,
+    sigma: usize,
+    verifier_setup: &VerifierSetup<E>,
+    transcript: T,
+    recursion_ops: Option<Vec<ExponentiationSteps>>,
+) -> Result<(), DoryError>
+where
+    E::G1: Group,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
+    <E::G1 as Group>::Scalar: Field,
+{
+    // Prepare verification data
+    let commitment_batch = vec![commitment];
+    let batching_factors = vec![<E::G1 as Group>::Scalar::one()];
+    let evaluations = vec![evaluation];
+
+    // Verify the proof with recursion support
+    verify_evaluation_proof_with_recursion::<E, T, M1, M2, MGT>(
         proof,
         &commitment_batch,
         &batching_factors,
@@ -280,6 +369,7 @@ where
         sigma,
         verifier_setup,
         transcript,
+        recursion_ops,
     )
 }
 

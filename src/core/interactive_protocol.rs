@@ -14,6 +14,43 @@ use crate::{
 
 use super::{ProverSetup, ScalarProductChallenge};
 
+#[cfg(feature = "recursion")]
+use jolt_optimizations::ExponentiationSteps;
+#[cfg(feature = "recursion")]
+use std::collections::VecDeque;
+
+/// Helper function to scale GT element with optional offloaded exponentiation
+///
+/// When recursion mode is enabled and precomputed exponentiation steps are available,
+/// this function uses the precomputed result instead of performing the scaling operation.
+/// This significantly reduces circuit complexity for recursive verification.
+fn scale_gt_with_offload<E: Pairing>(
+    value: &E::GT,
+    scalar: &<E::GT as Group>::Scalar,
+    #[cfg(feature = "recursion")] recursion_ops: &mut Option<VecDeque<ExponentiationSteps>>,
+    #[cfg(not(feature = "recursion"))] _recursion_ops: &mut Option<()>,
+) -> E::GT
+where
+    E::G1: Group,
+    E::G2: Group,
+    E::GT: Group,
+{
+    #[cfg(feature = "recursion")]
+    {
+        if let Some(ops) = recursion_ops {
+            if let Some(step) = ops.pop_front() {
+                return unsafe { std::mem::transmute_copy(&step.result) };
+            }
+        }
+        value.scale(scalar)
+    }
+
+    #[cfg(not(feature = "recursion"))]
+    {
+        value.scale(scalar)
+    }
+}
+
 /// Below is the **prover** side of the interactive protocol for Dory
 /// We define the relevant message implementations in the order of communication
 impl<E: Pairing> crate::ProverState for DoryProverState<E>
@@ -411,17 +448,26 @@ where
         // Add χᵢ
         new_c = new_c.add(chi);
 
-        // Add β * D₂
+        // Add β * D₂ (not offloaded - uses beta from challenges, not tracked by prover)
         new_c = new_c.add(&self.d_2.scale(&beta));
 
-        // Add β⁻¹ * D₁
+        // Add β⁻¹ * D₁ (not offloaded - uses beta from challenges, not tracked by prover)
         new_c = new_c.add(&self.d_1.scale(&beta_inv));
 
-        // Add α * C_plus
-        new_c = new_c.add(&c_plus.scale(&alpha));
+        // Add α * C_plus (offloaded when recursion_ops available)
+        #[cfg(feature = "recursion")]
+        let c_plus_scaled = scale_gt_with_offload::<E>(&c_plus, &alpha, &mut self.recursion_ops);
+        #[cfg(not(feature = "recursion"))]
+        let c_plus_scaled = scale_gt_with_offload::<E>(&c_plus, &alpha, &mut None);
+        new_c = new_c.add(&c_plus_scaled);
 
-        // Add α⁻¹ * C_minus
-        new_c = new_c.add(&c_minus.scale(&alpha_inv));
+        // Add α⁻¹ * C_minus (offloaded when recursion_ops available)
+        #[cfg(feature = "recursion")]
+        let c_minus_scaled =
+            scale_gt_with_offload::<E>(&c_minus, &alpha_inv, &mut self.recursion_ops);
+        #[cfg(not(feature = "recursion"))]
+        let c_minus_scaled = scale_gt_with_offload::<E>(&c_minus, &alpha_inv, &mut None);
+        new_c = new_c.add(&c_minus_scaled);
 
         self.c = new_c;
     }
@@ -448,25 +494,37 @@ where
         let delta_2r = &setup.delta_2r[self.nu];
 
         // D_1' <- alpha * D_1L + D_1R + alpha * beta * Delta_1L + beta * Delta_1R
-        let mut new_d_1 = d_1l.scale(&alpha);
+        // Use offloaded operation for d_1l.scale(&alpha)
+        #[cfg(feature = "recursion")]
+        let d_1l_scaled = scale_gt_with_offload::<E>(&d_1l, &alpha, &mut self.recursion_ops);
+        #[cfg(not(feature = "recursion"))]
+        let d_1l_scaled = scale_gt_with_offload::<E>(&d_1l, &alpha, &mut None);
+
+        let mut new_d_1 = d_1l_scaled;
         new_d_1 = new_d_1.add(&d_1r);
 
-        // alpha * beta * Delta_1L
+        // alpha * beta * Delta_1L (not offloaded - uses setup values)
         let alpha_beta = alpha.mul(&beta);
         new_d_1 = new_d_1.add(&delta_1l.scale(&alpha_beta));
 
-        // beta * Delta_1R
+        // beta * Delta_1R (not offloaded - uses setup values)
         new_d_1 = new_d_1.add(&delta_1r.scale(&beta));
 
         // D_2' <- alpha_inv * D_2L + D_2R + alpha_inv * beta_inv * Delta_2L + beta_inv * Delta_2R
-        let mut new_d_2 = d_2l.scale(&alpha_inv);
+        // Use offloaded operation for d_2l.scale(&alpha_inv)
+        #[cfg(feature = "recursion")]
+        let d_2l_scaled = scale_gt_with_offload::<E>(&d_2l, &alpha_inv, &mut self.recursion_ops);
+        #[cfg(not(feature = "recursion"))]
+        let d_2l_scaled = scale_gt_with_offload::<E>(&d_2l, &alpha_inv, &mut None);
+
+        let mut new_d_2 = d_2l_scaled;
         new_d_2 = new_d_2.add(&d_2r);
 
-        // alpha_inv * beta_inv * Delta_2L
+        // alpha_inv * beta_inv * Delta_2L (not offloaded - uses setup values)
         let alpha_inv_beta_inv = alpha_inv.mul(&beta_inv);
         new_d_2 = new_d_2.add(&delta_2l.scale(&alpha_inv_beta_inv));
 
-        // beta_inv * Delta_2R
+        // beta_inv * Delta_2R (not offloaded - uses setup values)
         new_d_2 = new_d_2.add(&delta_2r.scale(&beta_inv));
 
         self.d_1 = new_d_1;

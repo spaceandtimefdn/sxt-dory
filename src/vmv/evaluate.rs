@@ -19,6 +19,9 @@ use crate::{
     ProofBuilder,
 };
 
+#[cfg(feature = "recursion")]
+use jolt_optimizations::ExponentiationSteps;
+
 /// Implements the Eval-VMV-RE protocol from Dory Section 5
 /// Proves the VMV relation: polynomial(point) = L^T × M × R
 ///
@@ -298,6 +301,63 @@ where
     // 6. Eval VMV re verifier side
     let (verify_builder, verifier_state) =
         eval_vmv_re_verify::<E, T, M1>(verify_builder, vmv_state, verifier_setup);
+
+    // 7. Dory inner product verify
+    inner_product_verify(verify_builder, verifier_state, verifier_setup, nu)
+        .map_err(|_| DoryError::InvalidProof)
+}
+
+/// Verify a dory evaluation proof with recursion support
+#[cfg(feature = "recursion")]
+pub fn verify_evaluation_proof_with_recursion<
+    E: Pairing,
+    T: Transcript<Scalar = <E::G1 as Group>::Scalar>,
+    M1: MultiScalarMul<E::G1>,
+    M2: MultiScalarMul<E::G2>,
+    MGT: MultiScalarMul<E::GT>,
+>(
+    proof: DoryProofBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>,
+    commitment_batch: &[E::GT],
+    batching_factors: &[<E::G1 as Group>::Scalar],
+    evaluations: &[<E::G1 as Group>::Scalar],
+    b_points: &[<E::G1 as Group>::Scalar],
+    sigma: usize,
+    verifier_setup: &VerifierSetup<E>,
+    transcript: T,
+    recursion_ops: Option<Vec<ExponentiationSteps>>,
+) -> Result<(), DoryError>
+where
+    E::G1: Group,
+    E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
+    <E::G1 as Group>::Scalar: Field,
+{
+    // 1. Compute the MSM of commits and the factors
+    let a_commit = MGT::msm(commitment_batch, batching_factors);
+
+    // 2. Compute the product of evaluations and batching factors (batching factors should be 1)
+    let product: <E::G1 as Group>::Scalar = evaluations
+        .iter()
+        .zip(batching_factors)
+        .fold(<E::G1 as Group>::Scalar::zero(), |acc, (&e, &f)| {
+            acc.add(&e.mul(&f))
+        });
+
+    // 3. Compute nu
+    let nu = compute_nu(b_points.len(), sigma);
+
+    // 4. Build VMV verifier state
+    let vmv_state = build_vmv_verifier_state::<E>(product, b_points, a_commit, sigma, nu);
+
+    // 5. Create verifier builder from proof
+    let verify_builder = DoryVerifyBuilder::new_from_proof(proof, transcript);
+
+    // 6. Eval VMV re verifier side and add recursion ops
+    let (verify_builder, mut verifier_state) =
+        eval_vmv_re_verify::<E, T, M1>(verify_builder, vmv_state, verifier_setup);
+
+    // 7. Add recursion ops to the verifier state
+    verifier_state.recursion_ops = recursion_ops.map(|ops| ops.into());
 
     // 7. Dory inner product verify
     inner_product_verify(verify_builder, verifier_state, verifier_setup, nu)

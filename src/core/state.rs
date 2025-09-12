@@ -9,6 +9,11 @@ use crate::{
 
 use super::ScalarProductChallenge;
 
+#[cfg(feature = "recursion")]
+use jolt_optimizations::ExponentiationSteps;
+#[cfg(feature = "recursion")]
+use std::collections::VecDeque;
+
 /// Trait for the state and computation and state of the Dory protocol.
 ///
 /// A type implementing this trait primarily stores the $v_i$ and $s_i$ vectors.
@@ -271,6 +276,10 @@ where
 
     /// Current round number. Length of v1 and v2 should be 2^nu.
     pub nu: usize,
+
+    /// Precomputed GT exponentiation steps for recursion mode
+    #[cfg(feature = "recursion")]
+    pub recursion_ops: Option<VecDeque<ExponentiationSteps>>,
 }
 impl<E: Pairing> DoryVerifierState<E>
 where
@@ -288,6 +297,8 @@ where
             s1_tensor: None, // not used in non-pcs context
             s2_tensor: None, // not used in non-pcs context
             nu,
+            #[cfg(feature = "recursion")]
+            recursion_ops: None,
         }
     }
 
@@ -311,6 +322,34 @@ where
             s1_tensor: Some(s1),
             s2_tensor: Some(s2),
             nu,
+            #[cfg(feature = "recursion")]
+            recursion_ops: None,
+        }
+    }
+
+    /// Constructor with recursion support
+    #[cfg(feature = "recursion")]
+    pub fn new_with_recursion(
+        c: E::GT,
+        d_1: E::GT,
+        d_2: E::GT,
+        e_1: E::G1,
+        e_2: E::G2,
+        s1: Option<Vec<<E::G1 as Group>::Scalar>>,
+        s2: Option<Vec<<E::G1 as Group>::Scalar>>,
+        nu: usize,
+        recursion_ops: Option<Vec<ExponentiationSteps>>,
+    ) -> Self {
+        Self {
+            c,
+            d_1,
+            d_2,
+            e_1,
+            e_2,
+            s1_tensor: s1,
+            s2_tensor: s2,
+            nu,
+            recursion_ops: recursion_ops.map(VecDeque::from),
         }
     }
 }
