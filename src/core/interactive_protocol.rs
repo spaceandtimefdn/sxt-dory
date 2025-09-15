@@ -19,6 +19,7 @@ use jolt_optimizations::ExponentiationSteps;
 #[cfg(feature = "recursion")]
 use std::collections::VecDeque;
 
+
 /// Helper function to scale GT element with optional offloaded exponentiation
 ///
 /// When recursion mode is enabled and precomputed exponentiation steps are available,
@@ -39,7 +40,32 @@ where
     {
         if let Some(ops) = recursion_ops {
             if let Some(step) = ops.pop_front() {
-                return unsafe { std::mem::transmute_copy(&step.result) };
+
+                // The step.result is always Fq12, but E::GT might be a wrapper type
+                // We need to handle this correctly based on the actual type
+                let precomputed_result: E::GT = {
+                    // Check if sizes match - if not, we likely have a wrapping issue
+                    debug_assert_eq!(
+                        std::mem::size_of::<E::GT>(),
+                        std::mem::size_of_val(&step.result),
+                        "Size mismatch between E::GT and step.result"
+                    );
+                    unsafe { std::mem::transmute_copy(&step.result) }
+                };
+
+                // Sanity check in debug mode
+                #[cfg(debug_assertions)]
+                {
+                    let native_result = value.scale(scalar);
+                    assert_eq!(
+                        precomputed_result, native_result,
+                        "GT offload mismatch: precomputed result differs from native computation!"
+                    );
+                }
+
+                return precomputed_result;
+            } else {
+                // Queue is empty, fall back to native computation
             }
         }
         value.scale(scalar)
@@ -57,6 +83,7 @@ impl<E: Pairing> crate::ProverState for DoryProverState<E>
 where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
+    E::GT: Group<Scalar = <E::G1 as Group>::Scalar>,
 {
     type G1 = E::G1;
     type G2 = E::G2;

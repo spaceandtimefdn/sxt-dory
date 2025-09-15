@@ -196,10 +196,10 @@ where
     where
         T: Default,
     {
-        Self {
+        DoryProofBuilder {
             first_messages: proof.first_messages,
             #[cfg(feature = "recursion")]
-            first_challenges: Vec::new(), // Challenges are not stored in proof, need to be regenerated
+            first_challenges: Vec::new(),
             second_messages: proof.second_messages,
             final_message: proof.final_message,
             vmv_message: proof.vmv_message,
@@ -276,8 +276,12 @@ where
             self.gt_exponentiation_steps.push(steps_c_minus);
 
             // Also simulate operations from dory_reduce_verify_update_ds
-            // We can access the previous first message
-            if let Some(first_msg) = self.first_messages.last() {
+            // IMPORTANT: We need the first message from the CURRENT round, not the last one
+            // The current round index is self.second_messages.len() (before we push the current message)
+            let current_round = self.second_messages.len();
+            if current_round < self.first_messages.len() {
+                let first_msg = &self.first_messages[current_round];
+
                 // d_1l.scale(&alpha)
                 let (_, steps_d1l) = first_msg.d1_left.scale_with_steps(&alpha);
                 self.gt_exponentiation_steps.push(steps_d1l);
@@ -285,10 +289,8 @@ where
                 // d_2l.scale(&alpha_inv)
                 let (_, steps_d2l) = first_msg.d2_left.scale_with_steps(&alpha_inverse);
                 self.gt_exponentiation_steps.push(steps_d2l);
-
-                // If we have the beta challenge stored, we can simulate more operations
-                // that involve combined challenges (alpha*beta, etc.)
-                // These would require delta values from setup, which we'll add next
+            } else {
+                panic!("Mismatch between first and second messages: round {} has no corresponding first message", current_round);
             }
         }
 

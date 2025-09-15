@@ -317,6 +317,7 @@ impl Group for Fq12 {
 
     fn scale(&self, k: &Self::Scalar) -> Self {
         // We convert to BigInt representation suitable for powering
+        println!("wrong thing being called scale");
         let repr = (*k).into_bigint();
         self.pow(repr)
     }
@@ -329,6 +330,7 @@ impl Group for Fq12 {
 
     #[cfg(feature = "recursion")]
     fn scale_with_steps(&self, k: &Self::Scalar) -> (Self, ExponentiationSteps) {
+        println!("wrong thing being called steps");
         let steps = pow_with_steps_le(*self, *k);
         (steps.result, steps)
     }
