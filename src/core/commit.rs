@@ -83,7 +83,7 @@ where
   let mut res = polynomial.commit_rows::<M1>(bases, row_len);
 
   // Pad with identity elements if needed
-  while res.len() < (1 << nu) {
+  while res.len() < (1 << sigma) {
       res.push(E::G1::identity());
   }
 

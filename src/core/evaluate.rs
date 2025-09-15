@@ -39,7 +39,7 @@ where
   debug_assert!(prover_setup.g1_vec().len() >= (1usize << sigma), "Γ1 length < 2^σ");
   debug_assert!(prover_setup.g2_vec().len() >= (1usize << nu), "Γ2 length < 2^ν");
 
-  // 2. Compute row commits (T` in the paper?)
+  // 2. Compute row commits (T` in the paper)
   let t_vec_prime = row_commitments
       .unwrap_or_else(|| commit_to_rows::<E, M1, P>(polynomial, sigma, nu, prover_setup));
 
@@ -49,7 +49,7 @@ where
   // 4. Initialize the DoryProofBuilder
   let proof_builder = DoryProofBuilder::new(initial_transcript);
 
-  // 5. Initial commitments
+  // 5. Initial VMV message
   let (final_proof_builder, proof_state) =
       eval_vmv_re_prove::<E, T, M1, M2>(proof_builder, prover_state, &v_vec, prover_setup);
 
