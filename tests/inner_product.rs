@@ -118,7 +118,7 @@ fn test_inner_product_prove_verify() {
 
     // Finalize for recursion if feature is enabled
     #[cfg(feature = "recursion")]
-    proof.finalize_for_recursion(&prover_setup, log_n);
+    proof.finalize_for_recursion(&prover_setup, log_n, None);
     println!("Proof generated in: {:?}", proof_start.elapsed());
 
     // create a verifier

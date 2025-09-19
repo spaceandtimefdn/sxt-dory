@@ -38,10 +38,7 @@ where
     #[cfg(feature = "recursion")]
     {
         if let Some(ops) = recursion_ops {
-            println!(
-                "DEBUG: scale_gt_with_offload - ops queue has {} items",
-                ops.len() + 1
-            );
+            // println!("DEBUG: scale_gt_with_offload - ops queue has {} items", ops.len() + 1);
             if let Some(step) = ops.pop_front() {
                 // The step.result is always Fq12, but E::GT might be a wrapper type
                 // We need to handle this correctly based on the actual type
@@ -482,11 +479,19 @@ where
         // Add χᵢ
         new_c = new_c.add(chi);
 
-        // Add β * D₂ (not offloaded - uses beta from challenges, not tracked by prover)
-        new_c = new_c.add(&self.d_2.scale(&beta));
+        // Add β * D₂ (offloaded when recursion_ops available)
+        #[cfg(feature = "recursion")]
+        let d2_scaled = scale_gt_with_offload::<E>(&self.d_2, &beta, &mut self.recursion_ops);
+        #[cfg(not(feature = "recursion"))]
+        let d2_scaled = self.d_2.scale(&beta);
+        new_c = new_c.add(&d2_scaled);
 
-        // Add β⁻¹ * D₁ (not offloaded - uses beta from challenges, not tracked by prover)
-        new_c = new_c.add(&self.d_1.scale(&beta_inv));
+        // Add β⁻¹ * D₁ (offloaded when recursion_ops available)
+        #[cfg(feature = "recursion")]
+        let d1_scaled = scale_gt_with_offload::<E>(&self.d_1, &beta_inv, &mut self.recursion_ops);
+        #[cfg(not(feature = "recursion"))]
+        let d1_scaled = self.d_1.scale(&beta_inv);
+        new_c = new_c.add(&d1_scaled);
 
         // Add α * C_plus (offloaded when recursion_ops available)
         #[cfg(feature = "recursion")]
@@ -521,10 +526,7 @@ where
         let (alpha, alpha_inv) = alpha_pair;
         let (beta, beta_inv) = beta_pair;
 
-        println!(
-            "DEBUG: dory_reduce_verify_update_ds using nu={} for delta indexing",
-            self.nu
-        );
+        // println!("DEBUG: dory_reduce_verify_update_ds using nu={} for delta indexing", self.nu);
         let delta_1l = &setup.delta_1l[self.nu];
         let delta_1r = &setup.delta_1r[self.nu];
         let delta_2l = &setup.delta_2l[self.nu];

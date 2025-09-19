@@ -92,6 +92,7 @@ pub trait ProofBuilder {
         self,
         _setup: &crate::setup::ProverSetup<E>,
         _initial_nu: usize,
+        _initial_d1: Option<Self::GT>,
     ) -> Self
     where
         E: crate::arithmetic::Pairing<GT = Self::GT>,
@@ -415,6 +416,7 @@ where
         mut self,
         setup: &crate::setup::ProverSetup<E>,
         initial_nu: usize,
+        initial_d1: Option<Self::GT>,
     ) -> Self
     where
         E: crate::arithmetic::Pairing<GT = Self::GT>,
@@ -422,7 +424,7 @@ where
     {
         // Call the actual implementation method on DoryProofBuilder
         // This is the non-trait method defined below
-        DoryProofBuilder::finalize_for_recursion(&mut self, setup, initial_nu);
+        DoryProofBuilder::finalize_for_recursion(&mut self, setup, initial_nu, initial_d1);
         self
     }
 }
@@ -678,6 +680,7 @@ where
         &mut self,
         setup: &crate::setup::ProverSetup<E>,
         initial_nu: usize,
+        initial_d1: Option<GT>,
     ) where
         E: crate::arithmetic::Pairing<GT = GT>,
         GT: crate::arithmetic::Group + Clone,
@@ -706,6 +709,10 @@ where
             initial_nu, num_rounds
         );
 
+        // Initialize d_1 and d_2 tracking
+        let mut d_1 = initial_d1;
+        let mut d_2 = self.vmv_message.as_ref().map(|vmv| vmv.d2.clone());
+
         // Process each round in the exact order the verifier will
         for round_idx in 0..num_rounds {
             let first_msg = &self.first_messages[round_idx];
@@ -718,6 +725,18 @@ where
             println!("DEBUG: Processing round {} with nu={}", round_idx, nu);
 
             // 1. Operations from dory_reduce_verify_update_c
+            // The verifier does: d_2.scale(&beta), d_1.scale(&beta_inv), c_plus.scale(&alpha), c_minus.scale(&alpha_inv)
+
+            // FIRST: d_2.scale(&beta) and d_1.scale(&beta_inv)
+            if let (Some(d1_val), Some(d2_val)) = (&d_1, &d_2) {
+                let (_, steps_d2) = d2_val.scale_with_steps(&beta);
+                self.gt_exponentiation_steps.push(steps_d2);
+
+                let (_, steps_d1) = d1_val.scale_with_steps(&beta_inv);
+                self.gt_exponentiation_steps.push(steps_d1);
+            }
+
+            // THEN: c_plus.scale(&alpha) and c_minus.scale(&alpha_inv)
             let (_, steps_c_plus) = second_msg.c_plus.scale_with_steps(&alpha);
             self.gt_exponentiation_steps.push(steps_c_plus);
 
@@ -765,6 +784,31 @@ where
                     nu,
                     self.setup_delta_1l.len()
                 );
+            }
+
+            // Update d_1 and d_2 for next round (simulate verifier's update)
+            if let (Some(d1_val), Some(d2_val)) = (&mut d_1, &mut d_2) {
+                // d_1' = α·d1_left + d1_right + α·β·Δ1L + β·Δ1R
+                let mut new_d1 = first_msg.d1_left.scale(&alpha);
+                new_d1 = new_d1.add(&first_msg.d1_right);
+
+                if nu < self.setup_delta_1l.len() {
+                    let alpha_beta = alpha.mul(&beta);
+                    new_d1 = new_d1.add(&self.setup_delta_1l[nu].scale(&alpha_beta));
+                    new_d1 = new_d1.add(&self.setup_delta_1r[nu].scale(&beta));
+                }
+                *d1_val = new_d1;
+
+                // d_2' = α⁻¹·d2_left + d2_right + α⁻¹·β⁻¹·Δ2L + β⁻¹·Δ2R
+                let mut new_d2 = first_msg.d2_left.scale(&alpha_inv);
+                new_d2 = new_d2.add(&first_msg.d2_right);
+
+                if nu < self.setup_delta_2l.len() {
+                    let alpha_inv_beta_inv = alpha_inv.mul(&beta_inv);
+                    new_d2 = new_d2.add(&self.setup_delta_2l[nu].scale(&alpha_inv_beta_inv));
+                    new_d2 = new_d2.add(&self.setup_delta_2r[nu].scale(&beta_inv));
+                }
+                *d2_val = new_d2;
             }
 
             // Decrement nu as the verifier does after each round
