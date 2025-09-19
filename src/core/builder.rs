@@ -84,6 +84,24 @@ pub trait ProofBuilder {
     /// Draw a [`ScalarProductChallenge`] from the transcript.
     #[must_use]
     fn challenge_scalar_product_scalars(self) -> (ScalarProductChallenge<Self::Scalar>, Self);
+
+    /// Finalize the proof for recursion by computing GT exponentiation steps
+    /// This should be called after all rounds are complete
+    #[cfg(feature = "recursion")]
+    fn finalize_for_recursion<E>(
+        self,
+        _setup: &crate::setup::ProverSetup<E>,
+        _initial_nu: usize,
+    ) -> Self
+    where
+        E: crate::arithmetic::Pairing<GT = Self::GT>,
+        Self::GT: crate::arithmetic::Group + Clone,
+        Self: Sized,
+    {
+        // Default implementation just returns self
+        // Concrete implementations can override
+        self
+    }
 }
 
 /// Concrete ProofBuilder to collect messages and perform transcript tasks
@@ -101,6 +119,9 @@ where
     /// First reduce challenges for each round (beta, beta_inverse)
     #[cfg(feature = "recursion")]
     pub first_challenges: Vec<FirstReduceChallenge<Scalar>>,
+    /// Second reduce challenges for each round (alpha, alpha_inverse)
+    #[cfg(feature = "recursion")]
+    pub second_challenges: Vec<SecondReduceChallenge<Scalar>>,
     /// Second prover message for round i
     pub second_messages: Vec<SecondReduceMessage<G1, G2, GT>>,
     /// Last Scalar product message at end of protocol
@@ -111,6 +132,15 @@ where
     /// GT exponentiation steps for recursion
     #[cfg(feature = "recursion")]
     pub gt_exponentiation_steps: Vec<ExponentiationSteps>,
+    /// Delta values from setup for offloading GT operations
+    #[cfg(feature = "recursion")]
+    pub setup_delta_1l: Vec<GT>,
+    #[cfg(feature = "recursion")]
+    pub setup_delta_1r: Vec<GT>,
+    #[cfg(feature = "recursion")]
+    pub setup_delta_2l: Vec<GT>,
+    #[cfg(feature = "recursion")]
+    pub setup_delta_2r: Vec<GT>,
     /// Fiat shamir
     pub transcript: T,
     /// Phantom
@@ -125,23 +155,74 @@ where
     Scalar: Field,
     T: Transcript<Scalar = Scalar>,
 {
-    /// Constructor from new transcript
-    pub fn new(transcript: T) -> Self {
+    /// Constructor from new transcript and setup
+    #[cfg(feature = "recursion")]
+    pub fn new<E>(transcript: T, setup: &crate::setup::ProverSetup<E>) -> Self
+    where
+        E: crate::arithmetic::Pairing<GT = GT>,
+        GT: Clone,
+    {
         Self {
             first_messages: Vec::new(),
-            #[cfg(feature = "recursion")]
             first_challenges: Vec::new(),
+            second_challenges: Vec::new(),
             second_messages: Vec::new(),
             final_message: None,
             vmv_message: None,
-            #[cfg(feature = "recursion")]
             gt_exponentiation_steps: Vec::new(),
+            setup_delta_1l: setup.delta_1l.clone(),
+            setup_delta_1r: setup.delta_1r.clone(),
+            setup_delta_2l: setup.delta_2l.clone(),
+            setup_delta_2r: setup.delta_2r.clone(),
+            transcript,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Constructor from new transcript (without setup for non-recursion mode)
+    #[cfg(not(feature = "recursion"))]
+    pub fn new(transcript: T) -> Self {
+        Self {
+            first_messages: Vec::new(),
+            second_messages: Vec::new(),
+            final_message: None,
+            vmv_message: None,
             transcript,
             _phantom: PhantomData,
         }
     }
 
     /// Constructor to create with ToyTranscript for testing
+    #[cfg(feature = "recursion")]
+    pub fn new_with_toy_transcript<E>(
+        domain: &[u8],
+        setup: &crate::setup::ProverSetup<E>,
+    ) -> DoryProofBuilder<G1, G2, GT, Scalar, ToyTranscript>
+    where
+        ToyTranscript: Transcript<Scalar = Scalar>,
+        E: crate::arithmetic::Pairing<GT = GT>,
+        GT: Clone,
+    {
+        let transcript = ToyTranscript::new(domain);
+        DoryProofBuilder {
+            first_messages: Vec::new(),
+            first_challenges: Vec::new(),
+            second_challenges: Vec::new(),
+            second_messages: Vec::new(),
+            final_message: None,
+            vmv_message: None,
+            gt_exponentiation_steps: Vec::new(),
+            setup_delta_1l: setup.delta_1l.clone(),
+            setup_delta_1r: setup.delta_1r.clone(),
+            setup_delta_2l: setup.delta_2l.clone(),
+            setup_delta_2r: setup.delta_2r.clone(),
+            transcript,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Constructor to create with ToyTranscript for testing (non-recursion)
+    #[cfg(not(feature = "recursion"))]
     pub fn new_with_toy_transcript(
         domain: &[u8],
     ) -> DoryProofBuilder<G1, G2, GT, Scalar, ToyTranscript>
@@ -151,13 +232,9 @@ where
         let transcript = ToyTranscript::new(domain);
         DoryProofBuilder {
             first_messages: Vec::new(),
-            #[cfg(feature = "recursion")]
-            first_challenges: Vec::new(),
             second_messages: Vec::new(),
             final_message: None,
             vmv_message: None,
-            #[cfg(feature = "recursion")]
-            gt_exponentiation_steps: Vec::new(),
             transcript,
             _phantom: PhantomData,
         }
@@ -181,11 +258,21 @@ where
             first_messages: proof.first_messages,
             #[cfg(feature = "recursion")]
             first_challenges: Vec::new(), // Challenges are not stored in proof, need to be regenerated
+            #[cfg(feature = "recursion")]
+            second_challenges: Vec::new(),
             second_messages: proof.second_messages,
             final_message: proof.final_message,
             vmv_message: proof.vmv_message,
             #[cfg(feature = "recursion")]
             gt_exponentiation_steps: proof.gt_exponentiation_steps,
+            #[cfg(feature = "recursion")]
+            setup_delta_1l: Vec::new(),
+            #[cfg(feature = "recursion")]
+            setup_delta_1r: Vec::new(),
+            #[cfg(feature = "recursion")]
+            setup_delta_2l: Vec::new(),
+            #[cfg(feature = "recursion")]
+            setup_delta_2r: Vec::new(),
             transcript,
             _phantom: PhantomData,
         }
@@ -200,11 +287,21 @@ where
             first_messages: proof.first_messages,
             #[cfg(feature = "recursion")]
             first_challenges: Vec::new(),
+            #[cfg(feature = "recursion")]
+            second_challenges: Vec::new(),
             second_messages: proof.second_messages,
             final_message: proof.final_message,
             vmv_message: proof.vmv_message,
             #[cfg(feature = "recursion")]
             gt_exponentiation_steps: proof.gt_exponentiation_steps,
+            #[cfg(feature = "recursion")]
+            setup_delta_1l: Vec::new(),
+            #[cfg(feature = "recursion")]
+            setup_delta_1r: Vec::new(),
+            #[cfg(feature = "recursion")]
+            setup_delta_2l: Vec::new(),
+            #[cfg(feature = "recursion")]
+            setup_delta_2r: Vec::new(),
             transcript: T::default(),
             _phantom: PhantomData,
         }
@@ -216,7 +313,7 @@ impl<G1Arg, G2Arg, GTArg, ScalarArg, T> ProofBuilder
 where
     G1Arg: Group<Scalar = ScalarArg>,
     G2Arg: Group<Scalar = ScalarArg>,
-    GTArg: Group<Scalar = ScalarArg>,
+    GTArg: Group<Scalar = ScalarArg> + std::fmt::Debug,
     ScalarArg: Field,
     T: Transcript<Scalar = ScalarArg>,
 {
@@ -266,33 +363,10 @@ where
         };
 
         #[cfg(feature = "recursion")]
-        {
-            // Simulate the GT scaling operations that happen in the verifier's dory_reduce_verify_update_c
-            // These are: c_plus.scale(&alpha) and c_minus.scale(&alpha_inv)
-            let (_, steps_c_plus) = message.c_plus.scale_with_steps(&alpha);
-            self.gt_exponentiation_steps.push(steps_c_plus);
+        self.second_challenges.push(challenge.clone());
 
-            let (_, steps_c_minus) = message.c_minus.scale_with_steps(&alpha_inverse);
-            self.gt_exponentiation_steps.push(steps_c_minus);
-
-            // Also simulate operations from dory_reduce_verify_update_ds
-            // IMPORTANT: We need the first message from the CURRENT round, not the last one
-            // The current round index is self.second_messages.len() (before we push the current message)
-            let current_round = self.second_messages.len();
-            if current_round < self.first_messages.len() {
-                let first_msg = &self.first_messages[current_round];
-
-                // d_1l.scale(&alpha)
-                let (_, steps_d1l) = first_msg.d1_left.scale_with_steps(&alpha);
-                self.gt_exponentiation_steps.push(steps_d1l);
-
-                // d_2l.scale(&alpha_inv)
-                let (_, steps_d2l) = first_msg.d2_left.scale_with_steps(&alpha_inverse);
-                self.gt_exponentiation_steps.push(steps_d2l);
-            } else {
-                panic!("Mismatch between first and second messages: round {} has no corresponding first message", current_round);
-            }
-        }
+        // GT operation tracking will be done in finalize_for_recursion
+        // to ensure correct ordering
 
         self.second_messages.push(message);
         (challenge, self)
@@ -334,6 +408,22 @@ where
             d_inverse: d_inv,
         };
         (challenge, self)
+    }
+
+    #[cfg(feature = "recursion")]
+    fn finalize_for_recursion<E>(
+        mut self,
+        setup: &crate::setup::ProverSetup<E>,
+        initial_nu: usize,
+    ) -> Self
+    where
+        E: crate::arithmetic::Pairing<GT = Self::GT>,
+        Self::GT: crate::arithmetic::Group + Clone,
+    {
+        // Call the actual implementation method on DoryProofBuilder
+        // This is the non-trait method defined below
+        DoryProofBuilder::finalize_for_recursion(&mut self, setup, initial_nu);
+        self
     }
 }
 
@@ -581,6 +671,104 @@ where
     Scalar: Field,
     T: Transcript<Scalar = Scalar>,
 {
+    /// Finalize the proof for recursion by computing GT exponentiation steps
+    /// This must be called after all rounds are complete but before building the proof
+    #[cfg(feature = "recursion")]
+    pub fn finalize_for_recursion<E>(
+        &mut self,
+        setup: &crate::setup::ProverSetup<E>,
+        initial_nu: usize,
+    ) where
+        E: crate::arithmetic::Pairing<GT = GT>,
+        GT: crate::arithmetic::Group + Clone,
+    {
+        // Clear any existing steps
+        self.gt_exponentiation_steps.clear();
+
+        // Check if we have setup values
+        if self.setup_delta_1l.is_empty() {
+            println!("WARNING: No setup delta values available for recursion");
+            return;
+        }
+
+        let num_rounds = self.first_messages.len();
+        if num_rounds != self.second_messages.len()
+            || num_rounds != self.first_challenges.len()
+            || num_rounds != self.second_challenges.len()
+        {
+            println!("WARNING: Message/challenge count mismatch");
+            return;
+        }
+
+        let mut nu = initial_nu;
+        println!(
+            "DEBUG: finalize_for_recursion starting with initial_nu={}, num_rounds={}",
+            initial_nu, num_rounds
+        );
+
+        // Process each round in the exact order the verifier will
+        for round_idx in 0..num_rounds {
+            let first_msg = &self.first_messages[round_idx];
+            let second_msg = &self.second_messages[round_idx];
+            let beta = self.first_challenges[round_idx].beta.clone();
+            let beta_inv = self.first_challenges[round_idx].beta_inverse.clone();
+            let alpha = self.second_challenges[round_idx].alpha.clone();
+            let alpha_inv = self.second_challenges[round_idx].alpha_inverse.clone();
+
+            println!("DEBUG: Processing round {} with nu={}", round_idx, nu);
+
+            // 1. Operations from dory_reduce_verify_update_c
+            let (_, steps_c_plus) = second_msg.c_plus.scale_with_steps(&alpha);
+            self.gt_exponentiation_steps.push(steps_c_plus);
+
+            let (_, steps_c_minus) = second_msg.c_minus.scale_with_steps(&alpha_inv);
+            self.gt_exponentiation_steps.push(steps_c_minus);
+
+            // 2. Operations from dory_reduce_verify_update_ds
+            // First the d1_left and d2_left operations
+            let (_, steps_d1l) = first_msg.d1_left.scale_with_steps(&alpha);
+            self.gt_exponentiation_steps.push(steps_d1l);
+
+            let (_, steps_d2l) = first_msg.d2_left.scale_with_steps(&alpha_inv);
+            self.gt_exponentiation_steps.push(steps_d2l);
+
+            // Then the delta operations using the current nu value
+            if nu < self.setup_delta_1l.len() {
+                // delta_1l.scale(&alpha_beta)
+                let alpha_beta = alpha.mul(&beta);
+                let (_, steps) = self.setup_delta_1l[nu].scale_with_steps(&alpha_beta);
+                self.gt_exponentiation_steps.push(steps);
+
+                // delta_1r.scale(&beta)
+                let (_, steps) = self.setup_delta_1r[nu].scale_with_steps(&beta);
+                self.gt_exponentiation_steps.push(steps);
+
+                // delta_2l.scale(&alpha_inv_beta_inv)
+                let alpha_inv_beta_inv = alpha_inv.mul(&beta_inv);
+                let (_, steps) = self.setup_delta_2l[nu].scale_with_steps(&alpha_inv_beta_inv);
+                self.gt_exponentiation_steps.push(steps);
+
+                // delta_2r.scale(&beta_inv)
+                let (_, steps) = self.setup_delta_2r[nu].scale_with_steps(&beta_inv);
+                self.gt_exponentiation_steps.push(steps);
+            } else {
+                println!(
+                    "WARNING: nu={} >= setup_delta_1l.len()={}",
+                    nu,
+                    self.setup_delta_1l.len()
+                );
+            }
+
+            // Decrement nu as the verifier does after each round
+            nu = nu.saturating_sub(1);
+        }
+
+        println!(
+            "DEBUG: finalize_for_recursion complete, tracked {} GT operations",
+            self.gt_exponentiation_steps.len()
+        );
+    }
+
     /// Print statistics about the proof structure
     pub fn print_proof_stats(&self) {
         println!("\n=== PROOF STATISTICS ===");

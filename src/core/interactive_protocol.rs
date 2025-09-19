@@ -515,6 +515,7 @@ where
         let (beta, beta_inv) = beta_pair;
 
         // Get the precomputed values for the current round
+        println!("DEBUG VERIFIER: Using delta values at index self.nu={}", self.nu);
         let delta_1l = &setup.delta_1l[self.nu];
         let delta_1r = &setup.delta_1r[self.nu];
         let delta_2l = &setup.delta_2l[self.nu];
@@ -530,12 +531,22 @@ where
         let mut new_d_1 = d_1l_scaled;
         new_d_1 = new_d_1.add(&d_1r);
 
-        // alpha * beta * Delta_1L (not offloaded - uses setup values)
+        // alpha * beta * Delta_1L (offloaded when recursion_ops available)
         let alpha_beta = alpha.mul(&beta);
-        new_d_1 = new_d_1.add(&delta_1l.scale(&alpha_beta));
+        println!("DEBUG VERIFIER: Computing delta_1l.scale(&alpha_beta) for nu={}", self.nu);
+        #[cfg(feature = "recursion")]
+        let delta_1l_scaled = scale_gt_with_offload::<E>(&delta_1l, &alpha_beta, &mut self.recursion_ops);
+        #[cfg(not(feature = "recursion"))]
+        let delta_1l_scaled = delta_1l.scale(&alpha_beta);
+        println!("DEBUG VERIFIER: Result of delta_1l scaling: {:?}", delta_1l_scaled);
+        new_d_1 = new_d_1.add(&delta_1l_scaled);
 
-        // beta * Delta_1R (not offloaded - uses setup values)
-        new_d_1 = new_d_1.add(&delta_1r.scale(&beta));
+        // beta * Delta_1R (offloaded when recursion_ops available)
+        #[cfg(feature = "recursion")]
+        let delta_1r_scaled = scale_gt_with_offload::<E>(&delta_1r, &beta, &mut self.recursion_ops);
+        #[cfg(not(feature = "recursion"))]
+        let delta_1r_scaled = delta_1r.scale(&beta);
+        new_d_1 = new_d_1.add(&delta_1r_scaled);
 
         // D_2' <- alpha_inv * D_2L + D_2R + alpha_inv * beta_inv * Delta_2L + beta_inv * Delta_2R
         // Use offloaded operation for d_2l.scale(&alpha_inv)
@@ -547,12 +558,20 @@ where
         let mut new_d_2 = d_2l_scaled;
         new_d_2 = new_d_2.add(&d_2r);
 
-        // alpha_inv * beta_inv * Delta_2L (not offloaded - uses setup values)
+        // alpha_inv * beta_inv * Delta_2L (offloaded when recursion_ops available)
         let alpha_inv_beta_inv = alpha_inv.mul(&beta_inv);
-        new_d_2 = new_d_2.add(&delta_2l.scale(&alpha_inv_beta_inv));
+        #[cfg(feature = "recursion")]
+        let delta_2l_scaled = scale_gt_with_offload::<E>(&delta_2l, &alpha_inv_beta_inv, &mut self.recursion_ops);
+        #[cfg(not(feature = "recursion"))]
+        let delta_2l_scaled = delta_2l.scale(&alpha_inv_beta_inv);
+        new_d_2 = new_d_2.add(&delta_2l_scaled);
 
-        // beta_inv * Delta_2R (not offloaded - uses setup values)
-        new_d_2 = new_d_2.add(&delta_2r.scale(&beta_inv));
+        // beta_inv * Delta_2R (offloaded when recursion_ops available)
+        #[cfg(feature = "recursion")]
+        let delta_2r_scaled = scale_gt_with_offload::<E>(&delta_2r, &beta_inv, &mut self.recursion_ops);
+        #[cfg(not(feature = "recursion"))]
+        let delta_2r_scaled = delta_2r.scale(&beta_inv);
+        new_d_2 = new_d_2.add(&delta_2r_scaled);
 
         self.d_1 = new_d_1;
         self.d_2 = new_d_2;

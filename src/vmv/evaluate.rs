@@ -143,6 +143,9 @@ where
     let (v_vec, prover_state) = vmv_state_to_dory_prover_state(vmv_state, prover_setup);
 
     // 5. Initialize the DoryProofBuilder
+    #[cfg(feature = "recursion")]
+    let proof_builder = DoryProofBuilder::new(initial_transcript, prover_setup);
+    #[cfg(not(feature = "recursion"))]
     let proof_builder = DoryProofBuilder::new(initial_transcript);
 
     // 6. Initial commitments

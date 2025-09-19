@@ -90,6 +90,16 @@ fn test_inner_product_prove_verify() {
     let proof_start = Instant::now();
 
     // Create proof builder
+    #[cfg(feature = "recursion")]
+    let builder = DoryProofBuilder::<
+        G1Affine,
+        G2AffineWrapper,
+        Fq12,
+        Fr,
+        ToyTranscript,
+    >::new_with_toy_transcript(domain, &prover_setup);
+
+    #[cfg(not(feature = "recursion"))]
     let builder = DoryProofBuilder::<
         G1Affine,
         G2AffineWrapper,
@@ -99,12 +109,16 @@ fn test_inner_product_prove_verify() {
     >::new_with_toy_transcript(domain);
 
     // Generate proof
-    let proof = inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
+    let mut proof = inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
         builder,
         prover_state,
         &prover_setup,
         log_n,
     );
+
+    // Finalize for recursion if feature is enabled
+    #[cfg(feature = "recursion")]
+    proof.finalize_for_recursion(&prover_setup, log_n);
     println!("Proof generated in: {:?}", proof_start.elapsed());
 
     // create a verifier
@@ -183,6 +197,16 @@ fn test_inner_product_verify_should_fail() {
     println!("Generating proof...");
 
     // Create proof builder
+    #[cfg(feature = "recursion")]
+    let builder = DoryProofBuilder::<
+        G1Affine,
+        G2AffineWrapper,
+        Fq12,
+        Fr,
+        ToyTranscript,
+    >::new_with_toy_transcript(domain, &prover_setup);
+
+    #[cfg(not(feature = "recursion"))]
     let builder = DoryProofBuilder::<
         G1Affine,
         G2AffineWrapper,
