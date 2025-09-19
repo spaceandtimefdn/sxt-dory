@@ -725,14 +725,14 @@ where
             self.gt_exponentiation_steps.push(steps_c_minus);
 
             // 2. Operations from dory_reduce_verify_update_ds
-            // First the d1_left and d2_left operations
+            // The verifier does D1 operations (including deltas) first, then D2 operations
+
+            // D1 operations:
+            // d1_left.scale(&alpha)
             let (_, steps_d1l) = first_msg.d1_left.scale_with_steps(&alpha);
             self.gt_exponentiation_steps.push(steps_d1l);
 
-            let (_, steps_d2l) = first_msg.d2_left.scale_with_steps(&alpha_inv);
-            self.gt_exponentiation_steps.push(steps_d2l);
-
-            // Then the delta operations using the current nu value
+            // Then the delta operations for D1 using the current nu value
             if nu < self.setup_delta_1l.len() {
                 // delta_1l.scale(&alpha_beta)
                 let alpha_beta = alpha.mul(&beta);
@@ -742,7 +742,15 @@ where
                 // delta_1r.scale(&beta)
                 let (_, steps) = self.setup_delta_1r[nu].scale_with_steps(&beta);
                 self.gt_exponentiation_steps.push(steps);
+            }
 
+            // D2 operations:
+            // d2_left.scale(&alpha_inv)
+            let (_, steps_d2l) = first_msg.d2_left.scale_with_steps(&alpha_inv);
+            self.gt_exponentiation_steps.push(steps_d2l);
+
+            // Then the delta operations for D2
+            if nu < self.setup_delta_2l.len() {
                 // delta_2l.scale(&alpha_inv_beta_inv)
                 let alpha_inv_beta_inv = alpha_inv.mul(&beta_inv);
                 let (_, steps) = self.setup_delta_2l[nu].scale_with_steps(&alpha_inv_beta_inv);
@@ -751,7 +759,7 @@ where
                 // delta_2r.scale(&beta_inv)
                 let (_, steps) = self.setup_delta_2r[nu].scale_with_steps(&beta_inv);
                 self.gt_exponentiation_steps.push(steps);
-            } else {
+            } else if nu >= self.setup_delta_1l.len() {
                 println!(
                     "WARNING: nu={} >= setup_delta_1l.len()={}",
                     nu,

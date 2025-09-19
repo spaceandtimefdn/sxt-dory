@@ -153,12 +153,18 @@ where
         eval_vmv_re_prove::<E, T, M1, M2>(proof_builder, prover_state, v_vec, prover_setup);
 
     // prove!
-    inner_product_prove::<_, _, _, _, _, _, _, M1, M2>(
+    let builder = inner_product_prove::<_, _, _, _, _, _, _, M1, M2>(
         final_proof_builder,
         proof_state,
         prover_setup,
         nu,
-    )
+    );
+
+    // Finalize for recursion if feature is enabled
+    #[cfg(feature = "recursion")]
+    let builder = builder.finalize_for_recursion(prover_setup, nu);
+
+    builder
 }
 
 // VERIFIER ANALOGUE:

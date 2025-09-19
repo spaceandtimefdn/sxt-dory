@@ -45,15 +45,6 @@ where
     let scalar_product_msg = state.compute_scalar_product_message::<M1, M2>(setup, challenge);
     let builder = builder.append_scalar_product_message(scalar_product_msg);
 
-    // Finalize for recursion if feature is enabled
-    #[cfg(feature = "recursion")]
-    {
-        // We need to call finalize_for_recursion but we need to check if the builder has the right type
-        // This is a bit tricky because Builder is generic
-        // For now, we'll add a comment that this needs to be called externally
-        // builder.finalize_for_recursion(setup, num_rounds);
-    }
-
     builder
 }
 
