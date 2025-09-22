@@ -5,14 +5,13 @@ use crate::{
         FirstReduceChallenge, FirstReduceMessage, FoldScalarsChallenge, ScalarProductMessage,
         SecondReduceChallenge, SecondReduceMessage,
     },
+    offload::OffloadContext,
 };
 
 use super::ScalarProductChallenge;
 
 #[cfg(feature = "recursion")]
 use jolt_optimizations::ExponentiationSteps;
-#[cfg(feature = "recursion")]
-use std::collections::VecDeque;
 
 /// Trait for the state and computation and state of the Dory protocol.
 ///
@@ -281,9 +280,8 @@ where
     /// Current round number. Length of v1 and v2 should be 2^nu.
     pub nu: usize,
 
-    /// Precomputed GT exponentiation steps for recursion mode
-    #[cfg(feature = "recursion")]
-    pub recursion_ops: Option<VecDeque<ExponentiationSteps>>,
+    /// Context for managing offloaded GT operations
+    pub offload_ctx: OffloadContext,
 }
 impl<E: Pairing> DoryVerifierState<E>
 where
@@ -301,8 +299,7 @@ where
             s1_tensor: None, // not used in non-pcs context
             s2_tensor: None, // not used in non-pcs context
             nu,
-            #[cfg(feature = "recursion")]
-            recursion_ops: None,
+            offload_ctx: OffloadContext::new(),
         }
     }
 
@@ -326,8 +323,7 @@ where
             s1_tensor: Some(s1),
             s2_tensor: Some(s2),
             nu,
-            #[cfg(feature = "recursion")]
-            recursion_ops: None,
+            offload_ctx: OffloadContext::new(),
         }
     }
 
@@ -353,7 +349,9 @@ where
             s1_tensor: s1,
             s2_tensor: s2,
             nu,
-            recursion_ops: recursion_ops.map(VecDeque::from),
+            offload_ctx: recursion_ops
+                .map(|ops| OffloadContext::with_steps(ops))
+                .unwrap_or_default(),
         }
     }
 }

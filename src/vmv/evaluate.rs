@@ -401,7 +401,10 @@ where
         eval_vmv_re_verify::<E, T, M1>(verify_builder, vmv_state, verifier_setup);
 
     // 7. Add recursion ops to the verifier state
-    verifier_state.recursion_ops = recursion_ops.map(|ops| ops.into());
+    #[cfg(feature = "recursion")]
+    if let Some(ops) = recursion_ops {
+        verifier_state.offload_ctx = crate::offload::OffloadContext::with_steps(ops);
+    }
 
     // 7. Dory inner product verify
     inner_product_verify(verify_builder, verifier_state, verifier_setup, nu)
