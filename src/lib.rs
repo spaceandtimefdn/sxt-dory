@@ -14,6 +14,7 @@ use crate::transcript::Transcript;
 // use ark_serialize::CanonicalSerialize;
 use ark_std::rand::RngCore;
 
+#[cfg(feature = "recursion")]
 use crate::recursion_prelude::ExponentiationSteps;
 
 mod core;

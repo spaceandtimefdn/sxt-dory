@@ -70,20 +70,13 @@ pub trait ProofBuilder {
     #[must_use]
     fn challenge_fold_scalars(self) -> (FoldScalarsChallenge<Self::Scalar>, Self);
     /// Append a [`ScalarProductMessage`] to the proof and transcript.
+    /// The optional scalars are used for recursion tracking.
     #[must_use]
     fn append_scalar_product_message(
         self,
         message: ScalarProductMessage<Self::G1, Self::G2>,
-    ) -> Self;
-
-    /// Append a [`ScalarProductMessage`] with s1_final and s2_final for recursion.
-    #[cfg(feature = "recursion")]
-    #[must_use]
-    fn append_scalar_product_message_with_scalars(
-        self,
-        message: ScalarProductMessage<Self::G1, Self::G2>,
-        s1_final: Self::Scalar,
-        s2_final: Self::Scalar,
+        s1_final: Option<Self::Scalar>,
+        s2_final: Option<Self::Scalar>,
     ) -> Self;
     #[must_use]
     /// Append a [`VMVMessage`] to the proof and transcript.
@@ -227,6 +220,20 @@ where
             second_messages: Vec::new(),
             final_message: None,
             vmv_message: None,
+            gt_exponentiation_steps: None,
+            setup_delta_1l: None,
+            setup_delta_1r: None,
+            setup_delta_2l: None,
+            setup_delta_2r: None,
+            fold_scalars_challenge: None,
+            scalar_product_challenge: None,
+            setup_ht: None,
+            setup_h1: None,
+            setup_h2: None,
+            setup_g1_0: None,
+            setup_g2_0: None,
+            s1_final: None,
+            s2_final: None,
             transcript,
             _phantom: PhantomData,
         }
@@ -286,6 +293,20 @@ where
             second_messages: Vec::new(),
             final_message: None,
             vmv_message: None,
+            gt_exponentiation_steps: None,
+            setup_delta_1l: None,
+            setup_delta_1r: None,
+            setup_delta_2l: None,
+            setup_delta_2r: None,
+            fold_scalars_challenge: None,
+            scalar_product_challenge: None,
+            setup_ht: None,
+            setup_h1: None,
+            setup_h2: None,
+            setup_g1_0: None,
+            setup_g2_0: None,
+            s1_final: None,
+            s2_final: None,
             transcript,
             _phantom: PhantomData,
         }
@@ -298,7 +319,6 @@ where
             second_messages: self.second_messages.clone(),
             final_message: self.final_message.clone(),
             vmv_message: self.vmv_message.clone(),
-            #[cfg(feature = "recursion")]
             gt_exponentiation_steps: self.gt_exponentiation_steps.clone(),
         }
     }
@@ -319,23 +339,14 @@ where
             setup_delta_1r: Some(Vec::new()),
             setup_delta_2l: Some(Vec::new()),
             setup_delta_2r: Some(Vec::new()),
-            #[cfg(feature = "recursion")]
             fold_scalars_challenge: None,
-            #[cfg(feature = "recursion")]
             scalar_product_challenge: None,
-            #[cfg(feature = "recursion")]
             setup_ht: None,
-            #[cfg(feature = "recursion")]
             setup_h1: None,
-            #[cfg(feature = "recursion")]
             setup_h2: None,
-            #[cfg(feature = "recursion")]
             setup_g1_0: None,
-            #[cfg(feature = "recursion")]
             setup_g2_0: None,
-            #[cfg(feature = "recursion")]
             s1_final: None,
-            #[cfg(feature = "recursion")]
             s2_final: None,
             transcript,
             _phantom: PhantomData,
@@ -361,23 +372,14 @@ where
             setup_delta_1r: Some(Vec::new()),
             setup_delta_2l: Some(Vec::new()),
             setup_delta_2r: Some(Vec::new()),
-            #[cfg(feature = "recursion")]
             fold_scalars_challenge: None,
-            #[cfg(feature = "recursion")]
             scalar_product_challenge: None,
-            #[cfg(feature = "recursion")]
             setup_ht: None,
-            #[cfg(feature = "recursion")]
             setup_h1: None,
-            #[cfg(feature = "recursion")]
             setup_h2: None,
-            #[cfg(feature = "recursion")]
             setup_g1_0: None,
-            #[cfg(feature = "recursion")]
             setup_g2_0: None,
-            #[cfg(feature = "recursion")]
             s1_final: None,
-            #[cfg(feature = "recursion")]
             s2_final: None,
             transcript: T::default(),
             _phantom: PhantomData,
@@ -452,24 +454,13 @@ where
     fn append_scalar_product_message(
         mut self,
         message: ScalarProductMessage<Self::G1, Self::G2>,
+        s1_final: Option<Self::Scalar>,
+        s2_final: Option<Self::Scalar>,
     ) -> Self {
         self.transcript.append_group(b"e1", &message.e1);
         self.transcript.append_group(b"e2", &message.e2);
-        self.final_message = Some(message);
-        self
-    }
-
-    #[cfg(feature = "recursion")]
-    fn append_scalar_product_message_with_scalars(
-        mut self,
-        message: ScalarProductMessage<Self::G1, Self::G2>,
-        s1_final: Self::Scalar,
-        s2_final: Self::Scalar,
-    ) -> Self {
-        self.transcript.append_group(b"e1", &message.e1);
-        self.transcript.append_group(b"e2", &message.e2);
-        self.s1_final = Some(s1_final);
-        self.s2_final = Some(s2_final);
+        self.s1_final = s1_final;
+        self.s2_final = s2_final;
         self.final_message = Some(message);
         self
     }

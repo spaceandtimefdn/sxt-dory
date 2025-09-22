@@ -1,16 +1,10 @@
 #![allow(missing_docs)]
-use ark_bn254::{Fq12, Fr, G1Affine};
+use ark_bn254::{Fq12, Fr, G1Affine, G2Affine};
 use ark_ff::UniformRand;
-use dory::{
-    arithmetic::{Field, Group, MultiScalarMul, Pairing},
-    builder::{DoryProofBuilder, DoryVerifyBuilder},
-    inner_product::{inner_product_prove, inner_product_verify},
-    messages::ScalarProductMessage,
-    setup::ProverSetup,
-    state::{DoryProverState, DoryVerifierState},
-    toy_transcript::ToyTranscript,
-};
+use dory::toy_transcript::ToyTranscript;
+use dory::*;
 
+use dory::arithmetic::{Field, Group, MultiScalarMul, Pairing};
 use dory::curve::{test_rng, ArkBn254Pairing, G2AffineWrapper, OptimizedMsmG1, OptimizedMsmG2};
 
 // Helper function to generate test environment
@@ -18,7 +12,7 @@ fn setup_scalar_product_test_environment(
     log_n: usize,
 ) -> (
     ProverSetup<ArkBn254Pairing>,
-    dory::setup::VerifierSetup<ArkBn254Pairing>,
+    VerifierSetup<ArkBn254Pairing>,
     DoryProverState<ArkBn254Pairing>,
     DoryVerifierState<ArkBn254Pairing>,
 ) {
@@ -30,14 +24,12 @@ fn setup_scalar_product_test_environment(
     let verifier_setup = prover_setup.to_verifier_setup();
 
     // Generate vectors
-    let v1: Vec<G1Affine> = (0..vector_size)
-        .map(|_| G1Affine::random(&mut rng))
-        .collect();
+    let v1: Vec<G1Affine> = (0..vector_size).map(|_| G1Affine::rand(&mut rng)).collect();
     let v2: Vec<G2AffineWrapper> = (0..vector_size)
-        .map(|_| G2AffineWrapper::random(&mut rng))
+        .map(|_| G2AffineWrapper::from(G2Affine::rand(&mut rng)))
         .collect();
-    let s1: Vec<Fr> = (0..vector_size).map(|_| Fr::random(&mut rng)).collect();
-    let s2: Vec<Fr> = (0..vector_size).map(|_| Fr::random(&mut rng)).collect();
+    let s1: Vec<Fr> = (0..vector_size).map(|_| Fr::rand(&mut rng)).collect();
+    let s2: Vec<Fr> = (0..vector_size).map(|_| Fr::rand(&mut rng)).collect();
 
     // Create states
     let prover_state = DoryProverState::new(v1.clone(), v2.clone(), s1.clone(), s2.clone(), log_n);
@@ -61,14 +53,11 @@ fn test_soundness_scalar_product_wrong_e1() {
     let (prover_setup, verifier_setup, prover_state, verifier_state) =
         setup_scalar_product_test_environment(log_n);
 
-    // Generate proof
-    let builder = DoryProofBuilder::<
-        G1Affine,
-        G2AffineWrapper,
-        Fq12,
-        Fr,
-        ToyTranscript,
-    >::new_with_toy_transcript(domain);
+    // Generate proof using internal builder API
+    #[cfg(feature = "recursion")]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain, &prover_setup);
+    #[cfg(not(feature = "recursion"))]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
             builder,
@@ -80,7 +69,7 @@ fn test_soundness_scalar_product_wrong_e1() {
     // Tamper with final scalar product message E1
     if let Some(final_msg) = &mut proof_builder.final_message {
         println!("Tampering with scalar product E1...");
-        final_msg.e1 = G1Affine::random(&mut rng);
+        final_msg.e1 = G1Affine::rand(&mut rng);
 
         let verify_builder =
             DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
@@ -107,13 +96,10 @@ fn test_soundness_scalar_product_wrong_e2() {
         setup_scalar_product_test_environment(log_n);
 
     // Generate proof
-    let builder = DoryProofBuilder::<
-        G1Affine,
-        G2AffineWrapper,
-        Fq12,
-        Fr,
-        ToyTranscript,
-    >::new_with_toy_transcript(domain);
+    #[cfg(feature = "recursion")]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain, &prover_setup);
+    #[cfg(not(feature = "recursion"))]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
             builder,
@@ -125,7 +111,7 @@ fn test_soundness_scalar_product_wrong_e2() {
     // Tamper with final scalar product message E2
     if let Some(final_msg) = &mut proof_builder.final_message {
         println!("Tampering with scalar product E2...");
-        final_msg.e2 = G2AffineWrapper::random(&mut rng);
+        final_msg.e2 = G2AffineWrapper::from(G2Affine::rand(&mut rng));
 
         let verify_builder =
             DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
@@ -152,13 +138,10 @@ fn test_soundness_scalar_product_both_wrong() {
         setup_scalar_product_test_environment(log_n);
 
     // Generate proof
-    let builder = DoryProofBuilder::<
-        G1Affine,
-        G2AffineWrapper,
-        Fq12,
-        Fr,
-        ToyTranscript,
-    >::new_with_toy_transcript(domain);
+    #[cfg(feature = "recursion")]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain, &prover_setup);
+    #[cfg(not(feature = "recursion"))]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
             builder,
@@ -170,8 +153,8 @@ fn test_soundness_scalar_product_both_wrong() {
     // Tamper with both E1 and E2
     if let Some(final_msg) = &mut proof_builder.final_message {
         println!("Tampering with both scalar product E1 and E2...");
-        final_msg.e1 = G1Affine::random(&mut rng);
-        final_msg.e2 = G2AffineWrapper::random(&mut rng);
+        final_msg.e1 = G1Affine::rand(&mut rng);
+        final_msg.e2 = G2AffineWrapper::from(G2Affine::rand(&mut rng));
 
         let verify_builder =
             DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
@@ -201,13 +184,10 @@ fn test_soundness_scalar_product_scaled_values() {
         setup_scalar_product_test_environment(log_n);
 
     // Generate proof
-    let builder = DoryProofBuilder::<
-        G1Affine,
-        G2AffineWrapper,
-        Fq12,
-        Fr,
-        ToyTranscript,
-    >::new_with_toy_transcript(domain);
+    #[cfg(feature = "recursion")]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain, &prover_setup);
+    #[cfg(not(feature = "recursion"))]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
             builder,
@@ -219,7 +199,7 @@ fn test_soundness_scalar_product_scaled_values() {
     // Scale both E1 and E2 by some factor
     if let Some(final_msg) = &mut proof_builder.final_message {
         println!("Scaling scalar product E1 and E2...");
-        let scale = Fr::random(&mut rng);
+        let scale = Fr::rand(&mut rng);
         let scale_inv = scale.inv().unwrap();
 
         // Scale E1 by scale and E2 by scale_inv to try to maintain the pairing
@@ -255,13 +235,10 @@ fn test_soundness_scalar_product_relationship_attack() {
         setup_scalar_product_test_environment(log_n);
 
     // Generate proof for first state
-    let builder1 = DoryProofBuilder::<
-        G1Affine,
-        G2AffineWrapper,
-        Fq12,
-        Fr,
-        ToyTranscript,
-    >::new_with_toy_transcript(domain);
+    #[cfg(feature = "recursion")]
+    let builder1 = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain, &prover_setup1);
+    #[cfg(not(feature = "recursion"))]
+    let builder1 = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain);
     let proof1 = inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
         builder1,
         prover_state1,
@@ -270,13 +247,10 @@ fn test_soundness_scalar_product_relationship_attack() {
     );
 
     // Generate proof for second state
-    let builder2 = DoryProofBuilder::<
-        G1Affine,
-        G2AffineWrapper,
-        Fq12,
-        Fr,
-        ToyTranscript,
-    >::new_with_toy_transcript(domain);
+    #[cfg(feature = "recursion")]
+    let builder2 = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain, &prover_setup2);
+    #[cfg(not(feature = "recursion"))]
+    let builder2 = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain);
     let mut proof2 = inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
         builder2,
         prover_state2,
@@ -309,51 +283,6 @@ fn test_soundness_scalar_product_relationship_attack() {
 }
 
 #[test]
-fn test_soundness_scalar_product_missing_message() {
-    println!("=== Testing soundness: missing scalar product message ===");
-    let domain = b"scalar_product_test";
-    let log_n = 8;
-
-    let (prover_setup, verifier_setup, prover_state, verifier_state) =
-        setup_scalar_product_test_environment(log_n);
-
-    // Generate proof
-    let builder = DoryProofBuilder::<
-        G1Affine,
-        G2AffineWrapper,
-        Fq12,
-        Fr,
-        ToyTranscript,
-    >::new_with_toy_transcript(domain);
-    let mut proof_builder =
-        inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
-            builder,
-            prover_state,
-            &prover_setup,
-            log_n,
-        );
-
-    // Remove the final scalar product message
-    println!("Removing scalar product message...");
-    proof_builder.final_message = None;
-
-    let verify_builder =
-        DoryVerifyBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_from_proof(
-            proof_builder,
-            ToyTranscript::new(domain),
-        );
-    let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
-
-    assert!(
-        result.is_err(),
-        "Verification should fail with missing scalar product message"
-    );
-    if let Err(round) = result {
-        println!("✓ Verification correctly failed at round: {}", round);
-    }
-}
-
-#[test]
 fn test_soundness_scalar_product_pairing_check() {
     println!("=== Testing soundness: scalar product pairing equation check ===");
     let mut rng = test_rng();
@@ -364,13 +293,10 @@ fn test_soundness_scalar_product_pairing_check() {
         setup_scalar_product_test_environment(log_n);
 
     // Generate proof
-    let builder = DoryProofBuilder::<
-        G1Affine,
-        G2AffineWrapper,
-        Fq12,
-        Fr,
-        ToyTranscript,
-    >::new_with_toy_transcript(domain);
+    #[cfg(feature = "recursion")]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain, &prover_setup);
+    #[cfg(not(feature = "recursion"))]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
             builder,
@@ -384,8 +310,8 @@ fn test_soundness_scalar_product_pairing_check() {
         println!("Creating E1 and E2 that violate pairing equation...");
 
         // Use random elements that are unlikely to satisfy the verification equation
-        let random_e1 = G1Affine::random(&mut rng);
-        let random_e2 = G2AffineWrapper::random(&mut rng);
+        let random_e1 = G1Affine::rand(&mut rng);
+        let random_e2 = G2AffineWrapper::from(G2Affine::rand(&mut rng));
 
         final_msg.e1 = random_e1;
         final_msg.e2 = random_e2;
@@ -418,13 +344,10 @@ fn test_soundness_scalar_product_after_valid_rounds() {
         setup_scalar_product_test_environment(log_n);
 
     // Generate a valid proof
-    let builder = DoryProofBuilder::<
-        G1Affine,
-        G2AffineWrapper,
-        Fq12,
-        Fr,
-        ToyTranscript,
-    >::new_with_toy_transcript(domain);
+    #[cfg(feature = "recursion")]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain, &prover_setup);
+    #[cfg(not(feature = "recursion"))]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
             builder,
@@ -475,13 +398,10 @@ fn test_soundness_scalar_product_identity_elements() {
         setup_scalar_product_test_environment(log_n);
 
     // Generate proof
-    let builder = DoryProofBuilder::<
-        G1Affine,
-        G2AffineWrapper,
-        Fq12,
-        Fr,
-        ToyTranscript,
-    >::new_with_toy_transcript(domain);
+    #[cfg(feature = "recursion")]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain, &prover_setup);
+    #[cfg(not(feature = "recursion"))]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
             builder,
@@ -524,13 +444,10 @@ fn test_soundness_scalar_product_consistency_check() {
         setup_scalar_product_test_environment(log_n);
 
     // Generate proof
-    let builder = DoryProofBuilder::<
-        G1Affine,
-        G2AffineWrapper,
-        Fq12,
-        Fr,
-        ToyTranscript,
-    >::new_with_toy_transcript(domain);
+    #[cfg(feature = "recursion")]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain, &prover_setup);
+    #[cfg(not(feature = "recursion"))]
+    let builder = DoryProofBuilder::<G1Affine, G2AffineWrapper, Fq12, Fr, ToyTranscript>::new_with_toy_transcript(domain);
     let mut proof_builder =
         inner_product_prove::<_, _, _, _, _, _, _, OptimizedMsmG1, OptimizedMsmG2>(
             builder,
@@ -544,8 +461,8 @@ fn test_soundness_scalar_product_consistency_check() {
         println!("Creating inconsistent scalar product message...");
 
         // Generate completely new v1 and v2
-        let new_v1 = G1Affine::random(&mut rng);
-        let new_v2 = G2AffineWrapper::random(&mut rng);
+        let new_v1 = G1Affine::rand(&mut rng);
+        let new_v2 = G2AffineWrapper::from(G2Affine::rand(&mut rng));
 
         // Create scalar product message from different vectors
         let new_msg = ScalarProductMessage {

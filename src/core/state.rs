@@ -1,4 +1,6 @@
 //! Defines the structures which manage state during interactive execution of the prover and verifier
+#[cfg(feature = "recursion")]
+use crate::recursion_prelude::ExponentiationSteps;
 use crate::{
     arithmetic::{Field, Group, MultiScalarMul, Pairing},
     messages::{
@@ -6,7 +8,6 @@ use crate::{
         SecondReduceChallenge, SecondReduceMessage,
     },
     offload::OffloadContext,
-    recursion_prelude::ExponentiationSteps,
 };
 
 use super::ScalarProductChallenge;

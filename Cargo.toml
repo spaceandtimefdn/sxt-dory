@@ -45,7 +45,7 @@ ark-ec = { path = "/Users/mgeorghiades/a16z/arkworks-algebra/ec" }
 ark-bn254 = { path = "/Users/mgeorghiades/a16z/arkworks-algebra/curves/bn254" }
 
 [features]
-default = ["recursion"]
+# default = ["recursion"]
 recursion = []
 
 [lints.rust]

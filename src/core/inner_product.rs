@@ -45,15 +45,7 @@ where
     let (scalar_product_msg, s1_final, s2_final) =
         state.compute_scalar_product_message::<M1, M2>(setup, challenge);
 
-    // Use the recursion-aware method if available
-    #[cfg(feature = "recursion")]
-    let builder =
-        builder.append_scalar_product_message_with_scalars(scalar_product_msg, s1_final, s2_final);
-
-    #[cfg(not(feature = "recursion"))]
-    let builder = builder.append_scalar_product_message(scalar_product_msg);
-
-    builder
+    builder.append_scalar_product_message(scalar_product_msg, Some(s1_final), Some(s2_final))
 }
 
 /// Verifier analogue for the extended Dory-innerproduct

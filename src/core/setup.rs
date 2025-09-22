@@ -67,6 +67,7 @@ impl<E: Pairing> CanonicalDeserialize for ProverSetup<E> {
         validate: ark_serialize::Validate,
     ) -> Result<Self, SerializationError> {
         let core = ProverSetupCore::deserialize_with_mode(reader, compress, validate)?;
+        #[allow(unused_mut)]
         let mut setup = Self {
             core,
             g1_cache: None,
@@ -163,6 +164,7 @@ impl<E: Pairing> ProverSetup<E> {
         let h2 = E::G2::random(&mut rng);
         let ht = E::pair(&h1, &h2);
 
+        #[allow(unused_mut)]
         let mut setup = Self {
             core: ProverSetupCore {
                 g1_vec,

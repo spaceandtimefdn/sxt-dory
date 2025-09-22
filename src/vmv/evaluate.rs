@@ -19,6 +19,7 @@ use crate::{
     ProofBuilder,
 };
 
+#[cfg(feature = "recursion")]
 use crate::recursion_prelude::ExponentiationSteps;
 
 /// Implements the Eval-VMV-RE protocol from Dory Section 5
@@ -156,7 +157,11 @@ where
     let proof_builder = DoryProofBuilder::new(initial_transcript);
 
     // 6. Initial commitments
+    #[cfg(feature = "recursion")]
     let (final_proof_builder, proof_state, initial_d1) =
+        eval_vmv_re_prove::<E, T, M1, M2>(proof_builder, prover_state, v_vec.clone(), prover_setup);
+    #[cfg(not(feature = "recursion"))]
+    let (final_proof_builder, proof_state, _) =
         eval_vmv_re_prove::<E, T, M1, M2>(proof_builder, prover_state, v_vec.clone(), prover_setup);
 
     // Prepare values for recursion before they're moved

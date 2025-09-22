@@ -2,9 +2,8 @@
 use std::time::Instant;
 
 use ark_bn254::{Fq12, Fr};
+use ark_ff::UniformRand;
 use dory::{
-    arithmetic::{Field, Group},
-    builder::DoryProofBuilder,
     curve::commit_and_evaluate_batch,
     setup::ProverSetup,
     toy_transcript::ToyTranscript,
@@ -58,12 +57,12 @@ fn test_evaluation_proof_sigma_2() {
     let gen_start = Instant::now();
 
     // Generate random polynomial coefficients
-    let a = core::iter::repeat_with(|| Fr::random(&mut rng))
+    let a = core::iter::repeat_with(|| Fr::rand(&mut rng))
         .take(length)
         .collect::<Vec<_>>();
 
     // Generate random evaluation point
-    let b_points = core::iter::repeat_with(|| Fr::random(&mut rng))
+    let b_points = core::iter::repeat_with(|| Fr::rand(&mut rng))
         .take(nu)
         .collect::<Vec<_>>();
 
@@ -214,11 +213,11 @@ fn test_evaluation_proof_verification_should_fail() {
     println!("\n[2/5] Generating polynomial and evaluation point...");
     let gen_start = Instant::now();
 
-    let a = core::iter::repeat_with(|| Fr::random(&mut rng))
+    let a = core::iter::repeat_with(|| Fr::rand(&mut rng))
         .take(length)
         .collect::<Vec<_>>();
 
-    let b_points = core::iter::repeat_with(|| Fr::random(&mut rng))
+    let b_points = core::iter::repeat_with(|| Fr::rand(&mut rng))
         .take(nu)
         .collect::<Vec<_>>();
 
@@ -263,8 +262,8 @@ fn test_evaluation_proof_verification_should_fail() {
             >(&polynomial, &b_points, 0, sigma, &prover_setup);
 
         // Tamper with the commitment
-        commitment_batch[0] = Fq12::random(&mut rng); // Wrong commitment
-                                                      // evaluations[0] = Fr::random(&mut rng); // Also tamper with evaluation
+        commitment_batch[0] = Fq12::rand(&mut rng); // Wrong commitment
+                                                    // evaluations[0] = Fr::rand(&mut rng); // Also tamper with evaluation
 
         let verifier_setup = prover_setup.to_verifier_setup();
 
@@ -336,11 +335,11 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
     println!("\n[2/4] Generating polynomial and evaluation point...");
     let gen_start = Instant::now();
 
-    let a = core::iter::repeat_with(|| Fr::random(&mut rng))
+    let a = core::iter::repeat_with(|| Fr::rand(&mut rng))
         .take(length)
         .collect::<Vec<_>>();
 
-    let b_points = core::iter::repeat_with(|| Fr::random(&mut rng))
+    let b_points = core::iter::repeat_with(|| Fr::rand(&mut rng))
         .take(nu)
         .collect::<Vec<_>>();
 
@@ -383,26 +382,19 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
             <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
         >(&polynomial, &b_points, 0, sigma, &prover_setup);
 
-    // Create a corrupted copy of the proof by tampering with proof messages
-    let mut corrupted_proof = DoryProofBuilder {
-        first_messages: proof.first_messages.clone(),
-        second_messages: proof.second_messages.clone(),
-        final_message: proof.final_message.clone(),
-        transcript: proof.transcript.clone(),
-        _phantom: std::marker::PhantomData,
-        vmv_message: proof.vmv_message.clone(),
-    };
+    // Create a corrupted copy of the proof
+    let mut tampered_proof = proof.clone();
 
     // Tamper with a first message if available
-    if !corrupted_proof.first_messages.is_empty() {
+    if !tampered_proof.first_messages.is_empty() {
         println!("Tampering with first message d1_left...");
-        corrupted_proof.first_messages[0].d1_left = Fq12::random(&mut rng);
+        tampered_proof.first_messages[0].d1_left = Fq12::rand(&mut rng);
     }
 
     // Also tamper with a second message if available
-    if !corrupted_proof.second_messages.is_empty() {
+    if !tampered_proof.second_messages.is_empty() {
         println!("Tampering with second message c_plus...");
-        corrupted_proof.second_messages[0].c_plus = Fq12::random(&mut rng);
+        tampered_proof.second_messages[0].c_plus = Fq12::rand(&mut rng);
     }
 
     let verifier_setup = prover_setup.to_verifier_setup();
@@ -410,14 +402,14 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
     // Create fresh transcript for verification
     let verify_transcript = ToyTranscript::new(domain);
 
-    let verification_result = dory::vmv::verify_evaluation_proof::<
+    let verification_result = dory::vmv::evaluate::verify_evaluation_proof::<
         ArkBn254Pairing,
         ToyTranscript,
         OptimizedMsmG1,
         OptimizedMsmG2,
         DummyMsm<Fq12>,
     >(
-        corrupted_proof,
+        tampered_proof,
         &commitment_batch,
         &batching_factors,
         &evaluations,

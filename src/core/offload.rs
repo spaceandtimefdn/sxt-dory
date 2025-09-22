@@ -1,5 +1,4 @@
 //! GT offloading abstraction for recursive JOLT
-
 use crate::arithmetic::{Group, Pairing};
 
 #[cfg(feature = "recursion")]
@@ -7,6 +6,7 @@ use jolt_optimizations::ExponentiationSteps;
 #[cfg(feature = "recursion")]
 use std::collections::VecDeque;
 
+/// Context for managing GT offloading operations in recursive SNARKs
 pub struct OffloadContext {
     #[cfg(feature = "recursion")]
     queue: Option<VecDeque<ExponentiationSteps>>,
@@ -15,6 +15,7 @@ pub struct OffloadContext {
 }
 
 impl OffloadContext {
+    /// Create a new OffloadContext with no offloading enabled
     pub fn new() -> Self {
         Self {
             #[cfg(feature = "recursion")]
@@ -24,6 +25,7 @@ impl OffloadContext {
         }
     }
 
+    /// Create an OffloadContext with precomputed exponentiation steps for recursion
     #[cfg(feature = "recursion")]
     pub fn with_steps(steps: Vec<ExponentiationSteps>) -> Self {
         Self {
@@ -31,6 +33,7 @@ impl OffloadContext {
         }
     }
 
+    /// Check if GT offloading is enabled
     pub fn is_offloading_enabled(&self) -> bool {
         #[cfg(feature = "recursion")]
         {
@@ -57,7 +60,7 @@ impl Default for OffloadContext {
 pub fn scale_gt_with_offload<E>(
     value: &E::GT,
     scalar: &<E::GT as Group>::Scalar,
-    ctx: &mut OffloadContext,
+    #[allow(unused_variables)] ctx: &mut OffloadContext,
 ) -> E::GT
 where
     E: Pairing,
