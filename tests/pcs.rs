@@ -15,7 +15,7 @@ fn test_pcs_api_workflow() {
 
     // Multilinear polynomial parameters
     let num_variables = 24;
-    let sigma = 12; // sigma must be <= max_log_n / 2 for the SRS
+    let sigma = 12; // sigma must be <= max_log_n / 2 for the URS
     let num_coeffs = 1 << num_variables;
 
     println!(
@@ -23,7 +23,7 @@ fn test_pcs_api_workflow() {
         num_variables, num_coeffs, sigma
     );
 
-    // Setup with preloaded SRS file
+    // Setup with preloaded URS file
     let setup_start = Instant::now();
     let srs_path = "./k_12.srs";
     let (prover_setup, verifier_setup) =

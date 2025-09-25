@@ -14,7 +14,7 @@ Dory is a polynomial commitment scheme with excellent asymptotic performance as 
   - [🛠️ Installation](#️-installation)
   - [🚀 Usage](#-usage)
     - [Basic Example](#basic-example)
-    - [Setup and SRS Management](#setup-and-srs-management)
+    - [Setup and URS Management](#setup-and-urs-management)
   - [🧪 Testing](#-testing)
   - [📊 Performance](#-performance)
   - [🔧 Technical Overview](#-technical-overview)
@@ -29,7 +29,7 @@ Dory is a polynomial commitment scheme with excellent asymptotic performance as 
 
 - **Efficient Polynomial Commitments**: Optimized implementation of the Dory PCS with excellent asymptotic performance
 - **Multilinear Polynomial Support**: Full support for multilinear polynomials with evaluation proofs
-- **SRS Management**: Structured Reference String (SRS) generation, saving, and loading with file caching
+- **URS Management**: Universal Reference String (URS) generation, saving, and loading with file caching
 - **Flexible Backend**: Supports multiple elliptic curve backends via the Arkworks ecosystem
 
 ## <a name="installation"></a>🛠️ Installation
@@ -67,7 +67,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let num_variables = 10;  // 2^10 = 1024 coefficients
     let sigma = 5;           // Reduction parameter
     
-    // Generate or load SRS (Structured Reference String)
+    // Generate or load URS (Universal Reference String)
     let (prover_setup, verifier_setup) = 
         setup_with_srs_file::<ArkBn254Pairing, _>(
             &mut rng, 
@@ -133,16 +133,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Setup and SRS Management
+### Setup and URS Management
 
-The library provides flexible SRS (Structured Reference String) management:
+The library provides flexible URS (Universal Reference String) management:
 
 ```rust
-// Generate new SRS and save to file
+// Generate new URS and save to file
 let filename = generate_srs::<ArkBn254Pairing, _>(&mut rng, 12)?;
-println!("SRS saved to: {}", filename);
+println!("URS saved to: {}", filename);
 
-// Load existing SRS
+// Load existing URS
 let prover_setup = load_prover_setup::<ArkBn254Pairing>("k_12.srs")?;
 let verifier_setup = load_verifier_setup::<ArkBn254Pairing>("k_12.srs")?;
 
@@ -216,7 +216,7 @@ cargo test --release test_pcs_api_workflow -- --nocapture
 The implementation includes several performance optimizations:
 
 - **Parallel Processing**: Leverages Rayon for parallel computations
-- **SRS Caching**: Avoids redundant setup generation through file caching
+- **URS Caching**: Avoids redundant setup generation through file caching
 
 Typical performance for BN254 curve on modern hardware:
 - **Setup (n=2^20)**: ~150 seconds (one-time cost, cached) for k = 20

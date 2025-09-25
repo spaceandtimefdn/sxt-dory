@@ -1,5 +1,5 @@
-//! Generates a transparent prover SRS
-//! We can derive the verifier side from the prover SRS
+//! Generates a transparent prover URS
+//! We can derive the verifier side from the prover URS
 //! stores to disk, can be reused.
 use std::env;
 
@@ -36,7 +36,7 @@ fn main() {
     }
 
     eprintln!(
-        "Generating SRS for max_log_n = {} (polynomial size: 2^{} = {})",
+        "Generating URS for max_log_n = {} (polynomial size: 2^{} = {})",
         max_log_n,
         max_log_n,
         1usize << max_log_n
@@ -48,7 +48,7 @@ fn main() {
     match generate_srs::<ArkBn254Pairing, _>(&mut rng, max_log_n) {
         Ok(filename) => {
             let elapsed = start.elapsed();
-            eprintln!("✓ Successfully generated SRS in {:?}", elapsed);
+            eprintln!("✓ Successfully generated URS in {:?}", elapsed);
             eprintln!("✓ Saved to: {}", filename);
 
             // Print file size
@@ -58,7 +58,7 @@ fn main() {
             }
         }
         Err(e) => {
-            eprintln!("✗ Error generating SRS: {}", e);
+            eprintln!("✗ Error generating URS: {}", e);
             std::process::exit(1);
         }
     }

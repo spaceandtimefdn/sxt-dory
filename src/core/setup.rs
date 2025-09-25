@@ -293,7 +293,7 @@ impl<E: Pairing> ProverSetup<E> {
         let mut file = File::create(filename)?;
 
         // Write magic marker for combined format
-        file.write_all(b"DORY_COMBINED_SRS")?;
+        file.write_all(b"DORY_COMBINED_URS")?;
 
         // Serialize prover setup
         let mut prover_buffer = Vec::new();
@@ -331,13 +331,13 @@ impl<E: Pairing> ProverSetup<E> {
         file.read_to_end(&mut buffer)?;
 
         // Check if this is a combined format file
-        if buffer.len() >= 17 && &buffer[0..17] == b"DORY_COMBINED_SRS" {
+        if buffer.len() >= 17 && &buffer[0..17] == b"DORY_COMBINED_URS" {
             // Combined format - extract prover setup
             let mut offset = 17;
 
             // Read prover setup length
             if buffer.len() < offset + 8 {
-                return Err("Invalid combined SRS file format".into());
+                return Err("Invalid combined URS file format".into());
             }
             let prover_len = u64::from_le_bytes([
                 buffer[offset],
@@ -353,7 +353,7 @@ impl<E: Pairing> ProverSetup<E> {
 
             // Read prover setup data
             if buffer.len() < offset + prover_len {
-                return Err("Invalid combined SRS file format".into());
+                return Err("Invalid combined URS file format".into());
             }
             let prover_data = &buffer[offset..offset + prover_len];
             let setup = Self::deserialize_compressed(prover_data)?;
@@ -438,13 +438,13 @@ impl<E: Pairing> VerifierSetup<E> {
         file.read_to_end(&mut buffer)?;
 
         // Check if this is a combined format file
-        if buffer.len() >= 17 && &buffer[0..17] == b"DORY_COMBINED_SRS" {
+        if buffer.len() >= 17 && &buffer[0..17] == b"DORY_COMBINED_URS" {
             // Combined format - extract verifier setup
             let mut offset = 17;
 
             // Read prover setup length
             if buffer.len() < offset + 8 {
-                return Err("Invalid combined SRS file format".into());
+                return Err("Invalid combined URS file format".into());
             }
             let prover_len = u64::from_le_bytes([
                 buffer[offset],
@@ -460,7 +460,7 @@ impl<E: Pairing> VerifierSetup<E> {
 
             // Read verifier setup length
             if buffer.len() < offset + 8 {
-                return Err("Invalid combined SRS file format".into());
+                return Err("Invalid combined URS file format".into());
             }
             let verifier_len = u64::from_le_bytes([
                 buffer[offset],
@@ -476,7 +476,7 @@ impl<E: Pairing> VerifierSetup<E> {
 
             // Read verifier setup data
             if buffer.len() < offset + verifier_len {
-                return Err("Invalid combined SRS file format".into());
+                return Err("Invalid combined URS file format".into());
             }
             let verifier_data = &buffer[offset..offset + verifier_len];
             let setup = Self::deserialize_compressed(verifier_data)?;
