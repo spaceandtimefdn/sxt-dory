@@ -1,23 +1,22 @@
 //! Contains the utility required to turn Dory arguments into a full-fledged PCS
 //! Primarily makes use of the `eval_vmv_re` protocol
 
-use crate::{
-    arithmetic::{Field, Group, MultiScalarMul, Pairing},
-    builder::{DoryProofBuilder, DoryVerifyBuilder, VerificationBuilder},
-    error::DoryError,
-    inner_product::inner_product_verify,
-    inner_product_prove,
-    messages::VMVMessage,
-    poly::{compute_left_right_vec, Polynomial},
-    setup::{ProverSetup, VerifierSetup},
-    state::{DoryProverState, DoryVerifierState},
-    transcript::Transcript,
-    vmv::{
-        build_vmv_prover_state, commit_to_rows, compute_nu, vmv_state_to_dory_prover_state,
-        VMVVerifierState,
-    },
-    ProofBuilder,
+use tracing::warn;
+
+use crate::arithmetic::{Field, Group, MultiScalarMul, Pairing};
+use crate::builder::{DoryProofBuilder, DoryVerifyBuilder, VerificationBuilder};
+use crate::error::DoryError;
+use crate::inner_product::inner_product_verify;
+use crate::messages::VMVMessage;
+use crate::poly::{compute_left_right_vec, Polynomial};
+use crate::setup::{ProverSetup, VerifierSetup};
+use crate::state::{DoryProverState, DoryVerifierState};
+use crate::transcript::Transcript;
+use crate::vmv::{
+    build_vmv_prover_state, commit_to_rows, compute_nu, vmv_state_to_dory_prover_state,
+    VMVVerifierState,
 };
+use crate::{inner_product_prove, ProofBuilder};
 
 /// Implements the Eval-VMV-RE protocol from Dory Section 5
 /// Proves the VMV relation: polynomial(point) = L^T × M × R
@@ -34,10 +33,7 @@ fn eval_vmv_re_prove<
     mut prover_state: DoryProverState<E>,
     v_vec: Vec<<E::G1 as Group>::Scalar>,
     prover_setup: &ProverSetup<E>,
-) -> (
-    DoryProofBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>,
-    DoryProverState<E>,
-)
+) -> (DoryProofBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>, DoryProverState<E>)
 where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
@@ -46,10 +42,10 @@ where
 {
     // Validate inputs
     if prover_state.v1.is_empty() || prover_state.s1.is_empty() {
-        println!("v1 or s1 is empty in eval_vmv_re_prove");
+        warn!("v1 or s1 is empty in eval_vmv_re_prove");
     }
     if prover_state.nu > 0 && prover_setup.g1_vec().len() < (1 << prover_state.nu) {
-        println!("prover_setup.g1_vec doesn't have enough elements for nu");
+        warn!("prover_setup.g1_vec doesn't have enough elements for nu");
     }
 
     // --- Protocol computations (Dory Section 5) ---
@@ -77,7 +73,7 @@ where
     // E₁ = ⟨T~₀, ~L⟩
     // Protocol: E₁ = ⟨~L, C₀⟩ + rE₁·H₁ (randomness omitted)
     if prover_state.s2.is_empty() && !prover_state.v1.is_empty() {
-        println!("s2 is empty but v1 is not in E₁ calculation");
+        warn!("s2 is empty but v1 is not in E₁ calculation");
     }
     let e1 = M1::msm(&prover_state.v1, &prover_state.s2);
 
@@ -127,7 +123,7 @@ where
 {
     // 1. Compute parameters
     let nu = compute_nu(point.len(), sigma);
-    // println!("nu length: {:?}", nu); -> useful for debug
+    // debug!("nu length: {:?}", nu); -> useful for debug
 
     // 2. Compute row commits (T` in the paper?)
     let t_vec_prime = row_commitments
@@ -225,10 +221,7 @@ fn eval_vmv_re_verify<
     mut verify_builder: DoryVerifyBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>,
     vmv_state: VMVVerifierState<E>,
     verifier_setup: &VerifierSetup<E>,
-) -> (
-    DoryVerifyBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>,
-    DoryVerifierState<E>,
-)
+) -> (DoryVerifyBuilder<E::G1, E::G2, E::GT, <E::G1 as Group>::Scalar, T>, DoryVerifierState<E>)
 where
     E::G1: Group,
     E::G2: Group<Scalar = <E::G1 as Group>::Scalar>,
@@ -282,9 +275,7 @@ where
     let product: <E::G1 as Group>::Scalar = evaluations
         .iter()
         .zip(batching_factors)
-        .fold(<E::G1 as Group>::Scalar::zero(), |acc, (&e, &f)| {
-            acc.add(&e.mul(&f))
-        });
+        .fold(<E::G1 as Group>::Scalar::zero(), |acc, (&e, &f)| acc.add(&e.mul(&f)));
 
     // 3. Compute nu
     let nu = compute_nu(b_points.len(), sigma);

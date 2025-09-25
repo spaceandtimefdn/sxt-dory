@@ -1,7 +1,8 @@
 #![allow(missing_docs)]
+use std::fmt::Debug;
+
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Valid};
 use ark_std::rand::RngCore;
-use std::fmt::Debug;
 
 /// --------- field ----------------------------------------------------------
 pub trait Field:
@@ -48,11 +49,7 @@ pub trait Pairing: Sized + Send + Sync {
     /// Multi-pairing: computes the product of pairings
     /// Π e(p_i, q_i)
     fn multi_pair(ps: &[Self::G1], qs: &[Self::G2]) -> Self::GT {
-        assert_eq!(
-            ps.len(),
-            qs.len(),
-            "multi_pair requires equal length vectors"
-        );
+        assert_eq!(ps.len(), qs.len(), "multi_pair requires equal length vectors");
 
         if ps.is_empty() {
             return Self::GT::identity();
@@ -60,9 +57,7 @@ pub trait Pairing: Sized + Send + Sync {
 
         ps.iter()
             .zip(qs.iter())
-            .fold(Self::GT::identity(), |acc, (p, q)| {
-                acc.add(&Self::pair(p, q))
-            })
+            .fold(Self::GT::identity(), |acc, (p, q)| acc.add(&Self::pair(p, q)))
     }
 
     /// Multi-pairing with flexible caching support.
@@ -132,11 +127,7 @@ pub trait MultiScalarMul<G: Group> {
     /// Modifies vs in place by scaling each element and adding the corresponding addend
     /// This is optimized for cases like reduce_fold where we compute v_l = alpha * v_l + v_r
     fn fixed_scalar_scale_with_add(vs: &mut [G], addends: &[G], scalar: &G::Scalar) {
-        assert_eq!(
-            vs.len(),
-            addends.len(),
-            "vs and addends must have same length"
-        );
+        assert_eq!(vs.len(), addends.len(), "vs and addends must have same length");
         // Default implementation: scale each vs element and add the corresponding addend
         for (v, addend) in vs.iter_mut().zip(addends.iter()) {
             *v = v.scale(scalar).add(addend);

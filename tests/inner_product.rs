@@ -2,16 +2,13 @@
 use std::time::Instant;
 
 use ark_bn254::{Fq12, Fr, G1Affine};
-use dory::{
-    arithmetic::{Field, Group, MultiScalarMul, Pairing},
-    builder::{DoryProofBuilder, DoryVerifyBuilder},
-    inner_product::{inner_product_prove, inner_product_verify},
-    setup::ProverSetup,
-    state::{DoryProverState, DoryVerifierState},
-    toy_transcript::ToyTranscript,
-};
-
+use dory::arithmetic::{Field, Group, MultiScalarMul, Pairing};
+use dory::builder::{DoryProofBuilder, DoryVerifyBuilder};
 use dory::curve::{test_rng, ArkBn254Pairing, G2AffineWrapper, OptimizedMsmG1, OptimizedMsmG2};
+use dory::inner_product::{inner_product_prove, inner_product_verify};
+use dory::setup::ProverSetup;
+use dory::state::{DoryProverState, DoryVerifierState};
+use dory::toy_transcript::ToyTranscript;
 
 #[test]
 fn test_inner_product_prove_verify() {
@@ -41,12 +38,9 @@ fn test_inner_product_prove_verify() {
 
     println!("Generating random vectors...");
     // Generate random vectors for prover state
-    let v1: Vec<G1Affine> = (0..vector_size)
-        .map(|_| G1Affine::random(&mut rng))
-        .collect();
-    let v2: Vec<G2AffineWrapper> = (0..vector_size)
-        .map(|_| G2AffineWrapper::random(&mut rng))
-        .collect();
+    let v1: Vec<G1Affine> = (0..vector_size).map(|_| G1Affine::random(&mut rng)).collect();
+    let v2: Vec<G2AffineWrapper> =
+        (0..vector_size).map(|_| G2AffineWrapper::random(&mut rng)).collect();
     let s1: Vec<Fr> = (0..vector_size).map(|_| Fr::random(&mut rng)).collect();
     let s2: Vec<Fr> = (0..vector_size).map(|_| Fr::random(&mut rng)).collect();
     println!("Vectors generated in: {:?}", vector_gen_start.elapsed());
@@ -80,10 +74,7 @@ fn test_inner_product_prove_verify() {
 
     // Create verifier state
     let verifier_state = DoryVerifierState::new_with_s(c, d_1, d_2, e_1, e_2, s1, s2, log_n);
-    println!(
-        "Initial states created in: {:?}",
-        init_state_start.elapsed()
-    );
+    println!("Initial states created in: {:?}", init_state_start.elapsed());
 
     // ----- Proof generation phase -----
     println!("Generating proof...");
@@ -151,12 +142,9 @@ fn test_inner_product_verify_should_fail() {
     // ----- Vector generation phase -----
     println!("Generating random vectors...");
     // Generate random vectors for prover state
-    let v1: Vec<G1Affine> = (0..vector_size)
-        .map(|_| G1Affine::random(&mut rng))
-        .collect();
-    let v2: Vec<G2AffineWrapper> = (0..vector_size)
-        .map(|_| G2AffineWrapper::random(&mut rng))
-        .collect();
+    let v1: Vec<G1Affine> = (0..vector_size).map(|_| G1Affine::random(&mut rng)).collect();
+    let v2: Vec<G2AffineWrapper> =
+        (0..vector_size).map(|_| G2AffineWrapper::random(&mut rng)).collect();
     let s1: Vec<Fr> = (0..vector_size).map(|_| Fr::random(&mut rng)).collect();
     let s2: Vec<Fr> = (0..vector_size).map(|_| Fr::random(&mut rng)).collect();
 
@@ -237,10 +225,7 @@ fn test_inner_product_verify_should_fail() {
                 inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
             println!("Verification result: {:?}", result);
-            assert!(
-                result.is_err(),
-                "Corrupted first message should cause verification to fail"
-            );
+            assert!(result.is_err(), "Corrupted first message should cause verification to fail");
             if let Err(round) = result {
                 println!("Verification correctly failed at round: {}", round);
             }

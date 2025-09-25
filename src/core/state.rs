@@ -1,13 +1,10 @@
 //! Defines the structures which manage state during interactive execution of the prover and verifier
-use crate::{
-    arithmetic::{Field, Group, MultiScalarMul, Pairing},
-    messages::{
-        FirstReduceChallenge, FirstReduceMessage, FoldScalarsChallenge, ScalarProductMessage,
-        SecondReduceChallenge, SecondReduceMessage,
-    },
-};
-
 use super::ScalarProductChallenge;
+use crate::arithmetic::{Field, Group, MultiScalarMul, Pairing};
+use crate::messages::{
+    FirstReduceChallenge, FirstReduceMessage, FoldScalarsChallenge, ScalarProductMessage,
+    SecondReduceChallenge, SecondReduceMessage,
+};
 
 /// Trait for the state and computation and state of the Dory protocol.
 ///

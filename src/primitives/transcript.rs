@@ -1,6 +1,7 @@
 //! Transcript trait for fiat shamir
-use crate::arithmetic::Field;
 use ark_serialize::CanonicalSerialize;
+
+use crate::arithmetic::Field;
 
 /// Transcript to standardize fiat shamir for generic concrete transcripts
 pub trait Transcript {

@@ -1,15 +1,12 @@
 #![allow(missing_docs)]
 use ark_bn254::{Fq12, Fr, G1Affine};
-use dory::{
-    arithmetic::{Field, Group, MultiScalarMul, Pairing},
-    builder::{DoryProofBuilder, DoryVerifyBuilder},
-    inner_product::{inner_product_prove, inner_product_verify},
-    setup::ProverSetup,
-    state::{DoryProverState, DoryVerifierState},
-    toy_transcript::ToyTranscript,
-};
-
+use dory::arithmetic::{Field, Group, MultiScalarMul, Pairing};
+use dory::builder::{DoryProofBuilder, DoryVerifyBuilder};
 use dory::curve::{test_rng, ArkBn254Pairing, G2AffineWrapper, OptimizedMsmG1, OptimizedMsmG2};
+use dory::inner_product::{inner_product_prove, inner_product_verify};
+use dory::setup::ProverSetup;
+use dory::state::{DoryProverState, DoryVerifierState};
+use dory::toy_transcript::ToyTranscript;
 
 // Helper function to generate test vectors and states
 fn setup_test_environment(
@@ -28,12 +25,9 @@ fn setup_test_environment(
     let verifier_setup = prover_setup.to_verifier_setup();
 
     // Generate vectors
-    let v1: Vec<G1Affine> = (0..vector_size)
-        .map(|_| G1Affine::random(&mut rng))
-        .collect();
-    let v2: Vec<G2AffineWrapper> = (0..vector_size)
-        .map(|_| G2AffineWrapper::random(&mut rng))
-        .collect();
+    let v1: Vec<G1Affine> = (0..vector_size).map(|_| G1Affine::random(&mut rng)).collect();
+    let v2: Vec<G2AffineWrapper> =
+        (0..vector_size).map(|_| G2AffineWrapper::random(&mut rng)).collect();
     let s1: Vec<Fr> = (0..vector_size).map(|_| Fr::random(&mut rng)).collect();
     let s2: Vec<Fr> = (0..vector_size).map(|_| Fr::random(&mut rng)).collect();
 
@@ -86,10 +80,7 @@ fn test_soundness_tamper_d1_left() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted d1_left"
-        );
+        assert!(result.is_err(), "Verification should fail with corrupted d1_left");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -133,10 +124,7 @@ fn test_soundness_tamper_d1_right() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted d1_right"
-        );
+        assert!(result.is_err(), "Verification should fail with corrupted d1_right");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -180,10 +168,7 @@ fn test_soundness_tamper_d2_left() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted d2_left"
-        );
+        assert!(result.is_err(), "Verification should fail with corrupted d2_left");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -227,10 +212,7 @@ fn test_soundness_tamper_d2_right() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted d2_right"
-        );
+        assert!(result.is_err(), "Verification should fail with corrupted d2_right");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -274,10 +256,7 @@ fn test_soundness_tamper_e1_beta() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted e1_beta"
-        );
+        assert!(result.is_err(), "Verification should fail with corrupted e1_beta");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -321,10 +300,7 @@ fn test_soundness_tamper_e2_beta() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted e2_beta"
-        );
+        assert!(result.is_err(), "Verification should fail with corrupted e2_beta");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -368,10 +344,7 @@ fn test_soundness_tamper_c_plus() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted c_plus"
-        );
+        assert!(result.is_err(), "Verification should fail with corrupted c_plus");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -415,10 +388,7 @@ fn test_soundness_tamper_c_minus() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted c_minus"
-        );
+        assert!(result.is_err(), "Verification should fail with corrupted c_minus");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -462,10 +432,7 @@ fn test_soundness_tamper_e1_plus() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted e1_plus"
-        );
+        assert!(result.is_err(), "Verification should fail with corrupted e1_plus");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -509,10 +476,7 @@ fn test_soundness_tamper_e1_minus() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted e1_minus"
-        );
+        assert!(result.is_err(), "Verification should fail with corrupted e1_minus");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -556,10 +520,7 @@ fn test_soundness_tamper_e2_plus() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted e2_plus"
-        );
+        assert!(result.is_err(), "Verification should fail with corrupted e2_plus");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -603,10 +564,7 @@ fn test_soundness_tamper_e2_minus() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted e2_minus"
-        );
+        assert!(result.is_err(), "Verification should fail with corrupted e2_minus");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -650,10 +608,7 @@ fn test_soundness_tamper_final_e1() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted final e1"
-        );
+        assert!(result.is_err(), "Verification should fail with corrupted final e1");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -697,10 +652,7 @@ fn test_soundness_tamper_final_e2() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with corrupted final e2"
-        );
+        assert!(result.is_err(), "Verification should fail with corrupted final e2");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -745,10 +697,7 @@ fn test_soundness_swap_d1_values() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with swapped d1 values"
-        );
+        assert!(result.is_err(), "Verification should fail with swapped d1 values");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -793,10 +742,7 @@ fn test_soundness_swap_c_values() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with swapped c values"
-        );
+        assert!(result.is_err(), "Verification should fail with swapped c values");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -844,10 +790,7 @@ fn test_soundness_scale_d1_values() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with scaled values"
-        );
+        assert!(result.is_err(), "Verification should fail with scaled values");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -894,10 +837,7 @@ fn test_soundness_multi_round_tampering() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with multi-round tampering"
-        );
+        assert!(result.is_err(), "Verification should fail with multi-round tampering");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -942,10 +882,7 @@ fn test_soundness_tamper_last_round() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with last round tampering"
-        );
+        assert!(result.is_err(), "Verification should fail with last round tampering");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -981,9 +918,8 @@ fn test_soundness_maintain_sum_attack() {
     // Maintain sum but use wrong individual values
     if !proof_builder.first_messages.is_empty() {
         // Get the sum of d1_left and d1_right
-        let d1_sum = proof_builder.first_messages[0]
-            .d1_left
-            .add(&proof_builder.first_messages[0].d1_right);
+        let d1_sum =
+            proof_builder.first_messages[0].d1_left.add(&proof_builder.first_messages[0].d1_right);
 
         // Create new values that maintain the sum but are individually wrong
         let random_val = Fq12::random(&mut rng);
@@ -997,10 +933,7 @@ fn test_soundness_maintain_sum_attack() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail even with maintained sum"
-        );
+        assert!(result.is_err(), "Verification should fail even with maintained sum");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }

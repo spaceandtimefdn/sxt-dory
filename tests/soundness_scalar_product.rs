@@ -1,17 +1,14 @@
 #![allow(missing_docs)]
 use ark_bn254::{Fq12, Fr, G1Affine};
 use ark_ff::UniformRand;
-use dory::{
-    arithmetic::{Field, Group, MultiScalarMul, Pairing},
-    builder::{DoryProofBuilder, DoryVerifyBuilder},
-    inner_product::{inner_product_prove, inner_product_verify},
-    messages::ScalarProductMessage,
-    setup::ProverSetup,
-    state::{DoryProverState, DoryVerifierState},
-    toy_transcript::ToyTranscript,
-};
-
+use dory::arithmetic::{Field, Group, MultiScalarMul, Pairing};
+use dory::builder::{DoryProofBuilder, DoryVerifyBuilder};
 use dory::curve::{test_rng, ArkBn254Pairing, G2AffineWrapper, OptimizedMsmG1, OptimizedMsmG2};
+use dory::inner_product::{inner_product_prove, inner_product_verify};
+use dory::messages::ScalarProductMessage;
+use dory::setup::ProverSetup;
+use dory::state::{DoryProverState, DoryVerifierState};
+use dory::toy_transcript::ToyTranscript;
 
 // Helper function to generate test environment
 fn setup_scalar_product_test_environment(
@@ -30,12 +27,9 @@ fn setup_scalar_product_test_environment(
     let verifier_setup = prover_setup.to_verifier_setup();
 
     // Generate vectors
-    let v1: Vec<G1Affine> = (0..vector_size)
-        .map(|_| G1Affine::random(&mut rng))
-        .collect();
-    let v2: Vec<G2AffineWrapper> = (0..vector_size)
-        .map(|_| G2AffineWrapper::random(&mut rng))
-        .collect();
+    let v1: Vec<G1Affine> = (0..vector_size).map(|_| G1Affine::random(&mut rng)).collect();
+    let v2: Vec<G2AffineWrapper> =
+        (0..vector_size).map(|_| G2AffineWrapper::random(&mut rng)).collect();
     let s1: Vec<Fr> = (0..vector_size).map(|_| Fr::random(&mut rng)).collect();
     let s2: Vec<Fr> = (0..vector_size).map(|_| Fr::random(&mut rng)).collect();
 
@@ -180,10 +174,7 @@ fn test_soundness_scalar_product_both_wrong() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with both E1 and E2 wrong"
-        );
+        assert!(result.is_err(), "Verification should fail with both E1 and E2 wrong");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -233,10 +224,7 @@ fn test_soundness_scalar_product_scaled_values() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with scaled E1 and E2"
-        );
+        assert!(result.is_err(), "Verification should fail with scaled E1 and E2");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -298,10 +286,7 @@ fn test_soundness_scalar_product_relationship_attack() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with mixed scalar product messages"
-        );
+        assert!(result.is_err(), "Verification should fail with mixed scalar product messages");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -344,10 +329,7 @@ fn test_soundness_scalar_product_missing_message() {
         );
     let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-    assert!(
-        result.is_err(),
-        "Verification should fail with missing scalar product message"
-    );
+    assert!(result.is_err(), "Verification should fail with missing scalar product message");
     if let Err(round) = result {
         println!("✓ Verification correctly failed at round: {}", round);
     }
@@ -397,10 +379,7 @@ fn test_soundness_scalar_product_pairing_check() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail when pairing equation is not satisfied"
-        );
+        assert!(result.is_err(), "Verification should fail when pairing equation is not satisfied");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }
@@ -453,14 +432,8 @@ fn test_soundness_scalar_product_after_valid_rounds() {
             "Verification should fail even with small tampering in scalar product"
         );
         if let Err(round) = result {
-            println!(
-                "✓ Verification correctly failed at round: {} (should be final round)",
-                round
-            );
-            assert_eq!(
-                round, log_n,
-                "Should fail at the final scalar product verification"
-            );
+            println!("✓ Verification correctly failed at round: {} (should be final round)", round);
+            assert_eq!(round, log_n, "Should fail at the final scalar product verification");
         }
     }
 }
@@ -503,10 +476,7 @@ fn test_soundness_scalar_product_identity_elements() {
             );
         let result = inner_product_verify(verify_builder, verifier_state, &verifier_setup, log_n);
 
-        assert!(
-            result.is_err(),
-            "Verification should fail with identity elements"
-        );
+        assert!(result.is_err(), "Verification should fail with identity elements");
         if let Err(round) = result {
             println!("✓ Verification correctly failed at round: {}", round);
         }

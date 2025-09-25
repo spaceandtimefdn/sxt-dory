@@ -1,23 +1,26 @@
 #![allow(missing_docs)]
-use crate::poly::Polynomial;
-use crate::{arithmetic::*, compute_polynomial_commitment, multilinear_lagrange_vec, ProverSetup};
 use ark_bn254::{Bn254, Fq12, Fr, G1Affine, G1Projective, G2Affine, G2Projective};
-use ark_ec::{
-    bn::{G1Prepared as BnG1Prepared, G2Prepared as BnG2Prepared},
-    pairing::{MillerLoopOutput, Pairing as ArkPairing},
-    AffineRepr, CurveGroup,
-};
+use ark_ec::bn::{G1Prepared as BnG1Prepared, G2Prepared as BnG2Prepared};
+use ark_ec::pairing::{MillerLoopOutput, Pairing as ArkPairing};
+use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::{Field as ArkField, One, PrimeField, UniformRand, Zero};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError};
-use ark_serialize::{Read, Valid, Validate, Write};
-use ark_std::rand::{rngs::StdRng, RngCore, SeedableRng};
-use rayon::prelude::*;
-
-use jolt_optimizations::{
-    dory_g1::precompute_g1_generators_windowed2_signed, vector_add_scalar_mul_g1_windowed2_signed,
-    vector_add_scalar_mul_g2_windowed2_signed, PrecomputedShamir4Data, Windowed2Signed2Data,
-    Windowed2Signed4Data,
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalSerialize, Compress, Read, SerializationError, Valid, Validate,
+    Write,
 };
+use ark_std::rand::rngs::StdRng;
+use ark_std::rand::{RngCore, SeedableRng};
+use jolt_optimizations::dory_g1::precompute_g1_generators_windowed2_signed;
+use jolt_optimizations::{
+    vector_add_scalar_mul_g1_windowed2_signed, vector_add_scalar_mul_g2_windowed2_signed,
+    PrecomputedShamir4Data, Windowed2Signed2Data, Windowed2Signed4Data,
+};
+use rayon::prelude::*;
+use tracing::info;
+
+use crate::arithmetic::*;
+use crate::poly::Polynomial;
+use crate::{compute_polynomial_commitment, multilinear_lagrange_vec, ProverSetup};
 
 /// Create a fixed RNG for deterministic tests
 pub fn test_rng() -> StdRng {
@@ -304,17 +307,11 @@ impl Pairing for ArkBn254Pairing {
                 }
 
                 // Extract prepared values as iterators - avoids Vec allocation and cloning
-                let g1_prepared = (0..g1_c).map(|i| {
-                    g1_cache
-                        .get_prepared(i)
-                        .expect("Index out of bounds in G1 cache")
-                });
+                let g1_prepared = (0..g1_c)
+                    .map(|i| g1_cache.get_prepared(i).expect("Index out of bounds in G1 cache"));
 
-                let g2_prepared = (0..g2_c).map(|i| {
-                    g2_cache
-                        .get_prepared(i)
-                        .expect("Index out of bounds in G2 cache")
-                });
+                let g2_prepared = (0..g2_c)
+                    .map(|i| g2_cache.get_prepared(i).expect("Index out of bounds in G2 cache"));
 
                 let ml_result = Bn254::multi_miller_loop(g1_prepared, g2_prepared).0;
 
@@ -326,26 +323,17 @@ impl Pairing for ArkBn254Pairing {
 
             // Case 2: G1 cached, G2 fresh points (partial optimization)
             (None, Some(g1_c), Some(g1_cache), Some(g2_points), _, _) => {
-                assert_eq!(
-                    g1_c,
-                    g2_points.len(),
-                    "G1 count must equal G2 points length"
-                );
+                assert_eq!(g1_c, g2_points.len(), "G1 count must equal G2 points length");
                 if g1_c == 0 {
                     return Fq12::one();
                 }
 
                 // G1 from cache as iterator, G2 fresh preparation
-                let g1_prepared = (0..g1_c).map(|i| {
-                    g1_cache
-                        .get_prepared(i)
-                        .expect("Index out of bounds in G1 cache")
-                });
+                let g1_prepared = (0..g1_c)
+                    .map(|i| g1_cache.get_prepared(i).expect("Index out of bounds in G1 cache"));
 
-                let g2_prepared = g2_points
-                    .par_iter()
-                    .map(|q| BnG2Prepared::from(q.0))
-                    .collect::<Vec<_>>();
+                let g2_prepared =
+                    g2_points.par_iter().map(|q| BnG2Prepared::from(q.0)).collect::<Vec<_>>();
 
                 let ml_result = Bn254::multi_miller_loop(g1_prepared, &g2_prepared).0;
 
@@ -357,26 +345,17 @@ impl Pairing for ArkBn254Pairing {
 
             // Case 3: G1 fresh points, G2 cached (partial optimization)
             (Some(g1_points), _, _, None, Some(g2_c), Some(g2_cache)) => {
-                assert_eq!(
-                    g1_points.len(),
-                    g2_c,
-                    "G1 points length must equal G2 count"
-                );
+                assert_eq!(g1_points.len(), g2_c, "G1 points length must equal G2 count");
                 if g2_c == 0 {
                     return Fq12::one();
                 }
 
                 // G1 fresh preparation, G2 from cache as iterator
-                let g1_prepared = g1_points
-                    .par_iter()
-                    .map(|&g| BnG1Prepared::from(g))
-                    .collect::<Vec<_>>();
+                let g1_prepared =
+                    g1_points.par_iter().map(|&g| BnG1Prepared::from(g)).collect::<Vec<_>>();
 
-                let g2_prepared = (0..g2_c).map(|i| {
-                    g2_cache
-                        .get_prepared(i)
-                        .expect("Index out of bounds in G2 cache")
-                });
+                let g2_prepared = (0..g2_c)
+                    .map(|i| g2_cache.get_prepared(i).expect("Index out of bounds in G2 cache"));
 
                 let ml_result = Bn254::multi_miller_loop(&g1_prepared, g2_prepared).0;
 
@@ -397,15 +376,10 @@ impl Pairing for ArkBn254Pairing {
                     return Fq12::one();
                 }
 
-                let left = g1_points
-                    .par_iter()
-                    .map(|&g| BnG1Prepared::from(g))
-                    .collect::<Vec<_>>();
+                let left = g1_points.par_iter().map(|&g| BnG1Prepared::from(g)).collect::<Vec<_>>();
 
-                let right = g2_points
-                    .par_iter()
-                    .map(|q| BnG2Prepared::from(q.0))
-                    .collect::<Vec<_>>();
+                let right =
+                    g2_points.par_iter().map(|q| BnG2Prepared::from(q.0)).collect::<Vec<_>>();
 
                 let ml_result = Bn254::multi_miller_loop(&left, &right).0;
 
@@ -496,8 +470,7 @@ impl G1Cache {
         // Write each entry with its size
         for entry_bytes in serialized_entries {
             (entry_bytes.len() as u64).serialize_compressed(&mut file)?;
-            file.write_all(&entry_bytes)
-                .map_err(|e| SerializationError::IoError(e))?;
+            file.write_all(&entry_bytes).map_err(|e| SerializationError::IoError(e))?;
         }
 
         // Write precomputed_data
@@ -521,8 +494,7 @@ impl G1Cache {
         for _ in 0..num_entries {
             let size = u64::deserialize_compressed(&mut file)? as usize;
             let mut bytes = vec![0u8; size];
-            file.read_exact(&mut bytes)
-                .map_err(|e| SerializationError::IoError(e))?;
+            file.read_exact(&mut bytes).map_err(|e| SerializationError::IoError(e))?;
             entry_data.push(bytes);
         }
 
@@ -576,8 +548,8 @@ impl G1Cache {
     pub fn print_memory_stats(&self) {
         use std::mem;
 
-        println!("=== G1 Cache Memory Usage ===");
-        println!("Number of entries: {}", self.entries.len());
+        info!("=== G1 Cache Memory Usage ===");
+        info!("Number of entries: {}", self.entries.len());
 
         // Calculate entries vector memory
         let entries_capacity = self.entries.capacity();
@@ -585,29 +557,26 @@ impl G1Cache {
         let entries_allocated = entries_capacity * entry_size;
         let entries_used = self.entries.len() * entry_size;
 
-        println!("\nEntries Vector:");
-        println!("  Entry struct size: {} bytes", entry_size);
-        println!("  Capacity: {} entries", entries_capacity);
-        println!("  Used: {} entries", self.entries.len());
-        println!(
+        info!("\nEntries Vector:");
+        info!("  Entry struct size: {} bytes", entry_size);
+        info!("  Capacity: {} entries", entries_capacity);
+        info!("  Used: {} entries", self.entries.len());
+        info!(
             "  Allocated memory: {} bytes ({:.2} MB)",
             entries_allocated,
             entries_allocated as f64 / 1_048_576.0
         );
-        println!(
+        info!(
             "  Used memory: {} bytes ({:.2} MB)",
             entries_used,
             entries_used as f64 / 1_048_576.0
         );
 
         // Get actual sizes of types
-        println!("\nType sizes:");
-        println!("  G1Affine: {} bytes", mem::size_of::<G1Affine>());
-        println!("  G1Projective: {} bytes", mem::size_of::<G1Projective>());
-        println!(
-            "  BnG1Prepared: {} bytes",
-            mem::size_of::<BnG1Prepared<ark_bn254::Config>>()
-        );
+        info!("\nType sizes:");
+        info!("  G1Affine: {} bytes", mem::size_of::<G1Affine>());
+        info!("  G1Projective: {} bytes", mem::size_of::<G1Projective>());
+        info!("  BnG1Prepared: {} bytes", mem::size_of::<BnG1Prepared<ark_bn254::Config>>());
 
         // Calculate windowed data memory
         let mut windowed_memory = 0;
@@ -627,34 +596,30 @@ impl G1Cache {
             let windowed_allocated = tables_capacity * estimated_table_size;
             let windowed_used = tables_len * estimated_table_size;
 
-            println!("\nWindowed2Signed2Data:");
-            println!("  Tables count: {}", tables_len);
-            println!("  Tables capacity: {}", tables_capacity);
-            println!("  Estimated per table: {} bytes", estimated_table_size);
-            println!(
+            info!("\nWindowed2Signed2Data:");
+            info!("  Tables count: {}", tables_len);
+            info!("  Tables capacity: {}", tables_capacity);
+            info!("  Estimated per table: {} bytes", estimated_table_size);
+            info!(
                 "  Allocated: {} bytes ({:.2} MB)",
                 windowed_allocated,
                 windowed_allocated as f64 / 1_048_576.0
             );
-            println!(
-                "  Used: {} bytes ({:.2} MB)",
-                windowed_used,
-                windowed_used as f64 / 1_048_576.0
-            );
+            info!("  Used: {} bytes ({:.2} MB)", windowed_used, windowed_used as f64 / 1_048_576.0);
 
             windowed_memory += windowed_allocated;
         } else {
-            println!("\nNo windowed precomputed data");
+            info!("\nNo windowed precomputed data");
         }
 
         // Total memory
         let total_allocated = entries_allocated + windowed_memory + mem::size_of::<Self>();
-        println!(
+        info!(
             "\n>>> G1 Cache Total Allocated: {} bytes ({:.2} MB)",
             total_allocated,
             total_allocated as f64 / 1_048_576.0
         );
-        println!("=====================================\n");
+        info!("=====================================\n");
     }
 }
 
@@ -736,8 +701,7 @@ impl G2Cache {
         // Write each entry with its size
         for entry_bytes in serialized_entries {
             (entry_bytes.len() as u64).serialize_compressed(&mut file)?;
-            file.write_all(&entry_bytes)
-                .map_err(|e| SerializationError::IoError(e))?;
+            file.write_all(&entry_bytes).map_err(|e| SerializationError::IoError(e))?;
         }
 
         // Write precomputed_data
@@ -764,8 +728,7 @@ impl G2Cache {
         for _ in 0..num_entries {
             let size = u64::deserialize_compressed(&mut file)? as usize;
             let mut bytes = vec![0u8; size];
-            file.read_exact(&mut bytes)
-                .map_err(|e| SerializationError::IoError(e))?;
+            file.read_exact(&mut bytes).map_err(|e| SerializationError::IoError(e))?;
             entry_data.push(bytes);
         }
 
@@ -824,8 +787,8 @@ impl G2Cache {
     pub fn print_memory_stats(&self) {
         use std::mem;
 
-        println!("=== G2 Cache Memory Usage ===");
-        println!("Number of entries: {}", self.entries.len());
+        info!("=== G2 Cache Memory Usage ===");
+        info!("Number of entries: {}", self.entries.len());
 
         // Calculate entries vector memory
         let entries_capacity = self.entries.capacity();
@@ -833,29 +796,26 @@ impl G2Cache {
         let entries_allocated = entries_capacity * entry_size;
         let entries_used = self.entries.len() * entry_size;
 
-        println!("\nEntries Vector:");
-        println!("  Entry struct size: {} bytes", entry_size);
-        println!("  Capacity: {} entries", entries_capacity);
-        println!("  Used: {} entries", self.entries.len());
-        println!(
+        info!("\nEntries Vector:");
+        info!("  Entry struct size: {} bytes", entry_size);
+        info!("  Capacity: {} entries", entries_capacity);
+        info!("  Used: {} entries", self.entries.len());
+        info!(
             "  Allocated memory: {} bytes ({:.2} MB)",
             entries_allocated,
             entries_allocated as f64 / 1_048_576.0
         );
-        println!(
+        info!(
             "  Used memory: {} bytes ({:.2} MB)",
             entries_used,
             entries_used as f64 / 1_048_576.0
         );
 
         // Get actual sizes of types
-        println!("\nType sizes:");
-        println!("  G2Affine: {} bytes", mem::size_of::<G2Affine>());
-        println!("  G2Projective: {} bytes", mem::size_of::<G2Projective>());
-        println!(
-            "  BnG2Prepared: {} bytes",
-            mem::size_of::<BnG2Prepared<ark_bn254::Config>>()
-        );
+        info!("\nType sizes:");
+        info!("  G2Affine: {} bytes", mem::size_of::<G2Affine>());
+        info!("  G2Projective: {} bytes", mem::size_of::<G2Projective>());
+        info!("  BnG2Prepared: {} bytes", mem::size_of::<BnG2Prepared<ark_bn254::Config>>());
 
         // Calculate windowed data memory
         let mut windowed_memory = 0;
@@ -872,24 +832,20 @@ impl G2Cache {
             let windowed_allocated = tables_capacity * estimated_table_size;
             let windowed_used = tables_len * estimated_table_size;
 
-            println!("\nWindowed2Signed4Data:");
-            println!("  Tables count: {}", tables_len);
-            println!("  Tables capacity: {}", tables_capacity);
-            println!("  Estimated per table: {} bytes", estimated_table_size);
-            println!(
+            info!("\nWindowed2Signed4Data:");
+            info!("  Tables count: {}", tables_len);
+            info!("  Tables capacity: {}", tables_capacity);
+            info!("  Estimated per table: {} bytes", estimated_table_size);
+            info!(
                 "  Allocated: {} bytes ({:.2} MB)",
                 windowed_allocated,
                 windowed_allocated as f64 / 1_048_576.0
             );
-            println!(
-                "  Used: {} bytes ({:.2} MB)",
-                windowed_used,
-                windowed_used as f64 / 1_048_576.0
-            );
+            info!("  Used: {} bytes ({:.2} MB)", windowed_used, windowed_used as f64 / 1_048_576.0);
 
             windowed_memory += windowed_allocated;
         } else {
-            println!("\nNo windowed precomputed data");
+            info!("\nNo windowed precomputed data");
         }
 
         // Calculate g_fin GLV tables memory
@@ -906,35 +862,31 @@ impl G2Cache {
             let glv_allocated = glv_tables_capacity * shamir_table_size;
             let glv_used = glv_tables_len * shamir_table_size;
 
-            println!("\nG_fin GLV Tables (PrecomputedShamir4Data):");
-            println!("  Tables count: {}", glv_tables_len);
-            println!("  Tables capacity: {}", glv_tables_capacity);
-            println!("  Per table: {} bytes (15 G2Projective)", shamir_table_size);
-            println!(
+            info!("\nG_fin GLV Tables (PrecomputedShamir4Data):");
+            info!("  Tables count: {}", glv_tables_len);
+            info!("  Tables capacity: {}", glv_tables_capacity);
+            info!("  Per table: {} bytes (15 G2Projective)", shamir_table_size);
+            info!(
                 "  Allocated: {} bytes ({:.2} MB)",
                 glv_allocated,
                 glv_allocated as f64 / 1_048_576.0
             );
-            println!(
-                "  Used: {} bytes ({:.2} MB)",
-                glv_used,
-                glv_used as f64 / 1_048_576.0
-            );
+            info!("  Used: {} bytes ({:.2} MB)", glv_used, glv_used as f64 / 1_048_576.0);
 
             glv_memory += glv_allocated;
         } else {
-            println!("\nNo g_fin GLV tables");
+            info!("\nNo g_fin GLV tables");
         }
 
         // Total memory
         let total_allocated =
             entries_allocated + windowed_memory + glv_memory + mem::size_of::<Self>();
-        println!(
+        info!(
             "\n>>> G2 Cache Total Allocated: {} bytes ({:.2} MB)",
             total_allocated,
             total_allocated as f64 / 1_048_576.0
         );
-        println!("=====================================\n");
+        info!("=====================================\n");
     }
 }
 
@@ -953,9 +905,7 @@ impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
 
         use ark_ec::VariableBaseMSM;
 
-        G1Projective::msm(bases, scalars)
-            .unwrap_or_else(|_| G1Projective::zero())
-            .into_affine()
+        G1Projective::msm(bases, scalars).unwrap_or_else(|_| G1Projective::zero()).into_affine()
     }
 
     fn fixed_base_vector_msm(
@@ -982,11 +932,7 @@ impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
     }
 
     fn fixed_scalar_variable_with_add(bases: &[G1Affine], vs: &mut [G1Affine], scalar: &Fr) {
-        assert_eq!(
-            bases.len(),
-            vs.len(),
-            "bases and vs must have the same length"
-        );
+        assert_eq!(bases.len(), vs.len(), "bases and vs must have the same length");
 
         // Convert to projective for computation
         let mut vs_proj: Vec<G1Projective> = vs.iter().map(|v| v.into_group()).collect();
@@ -1049,11 +995,7 @@ impl MultiScalarMul<G1Affine> for OptimizedMsmG1 {
     }
 
     fn fixed_scalar_scale_with_add(vs: &mut [G1Affine], addends: &[G1Affine], scalar: &Fr) {
-        assert_eq!(
-            vs.len(),
-            addends.len(),
-            "vs and addends must have the same length"
-        );
+        assert_eq!(vs.len(), addends.len(), "vs and addends must have the same length");
 
         // Convert to projective for computation
         let mut vs_proj: Vec<G1Projective> = vs.iter().map(|v| v.into_group()).collect();
@@ -1108,7 +1050,7 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
 
         // Check if we have cached GLV tables for g_fin
         if let Some(glv_tables) = g2_cache.and_then(|cache| cache.get_g_fin_glv_tables()) {
-            // println!("USING PRECOMPUTED GLV TABLES FOR G_FIN!");
+            // debug!("USING PRECOMPUTED GLV TABLES FOR G_FIN!");
             // Use precomputed GLV tables
             let results_proj: Vec<G2Projective> = scalars
                 .par_iter()
@@ -1120,10 +1062,7 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
 
             // Batch convert to affine
             let affines = G2Projective::normalize_batch(&results_proj);
-            affines
-                .into_iter()
-                .map(|affine| G2AffineWrapper(affine))
-                .collect()
+            affines.into_iter().map(|affine| G2AffineWrapper(affine)).collect()
         } else {
             // Fall back to online computation
             let base_proj = base.0.into_group();
@@ -1138,10 +1077,7 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
 
             // Batch convert to affine
             let affines = G2Projective::normalize_batch(&results_proj);
-            affines
-                .into_iter()
-                .map(|affine| G2AffineWrapper(affine))
-                .collect()
+            affines.into_iter().map(|affine| G2AffineWrapper(affine)).collect()
         }
     }
 
@@ -1150,11 +1086,7 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
         vs: &mut [G2AffineWrapper],
         scalar: &Fr,
     ) {
-        assert_eq!(
-            bases.len(),
-            vs.len(),
-            "bases and vs must have the same length"
-        );
+        assert_eq!(bases.len(), vs.len(), "bases and vs must have the same length");
 
         // Convert to projective for computation
         let mut vs_proj: Vec<G2Projective> = vs.iter().map(|v| v.0.into_group()).collect();
@@ -1220,11 +1152,7 @@ impl MultiScalarMul<G2AffineWrapper> for OptimizedMsmG2 {
         addends: &[G2AffineWrapper],
         scalar: &Fr,
     ) {
-        assert_eq!(
-            vs.len(),
-            addends.len(),
-            "vs and addends must have the same length"
-        );
+        assert_eq!(vs.len(), addends.len(), "vs and addends must have the same length");
 
         // Convert to projective for computation
         let mut vs_proj: Vec<G2Projective> = vs.iter().map(|v| v.0.into_group()).collect();
@@ -1252,11 +1180,7 @@ pub struct DummyMsm<G: Group> {
 
 impl<G: Group> MultiScalarMul<G> for DummyMsm<G> {
     fn msm(bases: &[G], scalars: &[G::Scalar]) -> G {
-        assert_eq!(
-            bases.len(),
-            scalars.len(),
-            "msm requires equal length inputs"
-        );
+        assert_eq!(bases.len(), scalars.len(), "msm requires equal length inputs");
         if bases.is_empty() {
             return G::identity();
         }
@@ -1264,9 +1188,7 @@ impl<G: Group> MultiScalarMul<G> for DummyMsm<G> {
         bases
             .iter()
             .zip(scalars.iter())
-            .fold(G::identity(), |acc, (base, scalar)| {
-                acc.add(&base.scale(scalar))
-            })
+            .fold(G::identity(), |acc, (base, scalar)| acc.add(&base.scale(scalar)))
     }
 
     fn fixed_base_vector_msm(
@@ -1281,11 +1203,7 @@ impl<G: Group> MultiScalarMul<G> for DummyMsm<G> {
     }
 
     fn fixed_scalar_variable_with_add(bases: &[G], vs: &mut [G], scalar: &G::Scalar) {
-        assert_eq!(
-            bases.len(),
-            vs.len(),
-            "bases and vs must have the same length"
-        );
+        assert_eq!(bases.len(), vs.len(), "bases and vs must have the same length");
 
         // Naive implementation: v[i] = v[i] + scalar * bases[i]
         for (i, base) in bases.iter().enumerate() {
@@ -1294,11 +1212,7 @@ impl<G: Group> MultiScalarMul<G> for DummyMsm<G> {
     }
 
     fn fixed_scalar_scale_with_add(vs: &mut [G], addends: &[G], scalar: &G::Scalar) {
-        assert_eq!(
-            vs.len(),
-            addends.len(),
-            "vs and addends must have the same length"
-        );
+        assert_eq!(vs.len(), addends.len(), "vs and addends must have the same length");
 
         // Naive implementation: v[i] = scalar * v[i] + addends[i]
         for i in 0..vs.len() {

@@ -2,18 +2,15 @@
 use std::time::Instant;
 
 use ark_bn254::{Fq12, Fr};
-use dory::{
-    arithmetic::{Field, Group},
-    builder::DoryProofBuilder,
-    curve::commit_and_evaluate_batch,
-    setup::ProverSetup,
-    toy_transcript::ToyTranscript,
-    vmv::evaluate::{create_evaluation_proof, verify_evaluation_proof},
-};
-
+use dory::arithmetic::{Field, Group};
+use dory::builder::DoryProofBuilder;
 use dory::curve::{
-    test_rng, ArkBn254Pairing, DummyMsm, OptimizedMsmG1, OptimizedMsmG2, StandardPolynomial,
+    commit_and_evaluate_batch, test_rng, ArkBn254Pairing, DummyMsm, OptimizedMsmG1, OptimizedMsmG2,
+    StandardPolynomial,
 };
+use dory::setup::ProverSetup;
+use dory::toy_transcript::ToyTranscript;
+use dory::vmv::evaluate::{create_evaluation_proof, verify_evaluation_proof};
 
 #[test]
 fn test_evaluation_proof_sigma_2() {
@@ -44,10 +41,7 @@ fn test_evaluation_proof_sigma_2() {
 
     // Verify nu is valid for the polynomial length
     assert!(length <= 1 << nu, "Length should be at most 2^nu");
-    assert!(
-        1 << (nu - 1) < length,
-        "Length should be more than 2^(nu-1)"
-    );
+    assert!(1 << (nu - 1) < length, "Length should be more than 2^(nu-1)");
 
     // Create prover setup
     let prover_setup = ProverSetup::<ArkBn254Pairing>::new(&mut rng, max_log_n);
@@ -58,14 +52,10 @@ fn test_evaluation_proof_sigma_2() {
     let gen_start = Instant::now();
 
     // Generate random polynomial coefficients
-    let a = core::iter::repeat_with(|| Fr::random(&mut rng))
-        .take(length)
-        .collect::<Vec<_>>();
+    let a = core::iter::repeat_with(|| Fr::random(&mut rng)).take(length).collect::<Vec<_>>();
 
     // Generate random evaluation point
-    let b_points = core::iter::repeat_with(|| Fr::random(&mut rng))
-        .take(nu)
-        .collect::<Vec<_>>();
+    let b_points = core::iter::repeat_with(|| Fr::random(&mut rng)).take(nu).collect::<Vec<_>>();
 
     println!("  - Polynomial coefficient count: {}", a.len());
     println!("  - Evaluation point dimension: {}", b_points.len());
@@ -86,14 +76,7 @@ fn test_evaluation_proof_sigma_2() {
         OptimizedMsmG1,
         OptimizedMsmG2,
         _,
-    >(
-        transcript,
-        &polynomial,
-        None,
-        &b_points,
-        sigma,
-        &prover_setup,
-    );
+    >(transcript, &polynomial, None, &b_points, sigma, &prover_setup);
 
     let proof_time = proof_start.elapsed();
     println!("Proof generated in: {:?}", proof_time);
@@ -103,20 +86,11 @@ fn test_evaluation_proof_sigma_2() {
     println!("Proof message counts:");
     println!("  - First messages: {}", proof.first_messages.len());
     println!("  - Second messages: {}", proof.second_messages.len());
-    println!(
-        "  - Scalar Final message: {:?}",
-        proof.final_message.clone().unwrap()
-    );
+    println!("  - Scalar Final message: {:?}", proof.final_message.clone().unwrap());
 
     // Verify that proof contains messages
-    assert!(
-        !proof.first_messages.is_empty(),
-        "Proof should contain first messages"
-    );
-    assert!(
-        !proof.second_messages.is_empty(),
-        "Proof should contain second messages"
-    );
+    assert!(!proof.first_messages.is_empty(), "Proof should contain first messages");
+    assert!(!proof.second_messages.is_empty(), "Proof should contain second messages");
 
     // ----- Verify the proof -----
     println!("\n[5/5] Verifying evaluation proof...");
@@ -214,13 +188,9 @@ fn test_evaluation_proof_verification_should_fail() {
     println!("\n[2/5] Generating polynomial and evaluation point...");
     let gen_start = Instant::now();
 
-    let a = core::iter::repeat_with(|| Fr::random(&mut rng))
-        .take(length)
-        .collect::<Vec<_>>();
+    let a = core::iter::repeat_with(|| Fr::random(&mut rng)).take(length).collect::<Vec<_>>();
 
-    let b_points = core::iter::repeat_with(|| Fr::random(&mut rng))
-        .take(nu)
-        .collect::<Vec<_>>();
+    let b_points = core::iter::repeat_with(|| Fr::random(&mut rng)).take(nu).collect::<Vec<_>>();
 
     println!("Vectors generated in: {:?}", gen_start.elapsed());
 
@@ -236,14 +206,7 @@ fn test_evaluation_proof_verification_should_fail() {
         OptimizedMsmG1,
         OptimizedMsmG2,
         _,
-    >(
-        transcript,
-        &polynomial,
-        None,
-        &b_points,
-        sigma,
-        &prover_setup,
-    );
+    >(transcript, &polynomial, None, &b_points, sigma, &prover_setup);
 
     let proof_time = proof_start.elapsed();
     println!("Proof generated in: {:?}", proof_time);
@@ -288,14 +251,8 @@ fn test_evaluation_proof_verification_should_fail() {
             verify_transcript,
         );
 
-        println!(
-            "Tampered commitment verification time: {:?}",
-            verify_start.elapsed()
-        );
-        assert!(
-            verification_result.is_err(),
-            "Verification should fail with tampered commitment"
-        );
+        println!("Tampered commitment verification time: {:?}", verify_start.elapsed());
+        assert!(verification_result.is_err(), "Verification should fail with tampered commitment");
         println!("✓ Verification correctly failed with tampered commitment");
     }
 
@@ -336,13 +293,9 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
     println!("\n[2/4] Generating polynomial and evaluation point...");
     let gen_start = Instant::now();
 
-    let a = core::iter::repeat_with(|| Fr::random(&mut rng))
-        .take(length)
-        .collect::<Vec<_>>();
+    let a = core::iter::repeat_with(|| Fr::random(&mut rng)).take(length).collect::<Vec<_>>();
 
-    let b_points = core::iter::repeat_with(|| Fr::random(&mut rng))
-        .take(nu)
-        .collect::<Vec<_>>();
+    let b_points = core::iter::repeat_with(|| Fr::random(&mut rng)).take(nu).collect::<Vec<_>>();
 
     println!("Vectors generated in: {:?}", gen_start.elapsed());
 
@@ -358,14 +311,7 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
         OptimizedMsmG1,
         OptimizedMsmG2,
         _,
-    >(
-        transcript,
-        &polynomial,
-        None,
-        &b_points,
-        sigma,
-        &prover_setup,
-    );
+    >(transcript, &polynomial, None, &b_points, sigma, &prover_setup);
 
     let proof_time = proof_start.elapsed();
     println!("Proof generated in: {:?}", proof_time);
@@ -428,16 +374,10 @@ fn test_evaluation_proof_tampered_messages_should_fail() {
     );
 
     let verify_time = verify_start.elapsed();
-    println!(
-        "Tampered proof messages verification time: {:?}",
-        verify_time
-    );
+    println!("Tampered proof messages verification time: {:?}", verify_time);
 
     // Check verification result
-    assert!(
-        verification_result.is_err(),
-        "Verification should fail with tampered proof messages"
-    );
+    assert!(verification_result.is_err(), "Verification should fail with tampered proof messages");
     println!("✓ Verification correctly failed with tampered proof messages");
 
     // ----- Test Summary -----

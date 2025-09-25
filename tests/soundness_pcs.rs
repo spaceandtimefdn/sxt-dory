@@ -1,14 +1,11 @@
 #![allow(missing_docs)]
 use ark_bn254::{Fq12, Fr};
 use ark_ff::UniformRand;
-use dory::{
-    arithmetic::Field as DoryField, commit, create_transcript, evaluate, setup_with_srs_file,
-    verify,
-};
-
+use dory::arithmetic::Field as DoryField;
 use dory::curve::{
     test_rng, ArkBn254Pairing, DummyMsm, OptimizedMsmG1, OptimizedMsmG2, StandardPolynomial,
 };
+use dory::{commit, create_transcript, evaluate, setup_with_srs_file, verify};
 
 // Helper function to generate test environment for PCS tests
 fn setup_pcs_test_environment(
@@ -79,10 +76,7 @@ fn test_soundness_wrong_evaluation() {
         verify_transcript,
     );
 
-    assert!(
-        result.is_err(),
-        "Verification should fail with wrong evaluation"
-    );
+    assert!(result.is_err(), "Verification should fail with wrong evaluation");
     println!("✓ Verification correctly failed with wrong evaluation");
 }
 
@@ -125,10 +119,7 @@ fn test_soundness_wrong_commitment() {
         verify_transcript,
     );
 
-    assert!(
-        result.is_err(),
-        "Verification should fail with wrong commitment"
-    );
+    assert!(result.is_err(), "Verification should fail with wrong commitment");
     println!("✓ Verification correctly failed with wrong commitment");
 }
 
@@ -177,10 +168,7 @@ fn test_soundness_wrong_evaluation_point() {
         verify_transcript,
     );
 
-    assert!(
-        result.is_err(),
-        "Verification should fail with wrong evaluation point"
-    );
+    assert!(result.is_err(), "Verification should fail with wrong evaluation point");
     println!("✓ Verification correctly failed with wrong evaluation point");
 }
 
@@ -210,10 +198,7 @@ fn test_soundness_binding_property() {
         commit::<ArkBn254Pairing, OptimizedMsmG1, _>(&poly2, 0, sigma, &prover_setup);
 
     // Commitments should be different
-    assert_ne!(
-        commitment1, commitment2,
-        "Commitments to different polynomials should differ"
-    );
+    assert_ne!(commitment1, commitment2, "Commitments to different polynomials should differ");
 
     // Generate proof for first polynomial
     let transcript = create_transcript(domain);
@@ -240,10 +225,7 @@ fn test_soundness_binding_property() {
         verify_transcript,
     );
 
-    assert!(
-        result.is_err(),
-        "Cannot use proof for one polynomial with commitment of another"
-    );
+    assert!(result.is_err(), "Cannot use proof for one polynomial with commitment of another");
     println!("✓ Binding property correctly enforced");
 }
 
@@ -291,10 +273,7 @@ fn test_soundness_polynomial_mismatch() {
         create_transcript(domain),
     );
 
-    assert!(
-        result.is_err(),
-        "Verification should fail with mismatched polynomial and proof"
-    );
+    assert!(result.is_err(), "Verification should fail with mismatched polynomial and proof");
     println!("✓ Verification correctly failed with polynomial mismatch");
 }
 
@@ -338,10 +317,7 @@ fn test_soundness_offset_manipulation() {
         create_transcript(domain),
     );
 
-    assert!(
-        result.is_err(),
-        "Verification should fail with wrong offset commitment"
-    );
+    assert!(result.is_err(), "Verification should fail with wrong offset commitment");
     println!("✓ Verification correctly failed with offset manipulation");
 }
 
@@ -374,11 +350,7 @@ fn test_soundness_zero_polynomial() {
     );
 
     // Zero polynomial should evaluate to zero
-    assert_eq!(
-        zero_poly.evaluate(&point),
-        Fr::zero(),
-        "Zero polynomial should evaluate to zero"
-    );
+    assert_eq!(zero_poly.evaluate(&point), Fr::zero(), "Zero polynomial should evaluate to zero");
 
     // Try to claim non-zero evaluation for zero polynomial
     let wrong_evaluation = Fr::one();
@@ -392,10 +364,7 @@ fn test_soundness_zero_polynomial() {
         create_transcript(domain),
     );
 
-    assert!(
-        result.is_err(),
-        "Cannot claim non-zero evaluation for zero polynomial"
-    );
+    assert!(result.is_err(), "Cannot claim non-zero evaluation for zero polynomial");
     println!("✓ Zero polynomial soundness test passed");
 }
 
@@ -432,10 +401,7 @@ fn test_soundness_constant_polynomial() {
     let evaluation = polynomial.evaluate(&point);
 
     // Constant polynomial should evaluate to the constant
-    assert_eq!(
-        evaluation, constant_value,
-        "Constant polynomial should evaluate to constant"
-    );
+    assert_eq!(evaluation, constant_value, "Constant polynomial should evaluate to constant");
 
     // Try to claim wrong evaluation
     let wrong_evaluation = constant_value + Fr::one();
@@ -449,10 +415,7 @@ fn test_soundness_constant_polynomial() {
         create_transcript(domain),
     );
 
-    assert!(
-        result.is_err(),
-        "Cannot claim wrong evaluation for constant polynomial"
-    );
+    assert!(result.is_err(), "Cannot claim wrong evaluation for constant polynomial");
     println!("✓ Constant polynomial soundness test passed");
 }
 
@@ -563,10 +526,7 @@ fn test_soundness_cross_polynomial_attack() {
         &verifier_setup,
         create_transcript(domain),
     );
-    assert!(
-        result1.is_err(),
-        "Cannot use proof from one polynomial with commitment of another"
-    );
+    assert!(result1.is_err(), "Cannot use proof from one polynomial with commitment of another");
 
     // Attack 2: Use commitment2 with eval1 and proof1
     let result2 = verify::<ArkBn254Pairing, _, OptimizedMsmG1, OptimizedMsmG2, DummyMsm<_>>(
@@ -578,10 +538,7 @@ fn test_soundness_cross_polynomial_attack() {
         &verifier_setup,
         create_transcript(domain),
     );
-    assert!(
-        result2.is_err(),
-        "Cannot use proof from one polynomial with commitment of another"
-    );
+    assert!(result2.is_err(), "Cannot use proof from one polynomial with commitment of another");
 
     println!("✓ Cross-polynomial attack correctly prevented");
 }
@@ -642,10 +599,7 @@ fn test_soundness_batch_verification() {
             create_transcript(domain),
         );
 
-        assert!(
-            result.is_err(),
-            "Cannot use evaluation from different polynomial"
-        );
+        assert!(result.is_err(), "Cannot use evaluation from different polynomial");
     }
 
     println!("✓ Batch verification attack correctly prevented");
@@ -696,10 +650,7 @@ fn test_soundness_sparse_polynomial() {
         create_transcript(domain),
     );
 
-    assert!(
-        result.is_err(),
-        "Cannot claim wrong evaluation for sparse polynomial"
-    );
+    assert!(result.is_err(), "Cannot claim wrong evaluation for sparse polynomial");
     println!("✓ Sparse polynomial soundness test passed");
 }
 
@@ -722,10 +673,7 @@ fn test_soundness_commitment_consistency() {
         commit::<ArkBn254Pairing, OptimizedMsmG1, _>(&polynomial, 0, sigma, &prover_setup);
 
     // Commitments should be deterministic
-    assert_eq!(
-        commitment1, commitment2,
-        "Commitments to same polynomial should be identical"
-    );
+    assert_eq!(commitment1, commitment2, "Commitments to same polynomial should be identical");
 
     // Generate proof
     let transcript = create_transcript(domain);
@@ -771,10 +719,7 @@ fn test_soundness_commitment_consistency() {
         create_transcript(domain),
     );
 
-    assert!(
-        result1.is_ok() && result2.is_ok(),
-        "Both commitments should verify"
-    );
+    assert!(result1.is_ok() && result2.is_ok(), "Both commitments should verify");
     println!("✓ Commitment consistency test passed");
 }
 
@@ -843,9 +788,6 @@ fn test_soundness_degree_bound() {
         create_transcript(domain),
     );
 
-    assert!(
-        result.is_err(),
-        "Cannot claim wrong evaluation even for max degree polynomial"
-    );
+    assert!(result.is_err(), "Cannot claim wrong evaluation even for max degree polynomial");
     println!("✓ Degree bound enforcement test passed");
 }

@@ -1,4 +1,4 @@
-//! (multilinear) polynomial utlities
+//! (multilinear) polynomial utilities
 use crate::arithmetic::{Field, Group, MultiScalarMul};
 
 /// multilinear polynomials trait for custom (optimized) primitive operations
@@ -34,10 +34,7 @@ pub fn multilinear_lagrange_vec<F>(v: &mut [F], point: &[F])
 where
     F: Field,
 {
-    assert!(
-        v.len() <= (1 << point.len()),
-        "Vector length must be at most 2^point.len()"
-    );
+    assert!(v.len() <= (1 << point.len()), "Vector length must be at most 2^point.len()");
 
     // empty point means constant polynomial (all basis functions = 1)
     if point.is_empty() || v.is_empty() {

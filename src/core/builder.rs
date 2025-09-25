@@ -1,19 +1,18 @@
 //! Dory follows an interactive model. Hence, a "proof" consists of some messages
 //! between P and V. We use Prover and Verifier "builders" to manage these messages
 //! and the fiat-shamir challenges throughout the implementation.
-use crate::transcript::Transcript;
 use std::marker::PhantomData;
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use tracing::info;
 
-use crate::{
-    arithmetic::{Field, Group},
-    messages::{
-        FirstReduceChallenge, FirstReduceMessage, FoldScalarsChallenge, ScalarProductChallenge,
-        ScalarProductMessage, SecondReduceChallenge, SecondReduceMessage, VMVMessage,
-    },
-    toy_transcript::ToyTranscript,
+use crate::arithmetic::{Field, Group};
+use crate::messages::{
+    FirstReduceChallenge, FirstReduceMessage, FoldScalarsChallenge, ScalarProductChallenge,
+    ScalarProductMessage, SecondReduceChallenge, SecondReduceMessage, VMVMessage,
 };
+use crate::toy_transcript::ToyTranscript;
+use crate::transcript::Transcript;
 
 /// A serializable proof struct that contains all the messages exchanged
 #[derive(Clone, Debug, Default, CanonicalSerialize, CanonicalDeserialize)]
@@ -363,9 +362,8 @@ where
         // Extract messages from the proof
         let first_messages = proof.first_messages;
         let second_messages = proof.second_messages;
-        let scalar_msg = proof
-            .final_message
-            .expect("DoryProof must have a final (scalar product) message");
+        let scalar_msg =
+            proof.final_message.expect("DoryProof must have a final (scalar product) message");
         let vmv_msg = proof.vmv_message;
 
         Self {
@@ -423,10 +421,7 @@ where
     fn take_round(
         &mut self,
         idx: usize,
-    ) -> (
-        FirstReduceMessage<G1, G2, GT>,
-        SecondReduceMessage<G1, G2, GT>,
-    ) {
+    ) -> (FirstReduceMessage<G1, G2, GT>, SecondReduceMessage<G1, G2, GT>) {
         let m1 = self.first_messages[idx].clone();
         let m2 = self.second_messages[idx].clone();
         (m1, m2)
@@ -500,10 +495,7 @@ where
     }
 
     fn process_vmv_message(&mut self) -> VMVMessage<G1, GT> {
-        let message = self
-            .vmv_msg
-            .as_ref()
-            .expect("VMV message must be present in verify builder");
+        let message = self.vmv_msg.as_ref().expect("VMV message must be present in verify builder");
         self.transcript.append_group(b"c_eval_vmv", &message.c);
         self.transcript.append_group(b"d2_eval_vmv", &message.d2);
         self.transcript.append_group(b"e1_eval_vmv", &message.e1);
@@ -522,12 +514,12 @@ where
 {
     /// Print statistics about the proof structure
     pub fn print_proof_stats(&self) {
-        println!("\n=== PROOF STATISTICS ===");
-        println!("Number of rounds: {}", self.first_messages.len());
-        println!("First reduce messages: {}", self.first_messages.len());
-        println!("Second reduce messages: {}", self.second_messages.len());
-        println!("Has final message: {}", self.final_message.is_some());
-        println!("Has VMV message: {}", self.vmv_message.is_some());
+        info!("\n=== PROOF STATISTICS ===");
+        info!("Number of rounds: {}", self.first_messages.len());
+        info!("First reduce messages: {}", self.first_messages.len());
+        info!("Second reduce messages: {}", self.second_messages.len());
+        info!("Has final message: {}", self.final_message.is_some());
+        info!("Has VMV message: {}", self.vmv_message.is_some());
 
         // Calculate total proof elements
         let total_g1_elements = self.first_messages.iter().map(|_m| 1).sum::<usize>() + // e1_beta per round
@@ -543,13 +535,13 @@ where
                                self.second_messages.iter().map(|_m| 2).sum::<usize>() + // c_plus + c_minus per round
                                if self.vmv_message.is_some() { 2 } else { 0 }; // vmv c + d2
 
-        println!("Total G1 elements in proof: {}", total_g1_elements);
-        println!("Total G2 elements in proof: {}", total_g2_elements);
-        println!("Total GT elements in proof: {}", total_gt_elements);
-        println!(
+        info!("Total G1 elements in proof: {}", total_g1_elements);
+        info!("Total G2 elements in proof: {}", total_g2_elements);
+        info!("Total GT elements in proof: {}", total_gt_elements);
+        info!(
             "Total proof elements: {}",
             total_g1_elements + total_g2_elements + total_gt_elements
         );
-        println!("========================\n");
+        info!("========================\n");
     }
 }

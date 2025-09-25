@@ -1,12 +1,10 @@
 //! Utilities related to the VMV commitment strategy for multilinear polynomials
 //! Defines VMV states for both provers, verifiers
-use crate::{
-    arithmetic::{Field, Group, Pairing},
-    poly::{compute_left_right_vec, Polynomial},
-    setup::ProverSetup,
-    state::DoryProverState,
-    MultiScalarMul,
-};
+use crate::arithmetic::{Field, Group, Pairing};
+use crate::poly::{compute_left_right_vec, Polynomial};
+use crate::setup::ProverSetup;
+use crate::state::DoryProverState;
+use crate::MultiScalarMul;
 
 /// Prover structure for computing commitment by VMV
 pub struct VMVProverState<E: Pairing>

@@ -6,13 +6,14 @@
 //! This crate provides a Rust implementation of the commitment scheme, intended to be usable as a
 //! building block for other zk/SNARK protocols.
 
+// use ark_serialize::CanonicalSerialize;
+use ark_std::rand::RngCore;
+use tracing::info;
+
 use crate::arithmetic::{Field, Group, MultiScalarMul, Pairing};
 use crate::error::DoryError;
 use crate::toy_transcript::ToyTranscript;
 use crate::transcript::Transcript;
-
-// use ark_serialize::CanonicalSerialize;
-use ark_std::rand::RngCore;
 
 mod core;
 mod error;
@@ -21,6 +22,7 @@ mod primitives;
 pub mod curve;
 pub mod vmv;
 pub use core::*;
+
 pub use primitives::*;
 pub use vmv::*;
 
@@ -74,50 +76,41 @@ where
 {
     match srs_filename {
         Some(filename) => {
-            println!("trying to get srs...");
-            println!("About to call load_from_file...");
+            info!("trying to get srs...");
+            info!("About to call load_from_file...");
 
             // Try to load both prover and verifier setups from combined file
-            match (
-                ProverSetup::load_from_file(filename),
-                VerifierSetup::load_from_file(filename),
-            ) {
+            match (ProverSetup::load_from_file(filename), VerifierSetup::load_from_file(filename)) {
                 (Ok(prover_setup), Ok(verifier_setup)) => {
-                    println!("✓ Loaded existing combined SRS from {}", filename);
+                    info!("✓ Loaded existing combined SRS from {}", filename);
                     (prover_setup, verifier_setup)
                 }
                 (Ok(prover_setup), Err(_)) => {
                     // File exists but no verifier setup (legacy format), generate verifier
-                    println!(
-                        "✓ Loaded prover setup from {}, generating verifier setup...",
-                        filename
-                    );
+                    info!("✓ Loaded prover setup from {}, generating verifier setup...", filename);
                     let verifier_setup = prover_setup.to_verifier_setup();
                     (prover_setup, verifier_setup)
                 }
                 (Err(e), _) => {
                     // File doesn't exist or failed to load, generate new and save
-                    println!("Load failed: {}", e);
-                    println!(
+                    info!("Load failed: {}", e);
+                    info!(
                         "Generating new SRS for max_log_n = {} (this may take a while...)",
                         max_log_n
                     );
                     let prover_setup = ProverSetup::new(rng, max_log_n);
                     let verifier_setup = prover_setup.to_verifier_setup();
 
-                    println!("✓ Generated new SRS, now saving combined format...");
+                    info!("✓ Generated new SRS, now saving combined format...");
                     if let Err(e) = prover_setup.save_combined_to_file(filename) {
-                        println!(
-                            "Warning: Failed to save combined SRS to {}: {}",
-                            filename, e
-                        );
+                        info!("Warning: Failed to save combined SRS to {}: {}", filename, e);
                     }
                     (prover_setup, verifier_setup)
                 }
             }
         }
         None => {
-            println!("No filename provided, generating new SRS...");
+            info!("No filename provided, generating new SRS...");
             let prover_setup = ProverSetup::new(rng, max_log_n);
             let verifier_setup = prover_setup.to_verifier_setup();
             (prover_setup, verifier_setup)

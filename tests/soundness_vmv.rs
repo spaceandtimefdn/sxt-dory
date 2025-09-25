@@ -1,16 +1,14 @@
 #![allow(missing_docs)]
 use ark_bn254::{Fq12, Fr, G1Affine};
-use dory::{
-    arithmetic::{Field, Group},
-    curve::{
-        commit_and_evaluate_batch, test_rng, ArkBn254Pairing, DummyMsm, G2AffineWrapper,
-        OptimizedMsmG1, OptimizedMsmG2, StandardPolynomial,
-    },
-    setup::ProverSetup,
-    toy_transcript::ToyTranscript,
-    vmv::{
-        compute_nu, compute_polynomial_commitment, create_evaluation_proof, verify_evaluation_proof,
-    },
+use dory::arithmetic::{Field, Group};
+use dory::curve::{
+    commit_and_evaluate_batch, test_rng, ArkBn254Pairing, DummyMsm, G2AffineWrapper,
+    OptimizedMsmG1, OptimizedMsmG2, StandardPolynomial,
+};
+use dory::setup::ProverSetup;
+use dory::toy_transcript::ToyTranscript;
+use dory::vmv::{
+    compute_nu, compute_polynomial_commitment, create_evaluation_proof, verify_evaluation_proof,
 };
 
 // Helper function to generate test environment for VMV tests
@@ -35,14 +33,10 @@ fn setup_vmv_test_environment(
     let nu = compute_nu(max_log_n, sigma);
 
     // Generate random polynomial coefficients
-    let a = core::iter::repeat_with(|| Fr::random(&mut rng))
-        .take(length)
-        .collect::<Vec<_>>();
+    let a = core::iter::repeat_with(|| Fr::random(&mut rng)).take(length).collect::<Vec<_>>();
 
     // Generate random evaluation point
-    let b_points = core::iter::repeat_with(|| Fr::random(&mut rng))
-        .take(nu)
-        .collect::<Vec<_>>();
+    let b_points = core::iter::repeat_with(|| Fr::random(&mut rng)).take(nu).collect::<Vec<_>>();
 
     (prover_setup, verifier_setup, a, b_points, nu)
 }
@@ -78,18 +72,13 @@ fn test_soundness_tamper_vmv_message_c() {
     );
 
     // Get verification data
-    let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
-        ArkBn254Pairing,
-        OptimizedMsmG1,
-        Fr,
-        <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-    >(
-        &StandardPolynomial::new(&a),
-        &b_points,
-        0,
-        sigma,
-        &prover_setup,
-    );
+    let (commitment_batch, batching_factors, evaluations) =
+        commit_and_evaluate_batch::<
+            ArkBn254Pairing,
+            OptimizedMsmG1,
+            Fr,
+            <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+        >(&StandardPolynomial::new(&a), &b_points, 0, sigma, &prover_setup);
 
     // Tamper with VMV message C
     if let Some(vmv_msg) = &mut proof.vmv_message {
@@ -116,10 +105,7 @@ fn test_soundness_tamper_vmv_message_c() {
             verify_transcript,
         );
 
-        assert!(
-            verification_result.is_err(),
-            "Verification should fail with tampered VMV C"
-        );
+        assert!(verification_result.is_err(), "Verification should fail with tampered VMV C");
         println!("✓ Verification correctly failed with tampered VMV C");
     }
 }
@@ -155,18 +141,13 @@ fn test_soundness_tamper_vmv_message_d2() {
     );
 
     // Get verification data
-    let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
-        ArkBn254Pairing,
-        OptimizedMsmG1,
-        Fr,
-        <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-    >(
-        &StandardPolynomial::new(&a),
-        &b_points,
-        0,
-        sigma,
-        &prover_setup,
-    );
+    let (commitment_batch, batching_factors, evaluations) =
+        commit_and_evaluate_batch::<
+            ArkBn254Pairing,
+            OptimizedMsmG1,
+            Fr,
+            <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+        >(&StandardPolynomial::new(&a), &b_points, 0, sigma, &prover_setup);
 
     // Tamper with VMV message D2
     if let Some(vmv_msg) = &mut proof.vmv_message {
@@ -193,10 +174,7 @@ fn test_soundness_tamper_vmv_message_d2() {
             verify_transcript,
         );
 
-        assert!(
-            verification_result.is_err(),
-            "Verification should fail with tampered VMV D2"
-        );
+        assert!(verification_result.is_err(), "Verification should fail with tampered VMV D2");
         println!("✓ Verification correctly failed with tampered VMV D2");
     }
 }
@@ -232,18 +210,13 @@ fn test_soundness_tamper_vmv_message_e1() {
     );
 
     // Get verification data
-    let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
-        ArkBn254Pairing,
-        OptimizedMsmG1,
-        Fr,
-        <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-    >(
-        &StandardPolynomial::new(&a),
-        &b_points,
-        0,
-        sigma,
-        &prover_setup,
-    );
+    let (commitment_batch, batching_factors, evaluations) =
+        commit_and_evaluate_batch::<
+            ArkBn254Pairing,
+            OptimizedMsmG1,
+            Fr,
+            <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+        >(&StandardPolynomial::new(&a), &b_points, 0, sigma, &prover_setup);
 
     // Tamper with VMV message E1
     if let Some(vmv_msg) = &mut proof.vmv_message {
@@ -270,10 +243,7 @@ fn test_soundness_tamper_vmv_message_e1() {
             verify_transcript,
         );
 
-        assert!(
-            verification_result.is_err(),
-            "Verification should fail with tampered VMV E1"
-        );
+        assert!(verification_result.is_err(), "Verification should fail with tampered VMV E1");
         println!("✓ Verification correctly failed with tampered VMV E1");
     }
 }
@@ -300,27 +270,17 @@ fn test_soundness_wrong_commitment() {
         OptimizedMsmG2,
         _,
     >(
-        transcript,
-        &StandardPolynomial::new(&a),
-        None,
-        &b_points,
-        sigma,
-        &prover_setup,
+        transcript, &StandardPolynomial::new(&a), None, &b_points, sigma, &prover_setup
     );
 
     // Get verification data but use wrong commitment
-    let (mut commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
-        ArkBn254Pairing,
-        OptimizedMsmG1,
-        Fr,
-        <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-    >(
-        &StandardPolynomial::new(&a),
-        &b_points,
-        0,
-        sigma,
-        &prover_setup,
-    );
+    let (mut commitment_batch, batching_factors, evaluations) =
+        commit_and_evaluate_batch::<
+            ArkBn254Pairing,
+            OptimizedMsmG1,
+            Fr,
+            <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+        >(&StandardPolynomial::new(&a), &b_points, 0, sigma, &prover_setup);
 
     // Replace with random commitment
     commitment_batch[0] = Fq12::random(&mut rng);
@@ -345,10 +305,7 @@ fn test_soundness_wrong_commitment() {
         verify_transcript,
     );
 
-    assert!(
-        verification_result.is_err(),
-        "Verification should fail with wrong commitment"
-    );
+    assert!(verification_result.is_err(), "Verification should fail with wrong commitment");
     println!("✓ Verification correctly failed with wrong commitment");
 }
 
@@ -374,27 +331,17 @@ fn test_soundness_wrong_evaluation() {
         OptimizedMsmG2,
         _,
     >(
-        transcript,
-        &StandardPolynomial::new(&a),
-        None,
-        &b_points,
-        sigma,
-        &prover_setup,
+        transcript, &StandardPolynomial::new(&a), None, &b_points, sigma, &prover_setup
     );
 
     // Get verification data but use wrong evaluation
-    let (commitment_batch, batching_factors, mut evaluations) = commit_and_evaluate_batch::<
-        ArkBn254Pairing,
-        OptimizedMsmG1,
-        Fr,
-        <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-    >(
-        &StandardPolynomial::new(&a),
-        &b_points,
-        0,
-        sigma,
-        &prover_setup,
-    );
+    let (commitment_batch, batching_factors, mut evaluations) =
+        commit_and_evaluate_batch::<
+            ArkBn254Pairing,
+            OptimizedMsmG1,
+            Fr,
+            <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+        >(&StandardPolynomial::new(&a), &b_points, 0, sigma, &prover_setup);
 
     // Replace with random evaluation
     evaluations[0] = Fr::random(&mut rng);
@@ -416,10 +363,7 @@ fn test_soundness_wrong_evaluation() {
         ToyTranscript::new(domain),
     );
 
-    assert!(
-        verification_result.is_err(),
-        "Verification should fail with wrong evaluation"
-    );
+    assert!(verification_result.is_err(), "Verification should fail with wrong evaluation");
     println!("✓ Verification correctly failed with wrong evaluation");
 }
 
@@ -445,32 +389,21 @@ fn test_soundness_wrong_evaluation_point() {
         OptimizedMsmG2,
         _,
     >(
-        transcript,
-        &StandardPolynomial::new(&a),
-        None,
-        &b_points,
-        sigma,
-        &prover_setup,
+        transcript, &StandardPolynomial::new(&a), None, &b_points, sigma, &prover_setup
     );
 
     // Get verification data
-    let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
-        ArkBn254Pairing,
-        OptimizedMsmG1,
-        Fr,
-        <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-    >(
-        &StandardPolynomial::new(&a),
-        &b_points,
-        0,
-        sigma,
-        &prover_setup,
-    );
+    let (commitment_batch, batching_factors, evaluations) =
+        commit_and_evaluate_batch::<
+            ArkBn254Pairing,
+            OptimizedMsmG1,
+            Fr,
+            <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+        >(&StandardPolynomial::new(&a), &b_points, 0, sigma, &prover_setup);
 
     // Use different evaluation point for verification
-    let wrong_b_points = core::iter::repeat_with(|| Fr::random(&mut rng))
-        .take(nu)
-        .collect::<Vec<_>>();
+    let wrong_b_points =
+        core::iter::repeat_with(|| Fr::random(&mut rng)).take(nu).collect::<Vec<_>>();
 
     let verification_result = verify_evaluation_proof::<
         ArkBn254Pairing,
@@ -489,10 +422,7 @@ fn test_soundness_wrong_evaluation_point() {
         ToyTranscript::new(domain),
     );
 
-    assert!(
-        verification_result.is_err(),
-        "Verification should fail with wrong evaluation point"
-    );
+    assert!(verification_result.is_err(), "Verification should fail with wrong evaluation point");
     println!("✓ Verification correctly failed with wrong evaluation point");
 }
 
@@ -510,9 +440,8 @@ fn test_soundness_commitment_evaluation_mismatch() {
         setup_vmv_test_environment(length, max_log_n, sigma);
 
     // Generate a different polynomial
-    let a_different = core::iter::repeat_with(|| Fr::random(&mut rng))
-        .take(length)
-        .collect::<Vec<_>>();
+    let a_different =
+        core::iter::repeat_with(|| Fr::random(&mut rng)).take(length).collect::<Vec<_>>();
 
     // Generate proof for original polynomial
     let transcript = ToyTranscript::new(domain);
@@ -523,12 +452,7 @@ fn test_soundness_commitment_evaluation_mismatch() {
         OptimizedMsmG2,
         _,
     >(
-        transcript,
-        &StandardPolynomial::new(&a),
-        None,
-        &b_points,
-        sigma,
-        &prover_setup,
+        transcript, &StandardPolynomial::new(&a), None, &b_points, sigma, &prover_setup
     );
 
     // Get commitment for different polynomial but evaluation of original
@@ -538,25 +462,15 @@ fn test_soundness_commitment_evaluation_mismatch() {
         _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-    >(
-        &StandardPolynomial::new(&a_different),
-        0,
-        sigma,
-        &prover_setup,
-    );
+    >(&StandardPolynomial::new(&a_different), 0, sigma, &prover_setup);
 
-    let (_, _, evaluations) = commit_and_evaluate_batch::<
-        ArkBn254Pairing,
-        OptimizedMsmG1,
-        Fr,
-        <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-    >(
-        &StandardPolynomial::new(&a),
-        &b_points,
-        0,
-        sigma,
-        &prover_setup,
-    );
+    let (_, _, evaluations) =
+        commit_and_evaluate_batch::<
+            ArkBn254Pairing,
+            OptimizedMsmG1,
+            Fr,
+            <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+        >(&StandardPolynomial::new(&a), &b_points, 0, sigma, &prover_setup);
 
     let commitment_batch = vec![commitment];
     let batching_factors = vec![Fr::one()];
@@ -607,27 +521,17 @@ fn test_soundness_wrong_batching_factors() {
         OptimizedMsmG2,
         _,
     >(
-        transcript,
-        &StandardPolynomial::new(&a),
-        None,
-        &b_points,
-        sigma,
-        &prover_setup,
+        transcript, &StandardPolynomial::new(&a), None, &b_points, sigma, &prover_setup
     );
 
     // Get verification data but modify batching factors
-    let (commitment_batch, mut batching_factors, evaluations) = commit_and_evaluate_batch::<
-        ArkBn254Pairing,
-        OptimizedMsmG1,
-        Fr,
-        <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-    >(
-        &StandardPolynomial::new(&a),
-        &b_points,
-        0,
-        sigma,
-        &prover_setup,
-    );
+    let (commitment_batch, mut batching_factors, evaluations) =
+        commit_and_evaluate_batch::<
+            ArkBn254Pairing,
+            OptimizedMsmG1,
+            Fr,
+            <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+        >(&StandardPolynomial::new(&a), &b_points, 0, sigma, &prover_setup);
 
     // Use random batching factor instead of 1
     batching_factors[0] = Fr::random(&mut rng);
@@ -649,10 +553,7 @@ fn test_soundness_wrong_batching_factors() {
         ToyTranscript::new(domain),
     );
 
-    assert!(
-        verification_result.is_err(),
-        "Verification should fail with wrong batching factors"
-    );
+    assert!(verification_result.is_err(), "Verification should fail with wrong batching factors");
     println!("✓ Verification correctly failed with wrong batching factors");
 }
 
@@ -687,18 +588,13 @@ fn test_soundness_tamper_proof_structure() {
     );
 
     // Get verification data
-    let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
-        ArkBn254Pairing,
-        OptimizedMsmG1,
-        Fr,
-        <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-    >(
-        &StandardPolynomial::new(&a),
-        &b_points,
-        0,
-        sigma,
-        &prover_setup,
-    );
+    let (commitment_batch, batching_factors, evaluations) =
+        commit_and_evaluate_batch::<
+            ArkBn254Pairing,
+            OptimizedMsmG1,
+            Fr,
+            <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+        >(&StandardPolynomial::new(&a), &b_points, 0, sigma, &prover_setup);
 
     // Tamper with multiple parts of the proof
     if !proof.first_messages.is_empty() {
@@ -728,10 +624,7 @@ fn test_soundness_tamper_proof_structure() {
         ToyTranscript::new(domain),
     );
 
-    assert!(
-        verification_result.is_err(),
-        "Verification should fail with tampered proof structure"
-    );
+    assert!(verification_result.is_err(), "Verification should fail with tampered proof structure");
     println!("✓ Verification correctly failed with tampered proof structure");
 }
 
@@ -756,12 +649,7 @@ fn test_soundness_offset_manipulation() {
         OptimizedMsmG2,
         _,
     >(
-        transcript,
-        &StandardPolynomial::new(&a),
-        None,
-        &b_points,
-        sigma,
-        &prover_setup,
+        transcript, &StandardPolynomial::new(&a), None, &b_points, sigma, &prover_setup
     );
 
     // Get commitment with different offset
@@ -772,26 +660,16 @@ fn test_soundness_offset_manipulation() {
         _,
         Fr,
         <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-    >(
-        &StandardPolynomial::new(&a),
-        wrong_offset,
-        sigma,
-        &prover_setup,
-    );
+    >(&StandardPolynomial::new(&a), wrong_offset, sigma, &prover_setup);
 
     // Get evaluation with correct offset
-    let (_, _, evaluations) = commit_and_evaluate_batch::<
-        ArkBn254Pairing,
-        OptimizedMsmG1,
-        Fr,
-        <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-    >(
-        &StandardPolynomial::new(&a),
-        &b_points,
-        0,
-        sigma,
-        &prover_setup,
-    );
+    let (_, _, evaluations) =
+        commit_and_evaluate_batch::<
+            ArkBn254Pairing,
+            OptimizedMsmG1,
+            Fr,
+            <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+        >(&StandardPolynomial::new(&a), &b_points, 0, sigma, &prover_setup);
 
     let commitment_batch = vec![commitment];
     let batching_factors = vec![Fr::one()];
@@ -813,10 +691,7 @@ fn test_soundness_offset_manipulation() {
         ToyTranscript::new(domain),
     );
 
-    assert!(
-        verification_result.is_err(),
-        "Verification should fail with wrong offset commitment"
-    );
+    assert!(verification_result.is_err(), "Verification should fail with wrong offset commitment");
     println!("✓ Verification correctly failed with wrong offset commitment");
 }
 
@@ -835,9 +710,8 @@ fn test_soundness_different_polynomial_degree() {
 
     // Create a polynomial of different length
     let wrong_length = 1 << 7; // Half the size
-    let a_wrong = core::iter::repeat_with(|| Fr::random(&mut rng))
-        .take(wrong_length)
-        .collect::<Vec<_>>();
+    let a_wrong =
+        core::iter::repeat_with(|| Fr::random(&mut rng)).take(wrong_length).collect::<Vec<_>>();
 
     // Generate proof for wrong polynomial
     let transcript = ToyTranscript::new(domain);
@@ -857,18 +731,13 @@ fn test_soundness_different_polynomial_degree() {
     );
 
     // Get verification data for original polynomial
-    let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
-        ArkBn254Pairing,
-        OptimizedMsmG1,
-        Fr,
-        <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-    >(
-        &StandardPolynomial::new(&a),
-        &b_points,
-        0,
-        sigma,
-        &prover_setup,
-    );
+    let (commitment_batch, batching_factors, evaluations) =
+        commit_and_evaluate_batch::<
+            ArkBn254Pairing,
+            OptimizedMsmG1,
+            Fr,
+            <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+        >(&StandardPolynomial::new(&a), &b_points, 0, sigma, &prover_setup);
 
     let verification_result = verify_evaluation_proof::<
         ArkBn254Pairing,
@@ -925,18 +794,13 @@ fn test_soundness_all_vmv_messages_tampered() {
     );
 
     // Get verification data
-    let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
-        ArkBn254Pairing,
-        OptimizedMsmG1,
-        Fr,
-        <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-    >(
-        &StandardPolynomial::new(&a),
-        &b_points,
-        0,
-        sigma,
-        &prover_setup,
-    );
+    let (commitment_batch, batching_factors, evaluations) =
+        commit_and_evaluate_batch::<
+            ArkBn254Pairing,
+            OptimizedMsmG1,
+            Fr,
+            <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+        >(&StandardPolynomial::new(&a), &b_points, 0, sigma, &prover_setup);
 
     // Tamper with all VMV messages
     if let Some(vmv_msg) = &mut proof.vmv_message {
@@ -987,9 +851,7 @@ fn test_soundness_relationship_attack() {
         setup_vmv_test_environment(length, max_log_n, sigma);
 
     // Generate two different polynomials
-    let a2 = core::iter::repeat_with(|| Fr::random(&mut rng))
-        .take(length)
-        .collect::<Vec<_>>();
+    let a2 = core::iter::repeat_with(|| Fr::random(&mut rng)).take(length).collect::<Vec<_>>();
 
     // Generate proof for first polynomial
     let transcript = ToyTranscript::new(domain);
@@ -1033,18 +895,13 @@ fn test_soundness_relationship_attack() {
     }
 
     // Get verification data for first polynomial
-    let (commitment_batch, batching_factors, evaluations) = commit_and_evaluate_batch::<
-        ArkBn254Pairing,
-        OptimizedMsmG1,
-        Fr,
-        <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
-    >(
-        &StandardPolynomial::new(&a),
-        &b_points,
-        0,
-        sigma,
-        &prover_setup,
-    );
+    let (commitment_batch, batching_factors, evaluations) =
+        commit_and_evaluate_batch::<
+            ArkBn254Pairing,
+            OptimizedMsmG1,
+            Fr,
+            <ArkBn254Pairing as dory::arithmetic::Pairing>::G1,
+        >(&StandardPolynomial::new(&a), &b_points, 0, sigma, &prover_setup);
 
     let verification_result = verify_evaluation_proof::<
         ArkBn254Pairing,
@@ -1063,9 +920,6 @@ fn test_soundness_relationship_attack() {
         ToyTranscript::new(domain),
     );
 
-    assert!(
-        verification_result.is_err(),
-        "Verification should fail with mixed VMV messages"
-    );
+    assert!(verification_result.is_err(), "Verification should fail with mixed VMV messages");
     println!("✓ Verification correctly failed with mixed VMV messages");
 }

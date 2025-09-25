@@ -1,12 +1,15 @@
 //! Data structures and generation of the transparent setup for both prover and verifier
-use crate::arithmetic::*;
-use crate::curve::{G1Cache, G2Cache};
+use std::fs::File;
+use std::io::{Read, Write};
+
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
 use ark_std::rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use rayon::prelude::*;
-use std::fs::File;
-use std::io::{Read, Write};
+use tracing::info;
+
+use crate::arithmetic::*;
+use crate::curve::{G1Cache, G2Cache};
 
 /// Core data for Dory transparent setup (serializable)
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
@@ -167,24 +170,18 @@ impl<E: Pairing> ProverSetup<E> {
         E::G1: Into<ark_bn254::G1Affine> + Copy,
         E::G2: Into<ark_bn254::G2Affine> + Copy,
     {
-        println!(
-            "Initializing G1 cache from {} generators...",
-            self.core.g1_vec.len()
-        );
+        info!("Initializing G1 cache from {} generators...", self.core.g1_vec.len());
         let g1_elements: Vec<ark_bn254::G1Affine> =
             self.core.g1_vec.iter().map(|&g| g.into()).collect();
         self.g1_cache = Some(G1Cache::new(&g1_elements));
 
-        println!(
-            "Initializing G2 cache from {} generators...",
-            self.core.g2_vec.len()
-        );
+        info!("Initializing G2 cache from {} generators...", self.core.g2_vec.len());
         let g2_elements: Vec<ark_bn254::G2Affine> =
             self.core.g2_vec.iter().map(|&g| g.into()).collect();
         let g_fin_element: ark_bn254::G2Affine = self.core.g_fin.into();
         self.g2_cache = Some(G2Cache::new(&g2_elements, Some(&g_fin_element)));
 
-        println!("Cache initialization complete.");
+        info!("Cache initialization complete.");
     }
 
     /// Save caches to separate files
@@ -195,11 +192,11 @@ impl<E: Pairing> ProverSetup<E> {
     ) -> Result<(), SerializationError> {
         if let Some(ref g1_cache) = self.g1_cache {
             g1_cache.save_to_file(g1_cache_path)?;
-            println!("Saved G1 cache to {}", g1_cache_path);
+            info!("Saved G1 cache to {}", g1_cache_path);
         }
         if let Some(ref g2_cache) = self.g2_cache {
             g2_cache.save_to_file(g2_cache_path)?;
-            println!("Saved G2 cache to {}", g2_cache_path);
+            info!("Saved G2 cache to {}", g2_cache_path);
         }
         Ok(())
     }
@@ -212,22 +209,22 @@ impl<E: Pairing> ProverSetup<E> {
     ) -> Result<(), SerializationError> {
         match G1Cache::load_from_file(g1_cache_path) {
             Ok(cache) => {
-                println!("Loaded G1 cache from {}", g1_cache_path);
+                info!("Loaded G1 cache from {}", g1_cache_path);
                 self.g1_cache = Some(cache);
             }
             Err(e) => {
-                println!("Failed to load G1 cache from {}: {:?}", g1_cache_path, e);
+                info!("Failed to load G1 cache from {}: {:?}", g1_cache_path, e);
                 return Err(e);
             }
         }
 
         match G2Cache::load_from_file(g2_cache_path) {
             Ok(cache) => {
-                println!("Loaded G2 cache from {}", g2_cache_path);
+                info!("Loaded G2 cache from {}", g2_cache_path);
                 self.g2_cache = Some(cache);
             }
             Err(e) => {
-                println!("Failed to load G2 cache from {}: {:?}", g2_cache_path, e);
+                info!("Failed to load G2 cache from {}: {:?}", g2_cache_path, e);
                 return Err(e);
             }
         }
@@ -242,16 +239,12 @@ impl<E: Pairing> ProverSetup<E> {
 
     /// Get windowed G1 data if cache is available
     pub fn get_g1_windowed(&self) -> Option<&jolt_optimizations::Windowed2Signed2Data> {
-        self.g1_cache
-            .as_ref()
-            .and_then(|cache| cache.get_windowed_data())
+        self.g1_cache.as_ref().and_then(|cache| cache.get_windowed_data())
     }
 
     /// Get windowed G2 data if cache is available
     pub fn get_g2_windowed(&self) -> Option<&jolt_optimizations::Windowed2Signed4Data> {
-        self.g2_cache
-            .as_ref()
-            .and_then(|cache| cache.get_windowed_data())
+        self.g2_cache.as_ref().and_then(|cache| cache.get_windowed_data())
     }
 
     /// getter for g1_vec
@@ -291,11 +284,7 @@ impl<E: Pairing> ProverSetup<E> {
         self.serialize_compressed(&mut buffer)?;
         file.write_all(&buffer)?;
         file.flush()?;
-        println!(
-            "Saved prover setup to {} ({} bytes)",
-            filename,
-            buffer.len()
-        );
+        info!("Saved prover setup to {} ({} bytes)", filename, buffer.len());
         Ok(())
     }
 
@@ -326,7 +315,7 @@ impl<E: Pairing> ProverSetup<E> {
         file.write_all(&verifier_buffer)?;
 
         file.flush()?;
-        println!(
+        info!(
             "Saved combined prover+verifier setup to {} (prover: {} bytes, verifier: {} bytes)",
             filename,
             prover_buffer.len(),
@@ -368,12 +357,12 @@ impl<E: Pairing> ProverSetup<E> {
             }
             let prover_data = &buffer[offset..offset + prover_len];
             let setup = Self::deserialize_compressed(prover_data)?;
-            println!("Loaded prover setup from combined format file {}", filename);
+            info!("Loaded prover setup from combined format file {}", filename);
             Ok(setup)
         } else {
             // Legacy format - entire file is prover setup
             let setup = Self::deserialize_compressed(&buffer[..])?;
-            println!("Loaded prover setup from legacy format file {}", filename);
+            info!("Loaded prover setup from legacy format file {}", filename);
             Ok(setup)
         }
     }
@@ -391,15 +380,12 @@ impl<E: Pairing> VerifierSetup<E> {
         let mut chi = Vec::with_capacity(max_log_n + 1);
 
         for k in 0..=max_log_n {
-            println!("k: {k}");
+            info!("k: {k}");
             if k == 0 {
                 delta_1l.push(E::GT::identity());
                 delta_1r.push(E::GT::identity());
                 delta_2r.push(E::GT::identity());
-                chi.push(E::pair(
-                    &prover_setup.core.g1_vec[0],
-                    &prover_setup.core.g2_vec[0],
-                ));
+                chi.push(E::pair(&prover_setup.core.g1_vec[0], &prover_setup.core.g2_vec[0]));
             } else {
                 let half_len = 1 << (k - 1);
                 let full_len = 1 << k;
@@ -494,10 +480,7 @@ impl<E: Pairing> VerifierSetup<E> {
             }
             let verifier_data = &buffer[offset..offset + verifier_len];
             let setup = Self::deserialize_compressed(verifier_data)?;
-            println!(
-                "Loaded verifier setup from combined format file {}",
-                filename
-            );
+            info!("Loaded verifier setup from combined format file {}", filename);
             Ok(setup)
         } else {
             return Err("File is not in combined format - verifier setup not available".into());

@@ -1,12 +1,12 @@
 #![allow(missing_docs)]
-use ark_bn254::Fr;
-use ark_ff::UniformRand;
-use dory::*;
 use std::time::Instant;
 
+use ark_bn254::Fr;
+use ark_ff::UniformRand;
 use dory::curve::{
     test_rng, ArkBn254Pairing, DummyMsm, OptimizedMsmG1, OptimizedMsmG2, StandardPolynomial,
 };
+use dory::*;
 
 #[test]
 fn test_pcs_api_workflow() {
@@ -35,10 +35,7 @@ fn test_pcs_api_workflow() {
     // prover_setup.init_cache();
     let cache_init_time = cache_init_start.elapsed();
     println!("✓ Cache initialized in {:?}", cache_init_time);
-    println!(
-        "Cache initialization complete. Has cache: {}",
-        prover_setup.has_cache()
-    );
+    println!("Cache initialization complete. Has cache: {}", prover_setup.has_cache());
 
     // Print memory usage statistics for the caches
     println!("\n=== CACHE MEMORY PROFILING ===");

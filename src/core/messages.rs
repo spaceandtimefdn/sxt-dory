@@ -1,7 +1,8 @@
 //! Defines the standards for messages between the prover and verifier
-use crate::arithmetic::{Field, Group};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
+
+use crate::arithmetic::{Field, Group};
 
 /// The first prover message in the Dory-Reduce portion (Section 3.2) of the Dory protocol.
 ///

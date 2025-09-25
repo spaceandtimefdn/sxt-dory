@@ -2,17 +2,14 @@
 //! This mainly involves the messages in the dory-reduce protocol
 use rayon::prelude::*;
 
-use crate::{
-    arithmetic::{Field, Group, MultiScalarMul, Pairing},
-    messages::{
-        FirstReduceChallenge, FirstReduceMessage, FoldScalarsChallenge, ScalarProductMessage,
-        SecondReduceChallenge, SecondReduceMessage,
-    },
-    setup::VerifierSetup,
-    state::{DoryProverState, DoryVerifierState, VerifierState},
-};
-
 use super::{ProverSetup, ScalarProductChallenge};
+use crate::arithmetic::{Field, Group, MultiScalarMul, Pairing};
+use crate::messages::{
+    FirstReduceChallenge, FirstReduceMessage, FoldScalarsChallenge, ScalarProductMessage,
+    SecondReduceChallenge, SecondReduceMessage,
+};
+use crate::setup::VerifierSetup;
+use crate::state::{DoryProverState, DoryVerifierState, VerifierState};
 
 /// Below is the **prover** side of the interactive protocol for Dory
 /// We define the relevant message implementations in the order of communication
@@ -516,19 +513,9 @@ where
 
         debug_assert_eq!(self.nu, 0, "nu should be 0 at the Fold-Scalars step.");
 
-        let s1_final = self
-            .s1_tensor
-            .as_ref()
-            .and_then(|v| v.get(0))
-            .cloned()
-            .unwrap();
+        let s1_final = self.s1_tensor.as_ref().and_then(|v| v.get(0)).cloned().unwrap();
 
-        let s2_final = self
-            .s2_tensor
-            .as_ref()
-            .and_then(|v| v.get(0))
-            .cloned()
-            .unwrap();
+        let s2_final = self.s2_tensor.as_ref().and_then(|v| v.get(0)).cloned().unwrap();
 
         // --- C' Update ---
         // C' ← C + ⟨s̃₁, s̃₂⟩HT + γ · e(H₁, E₂) + γ⁻¹ · e(E₁, H₂)
