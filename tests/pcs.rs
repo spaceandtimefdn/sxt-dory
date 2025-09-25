@@ -25,9 +25,9 @@ fn test_pcs_api_workflow() {
 
     // Setup with preloaded URS file
     let setup_start = Instant::now();
-    let srs_path = "./k_12.srs";
+    let srs_path = "./k_12.urs";
     let (prover_setup, verifier_setup) =
-        setup_with_srs_file::<ArkBn254Pairing, _>(&mut rng, num_variables, Some(srs_path));
+        setup_with_urs_file::<ArkBn254Pairing, _>(&mut rng, num_variables, Some(srs_path));
 
     // Initialize cache for performance optimization
     println!("Initializing cache...");

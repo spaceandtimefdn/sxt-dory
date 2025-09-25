@@ -5,7 +5,7 @@ use dory::arithmetic::Field as DoryField;
 use dory::curve::{
     test_rng, ArkBn254Pairing, DummyMsm, OptimizedMsmG1, OptimizedMsmG2, StandardPolynomial,
 };
-use dory::{commit, create_transcript, evaluate, setup_with_srs_file, verify};
+use dory::{commit, create_transcript, evaluate, setup_with_urs_file, verify};
 
 // Helper function to generate test environment for PCS tests
 fn setup_pcs_test_environment(
@@ -22,7 +22,7 @@ fn setup_pcs_test_environment(
 
     // Setup
     let (prover_setup, verifier_setup) =
-        setup_with_srs_file::<ArkBn254Pairing, _>(&mut rng, num_variables, None);
+        setup_with_urs_file::<ArkBn254Pairing, _>(&mut rng, num_variables, None);
 
     // Generate random polynomial coefficients
     let coeffs: Vec<Fr> = (0..num_coeffs).map(|_| Fr::rand(&mut rng)).collect();

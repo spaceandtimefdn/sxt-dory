@@ -69,10 +69,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Generate or load URS (Universal Reference String)
     let (prover_setup, verifier_setup) = 
-        setup_with_srs_file::<ArkBn254Pairing, _>(
+        setup_with_urs_file::<ArkBn254Pairing, _>(
             &mut rng, 
             num_variables, 
-            Some("./k_10.srs")
+            Some("./k_10.urs")
         );
     
     // Create a random multilinear polynomial
@@ -139,18 +139,18 @@ The library provides flexible URS (Universal Reference String) management:
 
 ```rust
 // Generate new URS and save to file
-let filename = generate_srs::<ArkBn254Pairing, _>(&mut rng, 12)?;
+let filename = generate_urs::<ArkBn254Pairing, _>(&mut rng, 12)?;
 println!("URS saved to: {}", filename);
 
 // Load existing URS
-let prover_setup = load_prover_setup::<ArkBn254Pairing>("k_12.srs")?;
-let verifier_setup = load_verifier_setup::<ArkBn254Pairing>("k_12.srs")?;
+let prover_setup = load_prover_setup::<ArkBn254Pairing>("k_12.urs")?;
+let verifier_setup = load_verifier_setup::<ArkBn254Pairing>("k_12.urs")?;
 
 // Setup with automatic file handling
-let (prover_setup, verifier_setup) = setup_with_srs_file::<ArkBn254Pairing, _>(
+let (prover_setup, verifier_setup) = setup_with_urs_file::<ArkBn254Pairing, _>(
     &mut rng, 
     12, 
-    Some("k_12.srs")  // Will load if exists, generate and save if not
+    Some("k_12.urs")  // Will load if exists, generate and save if not
 );
 ```
 

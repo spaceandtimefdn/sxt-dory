@@ -67,7 +67,7 @@ pub fn setup<E: Pairing, R: RngCore>(
 ///
 /// # Returns
 /// A tuple containing (ProverSetup, VerifierSetup)
-pub fn setup_with_srs_file<E: Pairing, R: RngCore>(
+pub fn setup_with_urs_file<E: Pairing, R: RngCore>(
     rng: R,
     max_log_n: usize,
     srs_filename: Option<&str>,
@@ -120,7 +120,7 @@ where
 
 /// Generate and save URS parameters to disk with standard naming
 ///
-/// Creates a file named `k_{max_log_n}.srs` containing both prover and verifier setup parameters.
+/// Creates a file named `k_{max_log_n}.urs` containing both prover and verifier setup parameters.
 ///
 /// # Parameters
 /// - `rng`: Random number generator for setup generation
@@ -128,13 +128,13 @@ where
 ///
 /// # Returns
 /// The filename where the URS was saved
-pub fn generate_srs<E: Pairing, R: RngCore>(
+pub fn generate_urs<E: Pairing, R: RngCore>(
     rng: R,
     max_log_n: usize,
 ) -> Result<String, Box<dyn std::error::Error>>
 where
 {
-    let filename = format!("k_{}.srs", max_log_n);
+    let filename = format!("k_{}.urs", max_log_n);
     let prover_setup = ProverSetup::<E>::new(rng, max_log_n);
     prover_setup.save_combined_to_file(&filename)?;
     Ok(filename)

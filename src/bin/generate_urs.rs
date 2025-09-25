@@ -4,7 +4,7 @@
 use std::env;
 
 use dory::curve::{test_rng, ArkBn254Pairing};
-use dory::generate_srs;
+use dory::generate_urs;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -45,7 +45,7 @@ fn main() {
     let mut rng = test_rng();
     let start = std::time::Instant::now();
 
-    match generate_srs::<ArkBn254Pairing, _>(&mut rng, max_log_n) {
+    match generate_urs::<ArkBn254Pairing, _>(&mut rng, max_log_n) {
         Ok(filename) => {
             let elapsed = start.elapsed();
             eprintln!("✓ Successfully generated URS in {:?}", elapsed);
